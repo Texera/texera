@@ -4,24 +4,22 @@ import edu.uci.ics.amber.engine.architecture.breakpoint.globalbreakpoint.GlobalB
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploymentfilter.FollowPrevious
 import edu.uci.ics.amber.engine.architecture.deploysemantics.deploystrategy.RoundRobinDeployment
 import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.WorkerLayer
-import edu.uci.ics.amber.engine.common.Constants
-import edu.uci.ics.amber.engine.common.virtualidentity.{
-  ActorVirtualIdentity,
-  LayerIdentity,
-  OperatorIdentity
-}
+import edu.uci.ics.amber.engine.common.{Constants, IOperatorExecutor}
+import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.virtualidentity.OperatorIdentity
+import edu.uci.ics.amber.engine.common.virtualidentity.util.makeLayer
 import edu.uci.ics.amber.engine.operators.OpExecConfig
 
 class OneToOneOpExecConfig(
     override val id: OperatorIdentity,
-    val opExec: Int => OperatorExecutor
+    val opExec: Int => IOperatorExecutor
 ) extends OpExecConfig(id) {
 
   override lazy val topology: Topology = {
     new Topology(
       Array(
         new WorkerLayer(
-          LayerIdentity(id, "main"),
+          makeLayer(id, "main"),
           opExec,
           Constants.defaultNumWorkers,
           FollowPrevious(),

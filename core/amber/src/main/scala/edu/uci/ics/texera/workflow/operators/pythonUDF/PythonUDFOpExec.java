@@ -41,10 +41,10 @@ public class PythonUDFOpExec implements OperatorExecutor {
     private static final long WAIT_TIME_MS = 500;
     private static final RootAllocator memoryAllocator = new RootAllocator();
     private final String pythonScriptText;
-    private final ArrayList<String> inputColumns;
-    private final ArrayList<Attribute> outputColumns;
-    private final ArrayList<String> arguments;
-    private final ArrayList<String> outerFilePaths;
+    private final List<String> inputColumns;
+    private final List<Attribute> outputColumns;
+    private final List<String> arguments;
+    private final List<String> outerFilePaths;
     private final int batchSize;
     private final boolean isDynamic;
     private final Queue<Tuple> inputTupleBuffer = new LinkedList<>();
@@ -53,9 +53,9 @@ public class PythonUDFOpExec implements OperatorExecutor {
     private FlightClient flightClient;
     private org.apache.arrow.vector.types.pojo.Schema globalInputSchema;
 
-    PythonUDFOpExec(String pythonScriptText, String pythonScriptFile, ArrayList<String> inputColumns,
-                    ArrayList<Attribute> outputColumns, ArrayList<String> arguments,
-                    ArrayList<String> outerFiles, int batchSize) {
+    PythonUDFOpExec(String pythonScriptText, String pythonScriptFile, List<String> inputColumns,
+                    List<Attribute> outputColumns, List<String> arguments,
+                    List<String> outerFiles, int batchSize) {
         this.pythonScriptText = pythonScriptText;
         this.pythonScriptPath = pythonScriptFile;
         this.inputColumns = inputColumns;
@@ -415,7 +415,7 @@ public class PythonUDFOpExec implements OperatorExecutor {
 
     /**
      * Close everything and throw an exception. This should only be called when an exception occurs and needs to be
-     * thrown, but the Arrow Flight Client is still running.
+     * thrown, but the Arrow Flight CLIENT is still running.
      *
      * @param client    FlightClient.
      * @param exception the exception to be wrapped into Amber Exception.
@@ -436,7 +436,7 @@ public class PythonUDFOpExec implements OperatorExecutor {
                 connected = new String(communicate(flightClient, MSG.HEALTH_CHECK), StandardCharsets.UTF_8).equals("success");
                 if (!connected) Thread.sleep(WAIT_TIME_MS);
             } catch (FlightRuntimeException e) {
-                System.out.println("Flight Client:\tNot connected to the server in this try.");
+                System.out.println("Flight CLIENT:\tNot connected to the server in this try.");
                 flightClient.close();
                 Thread.sleep(WAIT_TIME_MS);
                 tryCount++;

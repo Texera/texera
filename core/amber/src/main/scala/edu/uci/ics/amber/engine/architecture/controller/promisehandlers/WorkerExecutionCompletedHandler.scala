@@ -1,23 +1,18 @@
 package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
-import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.{
-  WorkflowCompleted,
-  WorkflowStatusUpdate
-}
 import edu.uci.ics.amber.engine.architecture.controller.{
   ControllerAsyncRPCHandlerInitializer,
   ControllerState
 }
-import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.WorkerExecutionCompletedHandler.WorkerExecutionCompleted
+import edu.uci.ics.amber.engine.architecture.controller.ControllerEvent.WorkflowCompleted
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.KillWorkflowHandler.KillWorkflow
-import edu.uci.ics.amber.engine.architecture.principal.OperatorState
+import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.WorkerExecutionCompletedHandler.WorkerExecutionCompleted
 import edu.uci.ics.amber.engine.architecture.worker.promisehandlers.CollectSinkResultsHandler.CollectSinkResults
 import edu.uci.ics.amber.engine.architecture.worker.promisehandlers.QueryStatisticsHandler.QueryStatistics
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCServer.{CommandCompleted, ControlCommand}
-import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager.Completed
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity.WorkerActorVirtualIdentity
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, VirtualIdentity}
+import edu.uci.ics.amber.engine.common.virtualidentity.WorkerActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
 import edu.uci.ics.amber.engine.operators.SinkOpExecConfig
 
 object WorkerExecutionCompletedHandler {
@@ -72,7 +67,7 @@ trait WorkerExecutionCompletedHandler {
           disableStatusUpdate()
           actorContext.parent ! ControllerState.Completed // for testing
           // clean up all workers and terminate self
-          execute(KillWorkflow(), ActorVirtualIdentity.Controller)
+          execute(KillWorkflow(), CONTROLLER)
         } else {
           Future {
             CommandCompleted()

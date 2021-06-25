@@ -1,15 +1,12 @@
 package edu.uci.ics.texera.workflow.operators.hashJoin
 
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
-import edu.uci.ics.amber.engine.common.{InputExhausted, WorkflowLogger}
+import edu.uci.ics.amber.engine.common.InputExhausted
+import edu.uci.ics.amber.engine.common.virtualidentity.LinkIdentity
 import edu.uci.ics.amber.error.WorkflowRuntimeError
 import edu.uci.ics.texera.workflow.common.operators.OperatorExecutor
 import edu.uci.ics.texera.workflow.common.tuple.Tuple
 import edu.uci.ics.texera.workflow.common.tuple.schema.{Attribute, Schema}
-import org.apache.avro.SchemaBuilder
-import java.util
-
-import edu.uci.ics.amber.engine.common.virtualidentity.{LinkIdentity, OperatorIdentity}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -26,25 +23,6 @@ class HashJoinOpExec[K](
 
   var currentEntry: Iterator[Tuple] = _
   var currentTuple: Tuple = _
-
-  // probe attribute removed in the output schema
-  private def createOutputProbeSchema(buildTuple: Tuple, probeTuple: Tuple): Schema = {
-    val buildSchema = buildTuple.getSchema()
-    val probeSchema = probeTuple.getSchema()
-    var builder = Schema.newBuilder()
-    probeSchema
-      .getAttributes()
-      .forEach(attr => {
-        if (attr.getName() != probeAttributeName) {
-          if (buildSchema.containsAttribute(attr.getName())) {
-            builder.add(new Attribute(s"${attr.getName()}#@1", attr.getType()))
-          } else {
-            builder.add(attr)
-          }
-        }
-      })
-    builder.build()
-  }
 
   override def processTexeraTuple(
       tuple: Either[Tuple, InputExhausted],
@@ -118,5 +96,24 @@ class HashJoinOpExec[K](
 
   override def close(): Unit = {
     buildTableHashMap.clear()
+  }
+
+  // probe attribute removed in the output schema
+  private def createOutputProbeSchema(buildTuple: Tuple, probeTuple: Tuple): Schema = {
+    val buildSchema = buildTuple.getSchema()
+    val probeSchema = probeTuple.getSchema()
+    var builder = Schema.newBuilder()
+    probeSchema
+      .getAttributes()
+      .forEach(attr => {
+        if (attr.getName() != probeAttributeName) {
+          if (buildSchema.containsAttribute(attr.getName())) {
+            builder.add(new Attribute(s"${attr.getName()}#@1", attr.getType()))
+          } else {
+            builder.add(attr)
+          }
+        }
+      })
+    builder.build()
   }
 }
