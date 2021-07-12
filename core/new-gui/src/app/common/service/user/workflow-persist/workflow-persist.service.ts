@@ -12,7 +12,8 @@ export const WORKFLOW_URL = 'workflow';
   providedIn: 'root'
 })
 export class WorkflowPersistService {
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {
+  }
 
   /**
    * persists a workflow to backend database and returns its updated information (e.g., new wid)
@@ -25,6 +26,20 @@ export class WorkflowPersistService {
       content: JSON.stringify(workflow.content)
     })
       .filter((updatedWorkflow: Workflow) => updatedWorkflow != null)
+      .pipe(map(WorkflowPersistService.parseWorkflowInfo));
+  }
+
+  /**
+   * creates a workflow and insert it to backend database and return its information
+   * @param newWorkflowName
+   * @param newWorkflowContent
+   */
+  public createWorkflow(newWorkflowContent: WorkflowContent, newWorkflowName: string = 'Untitled workflow'): Observable<Workflow> {
+    return this.http.post<Workflow>(`${AppSettings.getApiEndpoint()}/${WORKFLOW_URL}/create`, {
+      name: newWorkflowName,
+      content: JSON.stringify(newWorkflowContent)
+    })
+      .filter((createdWorkflow: Workflow) => createdWorkflow != null)
       .pipe(map(WorkflowPersistService.parseWorkflowInfo));
   }
 
