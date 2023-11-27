@@ -21,26 +21,29 @@ class DualInputPortsPythonUDFOpDescV2 extends OperatorDescriptor {
     required = true,
     defaultValue =
       "# Choose from the following templates:\n" +
-        "# \n" +
-        "# from pytexera import *\n" +
-        "# \n" +
-        "# class ProcessTupleOperator(UDFOperatorV2):\n" +
-        "#     \n" +
+        "#\n" +
+        "# import pytexera as ptx\n" +
+        "# from overrides import overrides\n" +
+        "# from typing import Iterator, Optional\n" +
+        "#\n" +
+        "#\n" +
+        "# class ProcessTupleOperator(ptx.UDFOperatorV2):\n" +
+        "#\n" +
         "#     @overrides\n" +
-        "#     def process_tuple(self, tuple_: Tuple, port: int) -> Iterator[Optional[TupleLike]]:\n" +
+        "#     def process_tuple(self, tuple_: ptx.Tuple, port: int) -> Iterator[Optional[ptx.TupleLike]]:\n" +
         "#         yield tuple_\n" +
-        "# \n" +
-        "# class ProcessBatchOperator(UDFBatchOperator):\n" +
+        "#\n" +
+        "# class ProcessBatchOperator(ptx.UDFBatchOperator):\n" +
         "#     BATCH_SIZE = 10 # must be a positive integer\n" +
-        "# \n" +
+        "#\n" +
         "#     @overrides\n" +
-        "#     def process_batch(self, batch: Batch, port: int) -> Iterator[Optional[BatchLike]]:\n" +
+        "#     def process_batch(self, batch: ptx.Batch, port: int) -> Iterator[Optional[ptx.BatchLike]]:\n" +
         "#         yield batch\n" +
-        "# \n" +
-        "# class ProcessTableOperator(UDFTableOperator):\n" +
-        "# \n" +
+        "#\n" +
+        "# class ProcessTableOperator(ptx.UDFTableOperator):\n" +
+        "#\n" +
         "#     @overrides\n" +
-        "#     def process_table(self, table: Table, port: int) -> Iterator[Optional[TableLike]]:\n" +
+        "#     def process_table(self, table: ptx.Table, port: int) -> Iterator[Optional[ptx.TableLike]]:\n" +
         "#         yield table\n"
   )
   @JsonSchemaTitle("Python script")
@@ -55,7 +58,7 @@ class DualInputPortsPythonUDFOpDescV2 extends OperatorDescriptor {
   @JsonProperty(required = true, defaultValue = "true")
   @JsonSchemaTitle("Retain input columns")
   @JsonPropertyDescription("Keep the original input columns?")
-  var retainInputColumns: Boolean = Boolean.box(false)
+  var retainInputColumns: Boolean = Boolean.box(true)
 
   @JsonProperty
   @JsonSchemaTitle("Extra output column(s)")
