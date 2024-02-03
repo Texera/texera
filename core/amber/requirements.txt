@@ -5,7 +5,7 @@ flake8
 black==23.12.1
 iniconfig==1.1.1
 loguru==0.7.0
-pyarrow==14.0.1
+pyarrow==15.0.0
 pytest==7.4.0
 python-dateutil==2.8.1
 pytest-timeout
