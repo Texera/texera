@@ -102,7 +102,8 @@ class ExecutionStatsService(
                 stats.numWorkers,
                 stats.dataProcessingTime,
                 stats.controlProcessingTime,
-                stats.idleTime
+                stats.idleTime,
+                stats.loopI
               )
               (x._1, res)
           })

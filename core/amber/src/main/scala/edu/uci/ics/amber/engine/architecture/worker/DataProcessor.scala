@@ -3,6 +3,7 @@ package edu.uci.ics.amber.engine.architecture.worker
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.common.AmberProcessor
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.ConsoleMessageHandler.ConsoleMessageTriggered
+import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.ForLoopHandler.IterationCompleted
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.PortCompletedHandler.PortCompleted
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.WorkerExecutionCompletedHandler.WorkerExecutionCompleted
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.WorkerStateUpdatedHandler.WorkerStateUpdated
@@ -16,8 +17,10 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.{OutputManager, Work
 import edu.uci.ics.amber.engine.architecture.scheduling.config.OperatorConfig
 import edu.uci.ics.amber.engine.architecture.worker.DataProcessor.{
   DPOutputIterator,
+  EndOfIteration,
   FinalizeOperator,
-  FinalizePort
+  FinalizePort,
+  StartOfIteration
 }
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
 import edu.uci.ics.amber.engine.architecture.worker.promisehandlers.PauseHandler.PauseWorker
@@ -46,6 +49,7 @@ import edu.uci.ics.amber.engine.common.virtualidentity.{
 import edu.uci.ics.amber.engine.common.workflow.PortIdentity
 import edu.uci.ics.amber.engine.common.{IOperatorExecutor, InputExhausted, VirtualIdentityUtils}
 import edu.uci.ics.amber.error.ErrorUtils.{mkConsoleMessage, safely}
+import edu.uci.ics.texera.workflow.operators.loop.{LoopEndOpExec, LoopStartOpExec}
 
 import scala.collection.mutable
 
@@ -62,6 +66,10 @@ object DataProcessor {
   }
   case class FinalizePort(portId: PortIdentity, input: Boolean) extends SpecialDataTuple
   case class FinalizeOperator() extends SpecialDataTuple
+
+  case class StartOfIteration(workerId: ActorVirtualIdentity) extends SpecialDataTuple
+  case class EndOfIteration(startWorkerId: ActorVirtualIdentity, endWorkerId: ActorVirtualIdentity)
+      extends SpecialDataTuple
 
   class DPOutputIterator extends Iterator[(ITuple, Option[PortIdentity])] {
     val queue = new mutable.Queue[(ITuple, Option[PortIdentity])]
@@ -118,7 +126,6 @@ class DataProcessor(
     }
     this.operatorConfig = operatorConfig
     this.physicalOp = physicalOp
-
     this.outputIterator.setTupleOutput(currentOutputIterator)
   }
 
@@ -152,6 +159,7 @@ class DataProcessor(
     *
     * @return (input tuple count, output tuple count)
     */
+
   def collectStatistics(): WorkerStatistics =
     statisticsManager.getStatistics(stateManager.getCurrentState, operator)
 
@@ -170,7 +178,7 @@ class DataProcessor(
           asyncRPCClient
         )
       )
-      if (tuple.isLeft) {
+      if (tuple.isLeft && !tuple.left.get.isInstanceOf[StartOfIteration]) {
         statisticsManager.increaseInputTupleCount()
       }
     } catch safely {
@@ -204,6 +212,8 @@ class DataProcessor(
     if (outputTuple == null) return
 
     outputTuple match {
+      case EndOfIteration(startWorkerId, endWorkerId) =>
+        asyncRPCClient.send(IterationCompleted(startWorkerId, endWorkerId), CONTROLLER)
       case FinalizeOperator() =>
         outputManager.emitEndOfUpstream()
         // Send Completed signal to worker actor.
@@ -219,7 +229,9 @@ class DataProcessor(
       case FinalizePort(portId, input) =>
         asyncRPCClient.send(PortCompleted(portId, input), CONTROLLER)
       case _ =>
-        statisticsManager.increaseOutputTupleCount()
+        if (!outputTuple.isInstanceOf[StartOfIteration]) {
+          statisticsManager.increaseOutputTupleCount()
+        }
         val outLinks = physicalOp.getOutputLinks(outputPortOpt)
         outLinks.foreach(link => outputManager.passTupleToDownstream(outputTuple, link))
     }
@@ -293,7 +305,9 @@ class DataProcessor(
             .foreach(outputPortId =>
               outputIterator.appendSpecialTupleToEnd(FinalizePort(outputPortId, input = false))
             )
-          outputIterator.appendSpecialTupleToEnd(FinalizeOperator())
+          if (!operator.isInstanceOf[LoopStartOpExec]) {
+            outputIterator.appendSpecialTupleToEnd(FinalizeOperator())
+          }
         }
     }
     statisticsManager.increaseDataProcessingTime(System.nanoTime() - dataProcessingStartTime)

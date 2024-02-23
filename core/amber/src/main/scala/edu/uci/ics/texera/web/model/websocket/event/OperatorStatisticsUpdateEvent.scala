@@ -7,7 +7,8 @@ case class OperatorStatistics(
     numWorkers: Long,
     aggregatedDataProcessingTime: Long,
     aggregatedControlProcessingTime: Long,
-    aggregatedIdleTime: Long
+    aggregatedIdleTime: Long,
+    loopI: Long
 )
 
 case class OperatorStatisticsUpdateEvent(operatorStatistics: Map[String, OperatorStatistics])

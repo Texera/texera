@@ -12,7 +12,8 @@ final case class WorkerStatistics(
     outputTupleCount: _root_.scala.Long,
     dataProcessingTime: _root_.scala.Long,
     controlProcessingTime: _root_.scala.Long,
-    idleTime: _root_.scala.Long
+    idleTime: _root_.scala.Long,
+    loopI: _root_.scala.Long
     ) extends scalapb.GeneratedMessage with scalapb.lenses.Updatable[WorkerStatistics] {
     @transient
     private[this] var __serializedSizeCachedValue: _root_.scala.Int = 0
@@ -58,6 +59,13 @@ final case class WorkerStatistics(
         val __value = idleTime
         if (__value != 0L) {
           __size += _root_.com.google.protobuf.CodedOutputStream.computeInt64Size(6, __value)
+        }
+      };
+      
+      {
+        val __value = loopI
+        if (__value != 0L) {
+          __size += _root_.com.google.protobuf.CodedOutputStream.computeInt64Size(7, __value)
         }
       };
       __size
@@ -107,6 +115,12 @@ final case class WorkerStatistics(
           _output__.writeInt64(6, __v)
         }
       };
+      {
+        val __v = loopI
+        if (__v != 0L) {
+          _output__.writeInt64(7, __v)
+        }
+      };
     }
     def withWorkerState(__v: edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState): WorkerStatistics = copy(workerState = __v)
     def withInputTupleCount(__v: _root_.scala.Long): WorkerStatistics = copy(inputTupleCount = __v)
@@ -114,6 +128,7 @@ final case class WorkerStatistics(
     def withDataProcessingTime(__v: _root_.scala.Long): WorkerStatistics = copy(dataProcessingTime = __v)
     def withControlProcessingTime(__v: _root_.scala.Long): WorkerStatistics = copy(controlProcessingTime = __v)
     def withIdleTime(__v: _root_.scala.Long): WorkerStatistics = copy(idleTime = __v)
+    def withLoopI(__v: _root_.scala.Long): WorkerStatistics = copy(loopI = __v)
     def getFieldByNumber(__fieldNumber: _root_.scala.Int): _root_.scala.Any = {
       (__fieldNumber: @_root_.scala.unchecked) match {
         case 1 => {
@@ -140,6 +155,10 @@ final case class WorkerStatistics(
           val __t = idleTime
           if (__t != 0L) __t else null
         }
+        case 7 => {
+          val __t = loopI
+          if (__t != 0L) __t else null
+        }
       }
     }
     def getField(__field: _root_.scalapb.descriptors.FieldDescriptor): _root_.scalapb.descriptors.PValue = {
@@ -151,6 +170,7 @@ final case class WorkerStatistics(
         case 4 => _root_.scalapb.descriptors.PLong(dataProcessingTime)
         case 5 => _root_.scalapb.descriptors.PLong(controlProcessingTime)
         case 6 => _root_.scalapb.descriptors.PLong(idleTime)
+        case 7 => _root_.scalapb.descriptors.PLong(loopI)
       }
     }
     def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToSingleLineUnicodeString(this)
@@ -167,6 +187,7 @@ object WorkerStatistics extends scalapb.GeneratedMessageCompanion[edu.uci.ics.am
     var __dataProcessingTime: _root_.scala.Long = 0L
     var __controlProcessingTime: _root_.scala.Long = 0L
     var __idleTime: _root_.scala.Long = 0L
+    var __loopI: _root_.scala.Long = 0L
     var _done__ = false
     while (!_done__) {
       val _tag__ = _input__.readTag()
@@ -184,6 +205,8 @@ object WorkerStatistics extends scalapb.GeneratedMessageCompanion[edu.uci.ics.am
           __controlProcessingTime = _input__.readInt64()
         case 48 =>
           __idleTime = _input__.readInt64()
+        case 56 =>
+          __loopI = _input__.readInt64()
         case tag => _input__.skipField(tag)
       }
     }
@@ -193,7 +216,8 @@ object WorkerStatistics extends scalapb.GeneratedMessageCompanion[edu.uci.ics.am
         outputTupleCount = __outputTupleCount,
         dataProcessingTime = __dataProcessingTime,
         controlProcessingTime = __controlProcessingTime,
-        idleTime = __idleTime
+        idleTime = __idleTime,
+        loopI = __loopI
     )
   }
   implicit def messageReads: _root_.scalapb.descriptors.Reads[edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics] = _root_.scalapb.descriptors.Reads{
@@ -205,7 +229,8 @@ object WorkerStatistics extends scalapb.GeneratedMessageCompanion[edu.uci.ics.am
         outputTupleCount = __fieldsMap.get(scalaDescriptor.findFieldByNumber(3).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
         dataProcessingTime = __fieldsMap.get(scalaDescriptor.findFieldByNumber(4).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
         controlProcessingTime = __fieldsMap.get(scalaDescriptor.findFieldByNumber(5).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
-        idleTime = __fieldsMap.get(scalaDescriptor.findFieldByNumber(6).get).map(_.as[_root_.scala.Long]).getOrElse(0L)
+        idleTime = __fieldsMap.get(scalaDescriptor.findFieldByNumber(6).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
+        loopI = __fieldsMap.get(scalaDescriptor.findFieldByNumber(7).get).map(_.as[_root_.scala.Long]).getOrElse(0L)
       )
     case _ => throw new RuntimeException("Expected PMessage")
   }
@@ -224,7 +249,8 @@ object WorkerStatistics extends scalapb.GeneratedMessageCompanion[edu.uci.ics.am
     outputTupleCount = 0L,
     dataProcessingTime = 0L,
     controlProcessingTime = 0L,
-    idleTime = 0L
+    idleTime = 0L,
+    loopI = 0L
   )
   implicit class WorkerStatisticsLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics](_l) {
     def workerState: _root_.scalapb.lenses.Lens[UpperPB, edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState] = field(_.workerState)((c_, f_) => c_.copy(workerState = f_))
@@ -233,6 +259,7 @@ object WorkerStatistics extends scalapb.GeneratedMessageCompanion[edu.uci.ics.am
     def dataProcessingTime: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.dataProcessingTime)((c_, f_) => c_.copy(dataProcessingTime = f_))
     def controlProcessingTime: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.controlProcessingTime)((c_, f_) => c_.copy(controlProcessingTime = f_))
     def idleTime: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.idleTime)((c_, f_) => c_.copy(idleTime = f_))
+    def loopI: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.loopI)((c_, f_) => c_.copy(loopI = f_))
   }
   final val WORKER_STATE_FIELD_NUMBER = 1
   final val INPUT_TUPLE_COUNT_FIELD_NUMBER = 2
@@ -240,20 +267,23 @@ object WorkerStatistics extends scalapb.GeneratedMessageCompanion[edu.uci.ics.am
   final val DATA_PROCESSING_TIME_FIELD_NUMBER = 4
   final val CONTROL_PROCESSING_TIME_FIELD_NUMBER = 5
   final val IDLE_TIME_FIELD_NUMBER = 6
+  final val LOOP_I_FIELD_NUMBER = 7
   def of(
     workerState: edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState,
     inputTupleCount: _root_.scala.Long,
     outputTupleCount: _root_.scala.Long,
     dataProcessingTime: _root_.scala.Long,
     controlProcessingTime: _root_.scala.Long,
-    idleTime: _root_.scala.Long
+    idleTime: _root_.scala.Long,
+    loopI: _root_.scala.Long
   ): _root_.edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics = _root_.edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics(
     workerState,
     inputTupleCount,
     outputTupleCount,
     dataProcessingTime,
     controlProcessingTime,
-    idleTime
+    idleTime,
+    loopI
   )
   // @@protoc_insertion_point(GeneratedMessageCompanion[edu.uci.ics.amber.engine.architecture.worker.WorkerStatistics])
 }

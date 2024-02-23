@@ -78,6 +78,7 @@ message OperatorRuntimeStats{
   int64 data_processing_time = 5;
   int64 control_processing_time = 6;
   int64 idle_time = 7;
+  int64 loop_i = 8;
 }
 
 message ExecutionStatsStore {

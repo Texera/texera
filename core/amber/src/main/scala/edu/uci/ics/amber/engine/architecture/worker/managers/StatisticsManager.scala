@@ -29,7 +29,8 @@ class StatisticsManager {
       displayOut,
       dataProcessingTime,
       controlProcessingTime,
-      totalExecutionTime - dataProcessingTime - controlProcessingTime
+      totalExecutionTime - dataProcessingTime - controlProcessingTime,
+      0
     )
   }
 
