@@ -22,14 +22,7 @@ import java.util.concurrent.{ExecutorService, Executors}
 import scala.sys.process.{BasicIO, Process}
 
 object PythonWorkflowWorker {
-  def props(
-      workerConfig: WorkerConfig
-  ): Props =
-    Props(
-      new PythonWorkflowWorker(
-        workerConfig
-      )
-    )
+  def props(workerConfig: WorkerConfig): Props = Props(new PythonWorkflowWorker(workerConfig))
 }
 
 class PythonWorkflowWorker(
@@ -57,7 +50,10 @@ class PythonWorkflowWorker(
   private val networkInputGateway = new NetworkInputGateway(workerConfig.workerId)
   private val networkOutputGateway = new NetworkOutputGateway(
     workerConfig.workerId,
-    logManager.sendCommitted
+    // handler for output messages
+    msg => {
+      logManager.sendCommitted(Right(msg))
+    }
   )
 
   override def handleInputMessage(messageId: Long, workflowMsg: WorkflowFIFOMessage): Unit = {
