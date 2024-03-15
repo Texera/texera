@@ -24,8 +24,8 @@ object FilesToDatasetMigration extends App {
   private val context = SqlServer.createDSLContext()
 
   case class UserKey(
-      username: String,
-      uid: UInteger
+                      userEmail: String,
+                      uid: UInteger
                     )
   def createDataset(
                      userKey: UserKey,
@@ -38,8 +38,8 @@ object FilesToDatasetMigration extends App {
         val datasetOfUserDao = new DatasetUserAccessDao(context.configuration())
         // first insert a new dataset
         val dataset: Dataset = new Dataset()
-        dataset.setName(userKey.username)
-        dataset.setDescription(s"${userKey.username}'s personal dataset'")
+        dataset.setName(userKey.userEmail)
+        dataset.setDescription(s"${userKey.userEmail}'s personal dataset'")
         dataset.setIsPublic(0.toByte)
         dataset.setOwnerUid(userKey.uid)
 
@@ -68,9 +68,13 @@ object FilesToDatasetMigration extends App {
           () => {
             for ((filePath, fileName) <- f) {
               println(s"Path: $filePath, File Name: $fileName")
-              val inputStream = new FileInputStream(filePath.toString)
-              val datasetFilePath = datasetPath.resolve(fileName)
-              GitVersionControlLocalFileStorage.writeFileToRepo(datasetPath, datasetFilePath, inputStream)
+              try {
+                val inputStream = new FileInputStream(filePath.toString)
+                val datasetFilePath = datasetPath.resolve(fileName)
+                GitVersionControlLocalFileStorage.writeFileToRepo(datasetPath, datasetFilePath, inputStream)
+              } catch {
+                case exception: Exception => println(exception)
+              }
             }
           }
         )
@@ -95,7 +99,7 @@ object FilesToDatasetMigration extends App {
   def retrieveListOfOwnerAndFiles(): Map[UserKey, Map[Path, String]] = {
     // Assuming you want to fetch UID, USERNAME, and perhaps FILE.NAME for simplicity
     val result: Result[Record4[UInteger, String, String, String]] = context
-      .select(USER.UID, USER.NAME, FILE.NAME, FILE.PATH)
+      .select(USER.UID, USER.EMAIL, FILE.NAME, FILE.PATH)
       .from(FILE)
       .join(USER).on(FILE.OWNER_UID.eq(USER.UID))
       .orderBy(USER.UID) // Assuming you want to order by UID for easier processing
@@ -104,7 +108,7 @@ object FilesToDatasetMigration extends App {
     // Process the result to build the map with Path objects as keys
     val userToFileMap: Map[UserKey, Map[Path, String]] = result.asScala
       .toList // Convert to Scala List
-      .groupBy(record => UserKey(record.getValue(USER.NAME), record.getValue(USER.UID))) // Group by user name
+      .groupBy(record => UserKey(record.getValue(USER.EMAIL), record.getValue(USER.UID))) // Group by user name
       .mapValues { records =>
         records.map { record =>
           val pathString = record.getValue(FILE.PATH)
@@ -142,7 +146,7 @@ object FilesToDatasetMigration extends App {
     }
   }
 
-  refactorFilePath()
+//  refactorFilePath()
   val userToUserFiles = retrieveListOfOwnerAndFiles()
 
   for ((userKey, userFiles) <- userToUserFiles) {
