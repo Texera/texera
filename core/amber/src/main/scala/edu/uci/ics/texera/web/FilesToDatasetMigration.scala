@@ -20,8 +20,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 object FilesToDatasetMigration extends App {
-  val filesDirectory = ""
-  val datasetDirectory = ""
+  val filesDirectory = "/Users/baijiadong/Desktop/chenlab/texera/core/amber/user-resources/files"
   private val context = SqlServer.createDSLContext()
 
   case class UserKey(
@@ -40,7 +39,7 @@ object FilesToDatasetMigration extends App {
         // first insert a new dataset
         val dataset: Dataset = new Dataset()
         dataset.setName(userKey.username)
-        dataset.setDescription(s"$dataset's personal dataset'")
+        dataset.setDescription(s"${userKey.username}'s personal dataset'")
         dataset.setIsPublic(0.toByte)
         dataset.setOwnerUid(userKey.uid)
 
@@ -133,12 +132,10 @@ object FilesToDatasetMigration extends App {
       // Here you would update the database record with the new path
       // Uncomment and modify the below lines if you decide to update the paths in the database.
       // Please ensure transaction management and error handling as necessary.
-      /*
-      create.update(FILE)
+      context.update(FILE)
         .set(FILE.PATH, newPath)
         .where(FILE.FID.eq(record.getValue(FILE.FID)))
         .execute()
-      */
 
       // For demonstration, let's just print the old and new paths
       println(s"Old Path: $originalPath, New Path: $newPath")
@@ -149,7 +146,6 @@ object FilesToDatasetMigration extends App {
   val userToUserFiles = retrieveListOfOwnerAndFiles()
 
   for ((userKey, userFiles) <- userToUserFiles) {
-    createDataset(userKey, userFiles)
+    createDataset(userKey, userToUserFiles)
   }
-
 }
