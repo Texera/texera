@@ -1,22 +1,27 @@
 package edu.uci.ics.texera.web
 
+import edu.uci.ics.texera.web.FilesToDatasetMigration.context
 import edu.uci.ics.texera.web.model.jooq.generated.enums.DatasetUserAccessPrivilege
-import edu.uci.ics.texera.web.model.jooq.generated.tables.pojos.{Dataset, DatasetUserAccess, User}
+import edu.uci.ics.texera.web.model.jooq.generated.tables.pojos.{Dataset, DatasetUserAccess, DatasetVersion, Environment, EnvironmentOfWorkflow, User}
 import org.jooq.types.UInteger
 import edu.uci.ics.texera.web.model.jooq.generated.tables.File.FILE
 import edu.uci.ics.texera.web.model.jooq.generated.tables.User.USER
 import edu.uci.ics.texera.web.model.jooq.generated.tables.Dataset.DATASET
 import edu.uci.ics.texera.web.model.jooq.generated.tables.DatasetVersion.DATASET_VERSION
-import edu.uci.ics.texera.web.model.jooq.generated.tables.pojos.DatasetVersion
-import edu.uci.ics.texera.web.model.jooq.generated.tables.daos.DatasetUserAccessDao
+import edu.uci.ics.texera.web.model.jooq.generated.tables.WorkflowOfUser.WORKFLOW_OF_USER
+import edu.uci.ics.texera.web.model.jooq.generated.tables.EnvironmentOfWorkflow.ENVIRONMENT_OF_WORKFLOW
+import edu.uci.ics.texera.web.model.jooq.generated.tables.DatasetOfEnvironment.DATASET_OF_ENVIRONMENT
+import edu.uci.ics.texera.web.model.jooq.generated.tables.Environment.ENVIRONMENT
+import edu.uci.ics.texera.web.model.jooq.generated.tables.daos.{DatasetUserAccessDao, EnvironmentOfWorkflowDao}
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.service.GitVersionControlLocalFileStorage
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.utils.PathUtils
-import org.jooq.{Record2, Record3, Record4, Result}
+import org.jooq.{Record, Record2, Record3, Record4, Result}
 import org.jooq.impl.DSL
 
 import java.io.FileInputStream
 import java.nio.file.{Path, Paths}
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.collection.convert.ImplicitConversions.`iterable AsScalaIterable`
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, IterableHasAsJava}
 
 
 object FilesToDatasetMigration extends App {
@@ -39,7 +44,7 @@ object FilesToDatasetMigration extends App {
         // first insert a new dataset
         val dataset: Dataset = new Dataset()
         dataset.setName(userKey.userEmail)
-        dataset.setDescription(s"${userKey.userEmail}'s personal dataset'")
+        dataset.setDescription(s"${userKey.userEmail}'s personal dataset")
         dataset.setIsPublic(0.toByte)
         dataset.setOwnerUid(userKey.uid)
 
@@ -146,10 +151,124 @@ object FilesToDatasetMigration extends App {
     }
   }
 
-//  refactorFilePath()
-  val userToUserFiles = retrieveListOfOwnerAndFiles()
+  def findPersonalDidForUser(uid: UInteger): Option[UInteger] = {
+    // Query to find the personal dataset DID for a user
+    val result = context.select(DATASET.DID)
+      .from(DATASET)
+      .where(DATASET.OWNER_UID.eq(uid)
+        .and(DATASET.DESCRIPTION.like("%personal dataset%")))
+      .fetchOne()
 
-  for ((userKey, userFiles) <- userToUserFiles) {
-    createDataset(userKey, userToUserFiles)
+    Option(result).map(_.getValue(DATASET.DID))
+  }
+
+  def createEnvironmentForUserWorkflows(uid: UInteger): Unit = {
+    // Find all workflow IDs for the user
+    val workflowIds = context.select(WORKFLOW_OF_USER.WID)
+      .from(WORKFLOW_OF_USER)
+      .where(WORKFLOW_OF_USER.UID.eq(uid))
+      .map(record => record.getValue(WORKFLOW_OF_USER.WID))
+
+    val workflowIdsSet = workflowIds.asJavaCollection
+    // Find workflow IDs that already have an environment
+    val workflowWithEnvironmentIds = context.select(ENVIRONMENT_OF_WORKFLOW.WID)
+      .from(ENVIRONMENT_OF_WORKFLOW)
+      .where(ENVIRONMENT_OF_WORKFLOW.WID.in(workflowIdsSet))
+      .map(record => record.getValue(ENVIRONMENT_OF_WORKFLOW.WID))
+
+    // Find workflow IDs without an environment by subtracting the above set from all workflow IDs
+    val workflowIdsWithoutEnvironment = workflowIds.toSet -- workflowWithEnvironmentIds.toSet
+    val environmentOfWorkflowDao = new EnvironmentOfWorkflowDao(context.configuration())
+    // For each workflow without an environment, create a new environment
+    workflowIdsWithoutEnvironment.foreach { wid =>
+      // Placeholder for environment creation logic
+      // createEnvironmentForWorkflow(wid)
+      println(s"Creating environment for workflow ID: $wid")
+      val environment = new Environment();
+      environment.setName(
+        s"Environment of Workflow #$wid"
+      )
+      environment.setDescription(
+        s"Runtime Environment of Workflow #$wid"
+      )
+      environment.setOwnerUid(uid)
+
+      val createdEnvironment = context
+        .insertInto(ENVIRONMENT)
+        .set(context.newRecord(ENVIRONMENT, environment))
+        .returning()
+        .fetchOne()
+        .into(classOf[Environment])
+
+      environmentOfWorkflowDao.insert(new EnvironmentOfWorkflow(createdEnvironment.getEid, wid))
+    }
+  }
+
+  // Extension method to fetch results as Scala List
+  implicit class RichResult[R <: Record](result: Result[R]) {
+    def fetchAsScala: List[R] = result.asScala.toList
+  }
+
+  def addPersonalDatasetToAllWorkflowOfAnUser(uid: UInteger, did: UInteger) = {
+    // Find all workflow IDs for the user
+    val workflowIds = context.select(WORKFLOW_OF_USER.WID)
+      .from(WORKFLOW_OF_USER)
+      .where(WORKFLOW_OF_USER.UID.eq(uid))
+      .map(record => record.getValue(WORKFLOW_OF_USER.WID))
+
+    // For each workflow, find the unique environment ID
+    val environmentIds = workflowIds.map(wid => context.select(ENVIRONMENT_OF_WORKFLOW.EID)
+      .from(ENVIRONMENT_OF_WORKFLOW)
+      .where(ENVIRONMENT_OF_WORKFLOW.WID.eq(wid))
+      .fetchOne()
+      .getValue(ENVIRONMENT_OF_WORKFLOW.EID)
+    )
+
+    // Find the single dvid for the given did from dataset_version
+    val dvid = context.select(DATASET_VERSION.DVID)
+      .from(DATASET_VERSION)
+      .where(DATASET_VERSION.DID.eq(did))
+      .fetchOne()
+      .map(_.getValue(DATASET_VERSION.DVID))
+
+    if (dvid != null) {
+      // For each environment, insert the did and dvid into dataset_of_environment
+      environmentIds.foreach { eid =>
+        context.insertInto(DATASET_OF_ENVIRONMENT,
+            DATASET_OF_ENVIRONMENT.DID, DATASET_OF_ENVIRONMENT.EID, DATASET_OF_ENVIRONMENT.DVID)
+          .values(did, eid, dvid)
+          .execute()
+      }
+    }
+  }
+
+//  refactorFilePath()
+//  val userToUserFiles = retrieveListOfOwnerAndFiles()
+//
+//  for ((userKey, userFiles) <- userToUserFiles) {
+//    createDataset(userKey, userToUserFiles)
+//  }
+
+  val USERS = DSL.table("user") // Replace with your actual table name
+  val USER_ID = DSL.field("uid", classOf[UInteger]) // Replace with your actual user ID field name
+
+  // Fetch all user IDs as a Scala List[UInteger]
+  val userIds: List[UInteger] = context.select(USER_ID).from(USERS)
+    .fetch()
+    .asScala
+    .toList
+    .map(record => record.getValue(USER_ID, classOf[UInteger]))
+
+  // Iterate over the list of user IDs
+  for (uid <- userIds) {
+    // Your iteration logic here
+    createEnvironmentForUserWorkflows(uid)
+    val did = findPersonalDidForUser(uid)
+    did match {
+      case Some(d) => {
+        addPersonalDatasetToAllWorkflowOfAnUser(uid, d)
+      }
+      case None => println("do nothing")
+    }
   }
 }
