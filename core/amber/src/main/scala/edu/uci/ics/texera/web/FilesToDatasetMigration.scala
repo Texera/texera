@@ -9,8 +9,10 @@ import edu.uci.ics.texera.web.model.jooq.generated.tables.User.USER
 import edu.uci.ics.texera.web.model.jooq.generated.tables.Dataset.DATASET
 import edu.uci.ics.texera.web.model.jooq.generated.tables.DatasetVersion.DATASET_VERSION
 import edu.uci.ics.texera.web.model.jooq.generated.tables.WorkflowOfUser.WORKFLOW_OF_USER
+import edu.uci.ics.texera.web.model.jooq.generated.tables.WorkflowUserAccess.WORKFLOW_USER_ACCESS
 import edu.uci.ics.texera.web.model.jooq.generated.tables.EnvironmentOfWorkflow.ENVIRONMENT_OF_WORKFLOW
 import edu.uci.ics.texera.web.model.jooq.generated.tables.DatasetOfEnvironment.DATASET_OF_ENVIRONMENT
+import edu.uci.ics.texera.web.model.jooq.generated.tables.DatasetUserAccess.DATASET_USER_ACCESS
 import edu.uci.ics.texera.web.model.jooq.generated.tables.Environment.ENVIRONMENT
 import edu.uci.ics.texera.web.model.jooq.generated.tables.daos.{DatasetUserAccessDao, EnvironmentOfWorkflowDao}
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.service.GitVersionControlLocalFileStorage
@@ -20,6 +22,7 @@ import org.jooq.impl.DSL
 
 import java.io.FileInputStream
 import java.nio.file.{Path, Paths}
+import java.util
 import scala.collection.convert.ImplicitConversions.`iterable AsScalaIterable`
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, IterableHasAsJava}
 
@@ -209,6 +212,32 @@ object FilesToDatasetMigration extends App {
     def fetchAsScala: List[R] = result.asScala.toList
   }
 
+  def adjustUserAccessToDataset(uid: UInteger, did: UInteger): Unit = {
+    val datasetUserAccessDao = new DatasetUserAccessDao(context.configuration())
+    val workflowIds: util.List[UInteger] = context.select(WORKFLOW_OF_USER.WID)
+      .from(WORKFLOW_OF_USER)
+      .where(WORKFLOW_OF_USER.UID.eq(uid))
+      .fetch()
+      .getValues(WORKFLOW_OF_USER.WID, classOf[UInteger])
+
+    workflowIds.foreach { wid =>
+      val userAccessToWorkflow = context.select(WORKFLOW_USER_ACCESS.UID)
+        .from(WORKFLOW_USER_ACCESS)
+        .where(WORKFLOW_USER_ACCESS.WID.eq(wid))
+        .fetch()
+        .getValues(WORKFLOW_USER_ACCESS.UID, classOf[UInteger])
+
+      userAccessToWorkflow.foreach { accessUid =>
+        try {
+          val datasetUserAccess = new DatasetUserAccess(did, accessUid, DatasetUserAccessPrivilege.READ)
+          datasetUserAccessDao.insert(datasetUserAccess)
+        } catch {
+          case e: Exception => print("do nothing")// Ignore or log the exception if the access already exists
+        }
+      }
+    }
+  }
+
   def addPersonalDatasetToAllWorkflowOfAnUser(uid: UInteger, did: UInteger) = {
     // Find all workflow IDs for the user
     val workflowIds = context.select(WORKFLOW_OF_USER.WID)
@@ -262,11 +291,12 @@ object FilesToDatasetMigration extends App {
   // Iterate over the list of user IDs
   for (uid <- userIds) {
     // Your iteration logic here
-    createEnvironmentForUserWorkflows(uid)
+//    createEnvironmentForUserWorkflows(uid)
     val did = findPersonalDidForUser(uid)
     did match {
       case Some(d) => {
-        addPersonalDatasetToAllWorkflowOfAnUser(uid, d)
+//        addPersonalDatasetToAllWorkflowOfAnUser(uid, d)
+        adjustUserAccessToDataset(uid, d)
       }
       case None => println("do nothing")
     }
