@@ -59,7 +59,6 @@ object FilesToDatasetMigration extends App {
 
         val did = createdDataset.getDid
         val datasetPath = PathUtils.getDatasetPath(did)
-        createdDataset.setStoragePath(datasetPath.toString)
         createdDataset.update()
 
         val datasetUserAccess = new DatasetUserAccess()
@@ -272,11 +271,11 @@ object FilesToDatasetMigration extends App {
   }
 
 //  refactorFilePath()
-//  val userToUserFiles = retrieveListOfOwnerAndFiles()
-//
-//  for ((userKey, userFiles) <- userToUserFiles) {
-//    createDataset(userKey, userToUserFiles)
-//  }
+  val userToUserFiles = retrieveListOfOwnerAndFiles()
+
+  for ((userKey, userFiles) <- userToUserFiles) {
+    createDataset(userKey, userToUserFiles)
+  }
 
   val USERS = DSL.table("user") // Replace with your actual table name
   val USER_ID = DSL.field("uid", classOf[UInteger]) // Replace with your actual user ID field name
@@ -290,12 +289,11 @@ object FilesToDatasetMigration extends App {
 
   // Iterate over the list of user IDs
   for (uid <- userIds) {
-    // Your iteration logic here
-//    createEnvironmentForUserWorkflows(uid)
+    createEnvironmentForUserWorkflows(uid)
     val did = findPersonalDidForUser(uid)
     did match {
       case Some(d) => {
-//        addPersonalDatasetToAllWorkflowOfAnUser(uid, d)
+        addPersonalDatasetToAllWorkflowOfAnUser(uid, d)
         adjustUserAccessToDataset(uid, d)
       }
       case None => println("do nothing")
