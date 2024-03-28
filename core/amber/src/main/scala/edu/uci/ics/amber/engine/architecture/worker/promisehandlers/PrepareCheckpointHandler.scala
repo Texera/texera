@@ -43,8 +43,8 @@ trait PrepareCheckpointHandler {
     // 2. serialize operator state
     dp.executor match {
       case support: CheckpointSupport =>
-        dp.outputManager.outputIterator.setTupleOutput(
-          support.serializeState(dp.outputManager.outputIterator.outputIter, chkpt)
+        dp.tupleProcessingManager.outputIterator.setInternalIter(
+          support.serializeState(dp.tupleProcessingManager.outputIterator.getInternalIter, chkpt)
         )
         logger.info("Serialized operator state")
       case _ =>

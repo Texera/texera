@@ -137,19 +137,19 @@ class DPThread(
       //
       // Main loop step 2: do input selection
       //
-      var channelId: ChannelIdentity = null
-      var msgOpt: Option[WorkflowFIFOMessage] = None
+      var channelId: Option[ChannelIdentity] = None
+      var msg: Option[WorkflowFIFOMessage] = None
       if (
-        dp.inputManager.hasUnfinishedInput || dp.outputManager.hasUnfinishedOutput || dp.pauseManager.isPaused
+        dp.tupleProcessingManager.inputIterator.hasNext || dp.tupleProcessingManager.outputIterator.hasNext || dp.pauseManager.isPaused
       ) {
         dp.inputGateway.tryPickControlChannel match {
           case Some(channel) =>
-            channelId = channel.channelId
-            msgOpt = Some(channel.take)
+            channelId = dp.inputGateway.getCurrentChannelId
+            msg = Some(channel.take)
           case None =>
             // continue processing
             if (!dp.pauseManager.isPaused && !backpressureStatus) {
-              channelId = dp.inputManager.currentChannelId
+              channelId = dp.inputGateway.getCurrentChannelId
             } else {
               waitingForInput = true
             }
@@ -162,8 +162,8 @@ class DPThread(
           dp.inputGateway.tryPickChannel
         } match {
           case Some(channel) =>
-            channelId = channel.channelId
-            msgOpt = Some(channel.take)
+            channelId = dp.inputGateway.getCurrentChannelId
+            msg = Some(channel.take)
           case None => waitingForInput = true
         }
       }
@@ -171,11 +171,11 @@ class DPThread(
       //
       // Main loop step 3: process selected message payload
       //
-      if (channelId != null) {
+      if (channelId.isDefined) {
         // for logging, skip large data frames.
-        val msgToLog = msgOpt.filter(_.payload.isInstanceOf[ControlPayload])
-        logManager.withFaultTolerant(channelId, msgToLog) {
-          msgOpt match {
+        val msgToLog = msg.filter(_.payload.isInstanceOf[ControlPayload])
+        logManager.withFaultTolerant(channelId.get, msgToLog) {
+          msg match {
             case None =>
               dp.continueDataProcessing()
             case Some(msg) =>

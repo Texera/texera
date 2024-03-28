@@ -1,16 +1,14 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import edu.uci.ics.amber.engine.architecture.messaginglayer.OutputManager.{
-  DPOutputIterator,
   getBatchSize,
   toPartitioner
 }
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitioners._
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings._
-import edu.uci.ics.amber.engine.architecture.worker.DataProcessor.{FinalizeExecutor, FinalizePort}
 import edu.uci.ics.amber.engine.common.AmberLogging
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCServer.ControlCommand
-import edu.uci.ics.amber.engine.common.tuple.amber.{SchemaEnforceable, TupleLike}
+import edu.uci.ics.amber.engine.common.tuple.amber.SchemaEnforceable
 import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.engine.common.workflow.{PhysicalLink, PortIdentity}
 import edu.uci.ics.texera.workflow.common.tuple.schema.Schema
@@ -49,32 +47,6 @@ object OutputManager {
     }
   }
 
-  class DPOutputIterator extends Iterator[(TupleLike, Option[PortIdentity])] {
-    val queue = new mutable.ListBuffer[(TupleLike, Option[PortIdentity])]
-    @transient var outputIter: Iterator[(TupleLike, Option[PortIdentity])] = Iterator.empty
-
-    def setTupleOutput(outputIter: Iterator[(TupleLike, Option[PortIdentity])]): Unit = {
-      if (outputIter != null) {
-        this.outputIter = outputIter
-      } else {
-        this.outputIter = Iterator.empty
-      }
-    }
-
-    override def hasNext: Boolean = outputIter.hasNext || queue.nonEmpty
-
-    override def next(): (TupleLike, Option[PortIdentity]) = {
-      if (outputIter.hasNext) {
-        outputIter.next()
-      } else {
-        queue.remove(0)
-      }
-    }
-
-    def appendSpecialTupleToEnd(tuple: TupleLike): Unit = {
-      queue.append((tuple, None))
-    }
-  }
 }
 
 /** This class is a container of all the transfer partitioners.
@@ -87,7 +59,6 @@ class OutputManager(
     outputGateway: NetworkOutputGateway
 ) extends AmberLogging {
 
-  val outputIterator: DPOutputIterator = new DPOutputIterator()
   private val partitioners: mutable.Map[PhysicalLink, Partitioner] =
     mutable.HashMap[PhysicalLink, Partitioner]()
 
@@ -183,14 +154,6 @@ class OutputManager(
 
   def getPort(portId: PortIdentity): WorkerPort = ports(portId)
 
-  def hasUnfinishedOutput: Boolean = outputIterator.hasNext
-
-  def finalizeOutput(): Unit = {
-    this.ports.keys
-      .foreach(outputPortId =>
-        outputIterator.appendSpecialTupleToEnd(FinalizePort(outputPortId, input = false))
-      )
-    outputIterator.appendSpecialTupleToEnd(FinalizeExecutor())
-  }
+  def getAllPortIds: Set[PortIdentity] = this.ports.keySet.toSet
 
 }
