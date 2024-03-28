@@ -20,6 +20,7 @@ import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import com.twitter.util.Promise
+import edu.uci.ics.texera.workflow.common.EndOfUpstream
 
 import java.nio.charset.Charset
 
@@ -106,7 +107,7 @@ private class AmberProducer(
     if (isEnd) {
       // EndOfUpstream
       assert(root.getRowCount == 0)
-      outputPort.sendTo(to, EndOfUpstream())
+      outputPort.sendTo(to, MarkerFrame(EndOfUpstream()))
     } else {
       // normal data batches
       val queue = mutable.Queue[Tuple]()

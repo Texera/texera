@@ -29,6 +29,7 @@ import edu.uci.ics.amber.engine.common.virtualidentity.util.{CONTROLLER, SELF}
 import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.engine.common.workflow.PortIdentity
 import edu.uci.ics.amber.error.ErrorUtils.{mkConsoleMessage, safely}
+import edu.uci.ics.texera.workflow.common.EndOfUpstream
 import edu.uci.ics.texera.workflow.common.operators.OperatorExecutor
 import edu.uci.ics.texera.workflow.common.tuple.Tuple
 
@@ -101,7 +102,7 @@ class DataProcessor(
     * process end of an input port with Executor.onFinish().
     * this function is only called by the DP thread.
     */
-  private[this] def processInputExhausted(): Unit = {
+  private[this] def processEndOfUpstream(): Unit = {
     try {
       outputManager.outputIterator.setTupleOutput(
         executor.onFinishMultiPort(
@@ -152,6 +153,7 @@ class DataProcessor(
         )
         asyncRPCClient.send(WorkerExecutionCompleted(), CONTROLLER)
       case FinalizePort(portId, input) =>
+        operator.onOutputFinish(portId.id)
         asyncRPCClient.send(PortCompleted(portId, input), CONTROLLER)
       case schemaEnforceable: SchemaEnforceable =>
         statisticsManager.increaseOutputTupleCount()
@@ -190,20 +192,27 @@ class DataProcessor(
         )
         inputManager.initBatch(channelId, tuples)
         processInputTuple(inputManager.getNextTuple)
-      case EndOfUpstream() =>
-        val channel = this.inputGateway.getChannel(channelId)
-        val portId = channel.getPortId
+      case MarkerFrame(marker) =>
+        marker match {
+          case EndOfUpstream() =>
+            val channel = this.inputGateway.getChannel(channelId)
+            val portId = channel.getPortId
 
-        this.inputManager.getPort(portId).channels(channelId) = true
+            this.inputManager.getPort(portId).channels(channelId) = true
 
-        if (inputManager.isPortCompleted(portId)) {
-          inputManager.initBatch(channelId, Array.empty)
-          processInputExhausted()
-          outputManager.outputIterator.appendSpecialTupleToEnd(FinalizePort(portId, input = true))
-        }
-        if (inputManager.getAllPorts.forall(portId => inputManager.isPortCompleted(portId))) {
-          // assuming all the output ports finalize after all input ports are finalized.
-          outputManager.finalizeOutput()
+            if (inputManager.isPortCompleted(portId)) {
+              inputManager.initBatch(channelId, Array.empty)
+              processEndOfUpstream()
+              outputManager.outputIterator.appendSpecialTupleToEnd(
+                FinalizePort(portId, input = true)
+              )
+            }
+            if (inputManager.getAllPorts.forall(portId => inputManager.isPortCompleted(portId))) {
+              // assuming all the output ports finalize after all input ports are finalized.
+              outputManager.finalizeOutput()
+            }
+          case _ =>
+            logger.error(s"unsupported marker type: $marker")
         }
     }
     statisticsManager.increaseDataProcessingTime(System.nanoTime() - dataProcessingStartTime)
