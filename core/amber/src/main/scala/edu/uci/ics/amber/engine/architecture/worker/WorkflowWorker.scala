@@ -153,7 +153,7 @@ class WorkflowWorker(
     val (executor, iter) = dp.serializationManager.restoreExecutorState(chkpt)
     dp.executor = executor
     logger.info("re-initialize executor done.")
-    dp.outputManager.outputIterator.setTupleOutput(iter)
+    dp.tupleProcessingManager.outputIterator.setInternalIter(iter)
     logger.info("set tuple output done.")
     queuedMessages.foreach(msg => inputQueue.put(FIFOMessageElement(msg)))
     inflightMessages.foreach(msg => inputQueue.put(FIFOMessageElement(msg)))

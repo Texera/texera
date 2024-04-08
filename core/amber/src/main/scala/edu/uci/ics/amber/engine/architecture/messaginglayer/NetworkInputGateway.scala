@@ -14,6 +14,8 @@ class NetworkInputGateway(val actorId: ActorVirtualIdentity)
   private val inputChannels =
     new mutable.HashMap[ChannelIdentity, AmberFIFOChannel]()
 
+  private var currentChannelId: Option[ChannelIdentity] = None
+
   @transient lazy private val enforcers = mutable.ListBuffer[OrderEnforcer]()
 
   def tryPickControlChannel: Option[AmberFIFOChannel] = {
@@ -33,6 +35,7 @@ class NetworkInputGateway(val actorId: ActorVirtualIdentity)
   def tryPickChannel: Option[AmberFIFOChannel] = {
     val control = tryPickControlChannel
     val ret = if (control.isDefined) {
+      this.currentChannelId = control.map(_.channelId)
       control
     } else {
       inputChannels
@@ -41,11 +44,17 @@ class NetworkInputGateway(val actorId: ActorVirtualIdentity)
             !cid.isControl && channel.isEnabled && channel.hasMessage && enforcers
               .forall(enforcer => enforcer.isCompleted || enforcer.canProceed(cid))
         })
-        .map(_._2)
+        .map {
+          case (channelId, channel) =>
+            this.currentChannelId = Some(channelId)
+            channel
+        }
     }
     enforcers.filter(enforcer => enforcer.isCompleted).foreach(enforcer => enforcers -= enforcer)
     ret
   }
+
+  override def getCurrentChannelId: Option[ChannelIdentity] = this.currentChannelId
 
   def getAllDataChannels: Iterable[AmberFIFOChannel] =
     inputChannels.filter(!_._1.isControl).values
