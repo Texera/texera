@@ -10,6 +10,9 @@ import edu.uci.ics.amber.engine.architecture.controller.ControllerConfig
 import edu.uci.ics.amber.engine.common.{AmberConfig, AmberUtils}
 import edu.uci.ics.amber.engine.common.client.AmberClient
 import edu.uci.ics.amber.engine.common.storage.SequentialRecordStorage
+import edu.uci.ics.amber.engine.common.storage.file.FileTreeNodeSerializer
+import edu.uci.ics.amber.engine.common.storage.file.FileTreeNode
+import edu.uci.ics.amber.engine.common.storage.file.localfs.JGitVersionControlUtils
 import edu.uci.ics.amber.engine.common.virtualidentity.ExecutionIdentity
 import edu.uci.ics.texera.Utils
 import edu.uci.ics.texera.Utils.{maptoStatusCode, objectMapper}
@@ -31,8 +34,6 @@ import edu.uci.ics.texera.web.resource.dashboard.user.dataset.{
   DatasetAccessResource,
   DatasetResource
 }
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.`type`.{FileNode, FileNodeSerializer}
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.service.GitVersionControlLocalFileStorage
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.utils.PathUtils.getAllDatasetDirectories
 import edu.uci.ics.texera.web.resource.dashboard.user.file.{
   UserFileAccessResource,
@@ -82,7 +83,7 @@ object TexeraWebApplication {
     val datasetPaths = getAllDatasetDirectories()
 
     datasetPaths.foreach(path => {
-      GitVersionControlLocalFileStorage.discardUncommittedChanges(path)
+      JGitVersionControlUtils.discardUncommittedChanges(path)
     })
   }
 
@@ -163,7 +164,7 @@ class TexeraWebApplication
 
     // register a new custom module and add the custom serializer into it
     val customSerializerModule = new SimpleModule("CustomSerializers")
-    customSerializerModule.addSerializer(classOf[FileNode], new FileNodeSerializer())
+    customSerializerModule.addSerializer(classOf[FileTreeNode], new FileTreeNodeSerializer)
     bootstrap.getObjectMapper.registerModule(customSerializerModule)
 
     if (AmberConfig.isUserSystemEnabled) {

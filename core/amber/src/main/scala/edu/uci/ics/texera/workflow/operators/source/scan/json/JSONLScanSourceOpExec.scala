@@ -1,9 +1,9 @@
 package edu.uci.ics.texera.workflow.operators.source.scan.json
 
 import edu.uci.ics.amber.engine.common.SourceOperatorExecutor
+import edu.uci.ics.amber.engine.common.storage.TexeraDocument
 import edu.uci.ics.amber.engine.common.tuple.amber.TupleLike
 import edu.uci.ics.texera.Utils.objectMapper
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.`type`.DatasetFileDesc
 import edu.uci.ics.texera.workflow.common.tuple.schema.AttributeTypeUtils.parseField
 import edu.uci.ics.texera.workflow.common.tuple.schema.Schema
 import edu.uci.ics.texera.workflow.operators.source.scan.FileDecodingMethod
@@ -15,7 +15,7 @@ import scala.util.{Failure, Success, Try}
 
 class JSONLScanSourceOpExec private[json] (
     filePath: String,
-    datasetFileDesc: DatasetFileDesc,
+    fileDocument: TexeraDocument[_],
     fileEncoding: FileDecodingMethod,
     startOffset: Int,
     endOffset: Int,
@@ -43,7 +43,7 @@ class JSONLScanSourceOpExec private[json] (
   override def open(): Unit = {
     schema = schemaFunc()
     reader = new BufferedReader(
-      new InputStreamReader(createInputStream(filePath, datasetFileDesc), fileEncoding.getCharset)
+      new InputStreamReader(createInputStream(filePath, fileDocument), fileEncoding.getCharset)
     )
     rows = reader.lines().iterator().asScala.slice(startOffset, endOffset)
   }

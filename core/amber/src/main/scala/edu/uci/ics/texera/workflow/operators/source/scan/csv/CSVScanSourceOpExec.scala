@@ -4,8 +4,8 @@ import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import edu.uci.ics.amber.engine.common.workflow.PortIdentity
 import edu.uci.ics.amber.engine.common.{CheckpointState, CheckpointSupport}
 import edu.uci.ics.amber.engine.common.SourceOperatorExecutor
+import edu.uci.ics.amber.engine.common.storage.TexeraDocument
 import edu.uci.ics.amber.engine.common.tuple.amber.TupleLike
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.`type`.DatasetFileDesc
 import edu.uci.ics.texera.workflow.common.tuple.schema.{AttributeTypeUtils, Schema}
 import edu.uci.ics.texera.workflow.operators.source.scan.FileDecodingMethod
 
@@ -14,7 +14,7 @@ import scala.collection.immutable.ArraySeq
 
 class CSVScanSourceOpExec private[csv] (
     filePath: String,
-    datasetFileDesc: DatasetFileDesc,
+    fileDocument: TexeraDocument[_],
     fileEncoding: FileDecodingMethod,
     limit: Option[Int],
     offset: Option[Int],
@@ -70,7 +70,7 @@ class CSVScanSourceOpExec private[csv] (
 
   override def open(): Unit = {
     inputReader = new InputStreamReader(
-      createInputStream(filePath, datasetFileDesc),
+      createInputStream(filePath, fileDocument),
       fileEncoding.getCharset
     )
 

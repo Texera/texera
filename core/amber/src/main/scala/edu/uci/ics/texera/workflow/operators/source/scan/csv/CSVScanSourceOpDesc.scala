@@ -74,12 +74,12 @@ class CSVScanSourceOpDesc extends ScanSourceOpDesc {
       return null
     }
 
-    val (filepath, fileDesc) = determineFilePathOrDesc()
+    val (filepath, fileDocument) = determineFilePathOrDesc()
     val stream =
       if (filepath != null) {
         new FileInputStream(new File(filepath))
       } else {
-        fileDesc.fileInputStream()
+        fileDocument.readAsInputStream()
       }
     val inputReader =
       new InputStreamReader(stream, fileEncoding.getCharset)

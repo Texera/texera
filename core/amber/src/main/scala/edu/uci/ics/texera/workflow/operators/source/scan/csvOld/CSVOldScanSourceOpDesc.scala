@@ -12,6 +12,7 @@ import edu.uci.ics.texera.workflow.common.tuple.schema.{Attribute, AttributeType
 import edu.uci.ics.texera.workflow.operators.source.scan.ScanSourceOpDesc
 
 import java.io.{File, IOException}
+import java.nio.file.Paths
 
 class CSVOldScanSourceOpDesc extends ScanSourceOpDesc {
 
@@ -37,12 +38,12 @@ class CSVOldScanSourceOpDesc extends ScanSourceOpDesc {
     if (customDelimiter.get.isEmpty)
       customDelimiter = Option(",")
 
-    val (filepath, fileDesc) = determineFilePathOrDesc()
+    val (filepath, fileDoc) = determineFilePathOrDesc()
     // for CSVOldScanSourceOpDesc, it requires the full File presence when execute, so use temp file here
     // TODO: figure out a better way
     val path =
       if (filepath == null) {
-        fileDesc.tempFilePath().toString
+        fileDoc.copy().getPath
       } else {
         filepath
       }
@@ -81,12 +82,12 @@ class CSVOldScanSourceOpDesc extends ScanSourceOpDesc {
     if (customDelimiter.isEmpty) {
       return null
     }
-    val (filepath, fileDesc) = determineFilePathOrDesc()
+    val (filepath, fileDoc) = determineFilePathOrDesc()
     val file =
       if (filepath != null) {
         new File(filepath)
       } else {
-        fileDesc.tempFilePath().toFile
+        new File(fileDoc.copy().getPath)
       }
     implicit object CustomFormat extends DefaultCSVFormat {
       override val delimiter: Char = customDelimiter.get.charAt(0)

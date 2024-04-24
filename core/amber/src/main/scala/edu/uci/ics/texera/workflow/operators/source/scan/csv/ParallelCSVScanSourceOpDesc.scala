@@ -12,6 +12,7 @@ import edu.uci.ics.texera.workflow.common.tuple.schema.{Attribute, AttributeType
 import edu.uci.ics.texera.workflow.operators.source.scan.ScanSourceOpDesc
 
 import java.io.{File, IOException}
+import java.nio.file.Paths
 
 class ParallelCSVScanSourceOpDesc extends ScanSourceOpDesc {
 
@@ -39,10 +40,10 @@ class ParallelCSVScanSourceOpDesc extends ScanSourceOpDesc {
 
     // here, the stream requires to be seekable, so datasetFileDesc creates a temp file here
     // TODO: consider a better way
-    val (filepath, fileDesc) = determineFilePathOrDesc()
+    val (filepath, fileDoc) = determineFilePathOrDesc()
     val file =
       if (filepath == null) {
-        fileDesc.tempFilePath().toFile
+        new File(fileDoc.copy().getPath)
       } else {
         new File(filepath)
       }
@@ -86,10 +87,10 @@ class ParallelCSVScanSourceOpDesc extends ScanSourceOpDesc {
     if (customDelimiter.isEmpty) {
       return null
     }
-    val (filepath, fileDesc) = determineFilePathOrDesc()
+    val (filepath, fileDoc) = determineFilePathOrDesc()
     val file =
       if (filepath == null) {
-        fileDesc.tempFilePath().toFile
+        new File(fileDoc.copy().getPath)
       } else {
         new File(filepath)
       }

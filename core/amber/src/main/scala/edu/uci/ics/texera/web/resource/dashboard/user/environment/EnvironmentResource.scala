@@ -1,5 +1,11 @@
 package edu.uci.ics.texera.web.resource.dashboard.user.environment
 
+import edu.uci.ics.amber.engine.common.storage.{TexeraDocument, TexeraURI}
+import edu.uci.ics.amber.engine.common.storage.file.FileTreeNode
+import edu.uci.ics.amber.engine.common.storage.file.localfs.{
+  GitVersionControlledCollection,
+  GitVersionControlledDocument
+}
 import edu.uci.ics.texera.Utils.withTransaction
 import edu.uci.ics.texera.web.SqlServer
 import edu.uci.ics.texera.web.auth.SessionUser
@@ -19,9 +25,6 @@ import edu.uci.ics.texera.web.model.jooq.generated.tables.daos.{
   EnvironmentDao,
   EnvironmentOfWorkflowDao
 }
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.DatasetResource.retrieveDatasetVersionFilePaths
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.`type`.{DatasetFileDesc, FileNode}
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.service.GitVersionControlLocalFileStorage
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.utils.PathUtils
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.{
   DatasetAccessResource,
@@ -43,7 +46,6 @@ import edu.uci.ics.texera.web.resource.dashboard.user.environment.EnvironmentRes
   doesUserOwnEnvironment,
   getEnvironmentByEid,
   retrieveDatasetsAndVersions,
-  retrieveDatasetsOfEnvironmentFileList,
   userHasReadAccessToEnvironment,
   userHasWriteAccessToEnvironment
 }
@@ -52,12 +54,11 @@ import io.dropwizard.auth.Auth
 import org.jooq.{Configuration, DSLContext}
 import org.jooq.types.UInteger
 
-import java.net.URLDecoder
 import java.nio.file.Paths
 import javax.annotation.security.RolesAllowed
 import javax.ws.rs.core.{MediaType, Response}
 import javax.ws.rs.{GET, POST, Path, PathParam, Produces}
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.matching.Regex
 
@@ -103,11 +104,11 @@ object EnvironmentResource {
 
   // return the descriptor of the target file.
   // The filename is passed from the frontend, the did is contained in the filename in the format of /{dataset-name}/{filepath}
-  def getEnvironmentDatasetFilePathAndVersion(
+  def getDatasetFileDocument(
       uid: UInteger,
       eid: UInteger,
       fileName: String
-  ): DatasetFileDesc = {
+  ): TexeraDocument[_] = {
     withTransaction(context) { ctx =>
       {
         // Adjust the pattern to match the new fileName format
@@ -129,26 +130,30 @@ object EnvironmentResource {
         val datasetsOfEnvironment = retrieveDatasetsAndVersions(ctx, uid, eid)
 
         // Initialize datasetFileDesc as None
-        var datasetFileDesc: Option[DatasetFileDesc] = None
+        var datasetFileDocument: Option[TexeraDocument[_]] = None
 
         // Iterate over datasetsOfEnvironment to find a match based on datasetName
         datasetsOfEnvironment.foreach { datasetAndVersion =>
           if (datasetAndVersion.dataset.getName == datasetName) {
-            datasetFileDesc = Some(
-              new DatasetFileDesc(
-                filePath,
-                PathUtils.getDatasetPath(datasetAndVersion.dataset.getDid),
-                datasetAndVersion.version.getVersionHash
+            val datasetPath = PathUtils.getDatasetPath(datasetAndVersion.dataset.getDid)
+            val datasetURI = TexeraURI(datasetPath)
+            val fileURI = TexeraURI(datasetPath.resolve(filePath))
+
+            datasetFileDocument = Some(
+              new GitVersionControlledDocument(
+                datasetURI,
+                fileURI,
+                Some(datasetAndVersion.version.getVersionHash)
               )
             )
           }
         }
 
         // Check if datasetFileDesc is set, if not, throw an exception
-        if (datasetFileDesc.isEmpty) {
+        if (datasetFileDocument.isEmpty) {
           throw new RuntimeException("Given file is not found in the environment")
         }
-        datasetFileDesc.get
+        datasetFileDocument.get
       }
     }
   }
@@ -206,17 +211,6 @@ object EnvironmentResource {
     val countVal = count.getValue(0, classOf[Int]) // Get the count value from the record
     countVal > 0
   }
-
-  private def fetchEnvironmentIdOfWorkflow(ctx: DSLContext, wid: UInteger): Option[UInteger] = {
-    val environmentOfWorkflowDao = new EnvironmentOfWorkflowDao(ctx.configuration())
-    val environmentOfWorkflow = environmentOfWorkflowDao.fetchByWid(wid)
-    if (environmentOfWorkflow.isEmpty) {
-      None
-    } else {
-      Some(environmentOfWorkflow.get(0).getEid)
-    }
-  }
-
   private def fetchWorkflowIdsOfEnvironment(ctx: DSLContext, eid: UInteger): List[UInteger] = {
     val environmentOfWorkflowDao = new EnvironmentOfWorkflowDao(ctx.configuration())
     val envOfWorkflows = environmentOfWorkflowDao.fetchByEid(eid)
@@ -297,22 +291,6 @@ object EnvironmentResource {
       .sortBy(_.dataset.getName)
   }
 
-  private def retrieveDatasetsOfEnvironmentFileList(
-      ctx: DSLContext,
-      uid: UInteger,
-      datasetsOfEnv: List[DatasetOfEnvironmentDetails]
-  ): List[String] = {
-    datasetsOfEnv.flatMap(entry => {
-      val did = entry.dataset.getDid
-      val dvid = entry.version.getDvid
-      val datasetName = entry.dataset.getName
-      val fileList = retrieveDatasetVersionFilePaths(ctx, uid, did, dvid)
-      val resList: ListBuffer[String] = new ListBuffer[String]
-      fileList.forEach(file => resList.append(s"$datasetName/$file"))
-      resList.toList
-    })
-  }
-
   case class DashboardEnvironment(
       environment: Environment,
       isCurrentUserEditable: Boolean
@@ -328,7 +306,7 @@ object EnvironmentResource {
   case class DatasetID(did: UInteger)
 
   case class DatasetVersionID(dvid: UInteger)
-  case class DatasetFileNodes(datasetName: String, fileNodes: List[FileNode])
+  case class DatasetFileNodes(datasetName: String, fileNodes: List[FileTreeNode])
   case class WorkflowLink(wid: UInteger)
 
   // error handling
@@ -637,40 +615,12 @@ class EnvironmentResource {
       datasetsOfEnv.foreach(entry => {
         val did = entry.dataset.getDid
         val datasetVersionHash = entry.version.getVersionHash
-        val fileTree = GitVersionControlLocalFileStorage.retrieveRootFileNodesOfVersion(
-          PathUtils.getDatasetPath(did),
-          datasetVersionHash
-        )
+        val datasetURI = TexeraURI(PathUtils.getDatasetPath(did))
+        val datasetRepo =
+          new GitVersionControlledCollection(datasetURI, datasetURI, Some(datasetVersionHash))
         val datasetName = entry.dataset.getName
-        result += DatasetFileNodes(datasetName, fileTree.asScala.toList)
+        result += DatasetFileNodes(datasetName, datasetRepo.getFileTreeNodes)
       })
-
-      result.toList
-    })
-  }
-
-  @GET
-  @Path("/{eid}/files/{query:.*}")
-  def getDatasetsFileList(
-      @Auth user: SessionUser,
-      @PathParam("eid") eid: UInteger,
-      @PathParam("query") q: String
-  ): List[String] = {
-    val query = URLDecoder.decode(q, "UTF-8")
-    val uid = user.getUid
-
-    withTransaction(context)(ctx => {
-      if (!userHasReadAccessToEnvironment(ctx, eid, uid)) {
-        throw new Exception(UserNoPermissionExceptionMessage)
-      }
-      val datasetsOfEnv = retrieveDatasetsAndVersions(ctx, uid, eid)
-
-      val result = ArrayBuffer[String]()
-      val fileList = retrieveDatasetsOfEnvironmentFileList(ctx, uid, datasetsOfEnv)
-
-      // Filter fileList based on query
-      val filteredList = fileList.filter(filePath => query.isEmpty || filePath.contains(query))
-      result ++= filteredList
 
       result.toList
     })
