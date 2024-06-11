@@ -10,6 +10,7 @@ import edu.uci.ics.amber.engine.common.virtualidentity.{
 }
 import edu.uci.ics.amber.engine.common.workflow.PhysicalLink
 import edu.uci.ics.texera.workflow.common.WorkflowContext
+import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import org.jgrapht.alg.connectivity.BiconnectivityInspector
 import org.jgrapht.alg.shortestpath.AllDirectedPaths
 import org.jgrapht.graph.DirectedAcyclicGraph
@@ -20,7 +21,11 @@ import scala.jdk.CollectionConverters.{IteratorHasAsScala, ListHasAsScala, SetHa
 
 object PhysicalPlan {
 
-  def apply(context: WorkflowContext, logicalPlan: LogicalPlan): PhysicalPlan = {
+  def apply(
+      context: WorkflowContext,
+      logicalPlan: LogicalPlan,
+      opResultStorage: Option[OpResultStorage] = None
+  ): PhysicalPlan = {
 
     var physicalPlan = PhysicalPlan(operators = Set.empty, links = Set.empty)
 
@@ -49,7 +54,11 @@ object PhysicalPlan {
             val internalLinks = subPlan.getUpstreamPhysicalLinks(physicalOp.id)
 
             // Add the operator to the physical plan
-            physicalPlan = physicalPlan.addOperator(physicalOp.propagateSchema())
+            physicalPlan = physicalPlan.addOperator(
+              physicalOp
+                .propagateSchema()
+                .assignOutputPortStorages(logicalOp, context, opResultStorage)
+            )
 
             // Add all the links to the physical plan
             physicalPlan = (externalLinks ++ internalLinks)

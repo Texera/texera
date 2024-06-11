@@ -26,6 +26,47 @@ class OpResultStorage extends Serializable with LazyLogging {
   val cache: ConcurrentHashMap[OperatorIdentity, SinkStorageReader] =
     new ConcurrentHashMap[OperatorIdentity, SinkStorageReader]()
 
+  val portStorage: ConcurrentHashMap[String, SinkStorageReader] =
+    new ConcurrentHashMap[String, SinkStorageReader]()
+
+  def getPortStorage(key: String): SinkStorageReader = {
+    portStorage.get(key)
+  }
+
+  def createPortStorage(
+      executionId: String = "",
+      key: String,
+      mode: String
+  ): SinkStorageReader = {
+    val storage: SinkStorageReader =
+      if (mode == "memory") {
+        new MemoryStorage
+      } else {
+        try {
+          new MongoDBSinkStorage(executionId + key)
+        } catch {
+          case t: Throwable =>
+            logger.warn("Failed to create mongo storage", t)
+            logger.info(s"Fall back to memory storage for $key")
+            // fall back to memory
+            new MemoryStorage
+        }
+      }
+    portStorage.put(key, storage)
+    storage
+  }
+
+  def containsPortStorage(key: String): Boolean = {
+    portStorage.contains(key)
+  }
+
+  def removePortStorage(key: String): Unit = {
+    if (portStorage.contains(key)) {
+      portStorage.get(key).clear()
+    }
+    portStorage.remove(key)
+  }
+
   /**
     * Retrieve the result of an operator from OpResultStorage
     * @param key The key used for storage and retrieval.
@@ -81,6 +122,8 @@ class OpResultStorage extends Serializable with LazyLogging {
   def close(): Unit = {
     cache.forEach((_, sinkStorageReader) => sinkStorageReader.clear())
     cache.clear()
+    portStorage.forEach((_, sinkStorageReader) => sinkStorageReader.clear())
+    portStorage.clear()
   }
 
 }

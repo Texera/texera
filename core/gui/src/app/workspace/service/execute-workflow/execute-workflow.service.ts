@@ -26,6 +26,7 @@ import { exhaustiveGuard } from "../../../common/util/switch";
 import { WorkflowStatusService } from "../workflow-status/workflow-status.service";
 import { isDefined } from "../../../common/util/predicate";
 import { intersection } from "../../../common/util/set";
+import { PortDescription } from "../../types/workflow-common.interface";
 
 // TODO: change this declaration
 export const FORM_DEBOUNCE_TIME_MS = 150;
@@ -169,6 +170,7 @@ export class ExecuteWorkflowService {
       this.workflowActionService.getTexeraGraph(),
       targetOperatorId
     );
+    console.log(logicalPlan);
     this.resetExecutionState();
     this.workflowStatusService.resetStatus();
     this.sendExecutionRequest(executionName, logicalPlan);
@@ -376,7 +378,19 @@ export class ExecuteWorkflowService {
       intersection(operatorIds, workflowGraph.getOperatorsMarkedForReuseResult())
     );
 
-    return { operators, links, opsToViewResult, opsToReuseResult };
+    const terminalOpIds: string[] = Array.from(operatorIds).filter(opId => !links.some(link => link.fromOpId === opId));
+
+    const opsNeedingOutputStorage = new Set(opsToViewResult.concat(terminalOpIds));
+
+    const operatorsWithPortStorage: LogicalOperator[] = operators.map(op => ({
+      ...op,
+      outputPorts: (op.outputPorts as PortDescription[]).map(outputPort => ({
+        ...outputPort,
+        hasStorage: opsNeedingOutputStorage.has(op.operatorID),
+      })),
+    }));
+
+    return { operators: operatorsWithPortStorage, links, opsToViewResult, opsToReuseResult };
   }
 
   public getWorkerIds(operatorId: string): ReadonlyArray<string> {

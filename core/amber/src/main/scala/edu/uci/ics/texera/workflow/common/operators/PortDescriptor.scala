@@ -9,7 +9,8 @@ case class PortDescription(
     allowMultiInputs: Boolean,
     isDynamicPort: Boolean,
     partitionRequirement: PartitionInfo,
-    dependencies: List[Int] = List.empty
+    dependencies: List[Int] = List.empty,
+    hasStorage: Boolean
 )
 
 trait PortDescriptor {
@@ -17,5 +18,5 @@ trait PortDescriptor {
   var inputPorts: List[PortDescription] = null
 
   @JsonProperty(required = false)
-  var outputPorts: List[PortDescription] = null
+  var outputPorts: List[PortDescription] = List.empty
 }

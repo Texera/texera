@@ -100,7 +100,7 @@ public class PythonUDFSourceOpDescV2 extends SourceOperatorDescriptor {
                 "User-defined function operator in Python script",
                 OperatorGroupConstants.PYTHON_GROUP(),
                 asScala(new ArrayList<InputPort>()).toList(),
-                asScala(singletonList(new OutputPort(new PortIdentity(0, false), "", false))).toList(),
+                asScala(singletonList(new OutputPort(new PortIdentity(0, false), "", false, ""))).toList(),
                 false,
                 false,
                 true,

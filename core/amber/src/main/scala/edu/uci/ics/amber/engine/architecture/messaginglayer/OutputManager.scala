@@ -14,6 +14,7 @@ import edu.uci.ics.amber.engine.common.tuple.amber.{SchemaEnforceable, TupleLike
 import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.engine.common.workflow.{PhysicalLink, PortIdentity}
 import edu.uci.ics.texera.workflow.common.tuple.schema.Schema
+import edu.uci.ics.texera.workflow.operators.sink.storage.SinkStorageWriter
 
 import scala.collection.mutable
 
@@ -135,6 +136,21 @@ class OutputManager(
           networkOutputBuffers((link, partitioner.allReceivers(bucketIndex))).addTuple(tuple)
         }
     }
+
+    // Save to storage
+
+    (outputPortId match {
+      case Some(portId) => ports.filter(_._1 == portId)
+      case None         => ports
+    }).foreach(kv => {
+      val portId = kv._1
+      kv._2.storage match {
+        case Some(storageWriter) =>
+          val tuple = tupleLike.enforceSchema(getPort(portId).schema)
+          storageWriter.putOne(tuple)
+        case None =>
+      }
+    })
   }
 
   /**
@@ -172,13 +188,16 @@ class OutputManager(
     })
   }
 
-  def addPort(portId: PortIdentity, schema: Schema): Unit = {
+  def addPort(portId: PortIdentity, schema: Schema, storage: Option[SinkStorageWriter]): Unit = {
     // each port can only be added and initialized once.
     if (this.ports.contains(portId)) {
       return
     }
-    this.ports(portId) = WorkerPort(schema)
-
+    this.ports(portId) = WorkerPort(schema, storage = storage)
+    this.ports(portId).storage match {
+      case Some(storageWriter) => storageWriter.open()
+      case None                =>
+    }
   }
 
   def getPort(portId: PortIdentity): WorkerPort = ports(portId)
@@ -191,6 +210,15 @@ class OutputManager(
         outputIterator.appendSpecialTupleToEnd(FinalizePort(outputPortId, input = false))
       )
     outputIterator.appendSpecialTupleToEnd(FinalizeExecutor())
+  }
+
+  def closeOutputStorages(): Unit = {
+    this.ports.values.foreach(workerPort => {
+      workerPort.storage match {
+        case Some(storageWriter) => storageWriter.close()
+        case None                =>
+      }
+    })
   }
 
   def getSingleOutputPortIdentity: PortIdentity = {

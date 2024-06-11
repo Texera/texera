@@ -95,7 +95,7 @@ public class RUDFSourceOpDesc extends SourceOperatorDescriptor {
                 "User-defined function operator in R script",
                 OperatorGroupConstants.R_GROUP(),
                 asScala(new ArrayList<InputPort>()).toList(),
-                asScala(singletonList(new OutputPort(new PortIdentity(0, false), "", false))).toList(),
+                asScala(singletonList(new OutputPort(new PortIdentity(0, false), "", false, ""))).toList(),
                 false,
                 false,
                 false,

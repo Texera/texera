@@ -145,6 +145,7 @@ class DataProcessor(
         outputManager.emitEndOfUpstream()
         // Send Completed signal to worker actor.
         executor.close()
+        outputManager.closeOutputStorages()
         adaptiveBatchingMonitor.stopAdaptiveBatching()
         stateManager.transitTo(COMPLETED)
         logger.info(

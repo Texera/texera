@@ -85,7 +85,7 @@ class WorkflowCompiler(
     )
 
     // the PhysicalPlan with topology expanded.
-    val physicalPlan = PhysicalPlan(context, rewrittenLogicalPlan)
+    val physicalPlan = PhysicalPlan(context, rewrittenLogicalPlan, Some(opResultStorage))
 
     Workflow(
       context,

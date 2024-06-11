@@ -40,7 +40,7 @@ object ControlCommandConvertUtils {
         ResumeWorkerV2()
       case OpenExecutor() =>
         OpenExecutorV2()
-      case AssignPort(portId, input, schema) =>
+      case AssignPort(portId, input, schema, _) =>
         AssignPortV2(portId, input, schema.toRawSchema)
       case AddPartitioning(tag: PhysicalLink, partitioning: Partitioning) =>
         AddPartitioningV2(tag, partitioning)

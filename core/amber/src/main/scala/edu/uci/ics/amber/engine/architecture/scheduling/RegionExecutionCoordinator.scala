@@ -22,13 +22,15 @@ import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
 import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
 import edu.uci.ics.amber.engine.common.workflow.PhysicalLink
 import edu.uci.ics.texera.web.workflowruntimestate.WorkflowAggregatedState
+import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 
 import scala.collection.Seq
 class RegionExecutionCoordinator(
     region: Region,
     workflowExecution: WorkflowExecution,
     asyncRPCClient: AsyncRPCClient,
-    controllerConfig: ControllerConfig
+    controllerConfig: ControllerConfig,
+    opResultStorage: OpResultStorage
 ) {
   def execute(actorService: AkkaActorService): Future[Unit] = {
 
@@ -144,23 +146,36 @@ class RegionExecutionCoordinator(
           val inputPortMapping = physicalOp.inputPorts
             .flatMap {
               case (inputPortId, (_, _, Right(schema))) =>
-                Some(GlobalPortIdentity(physicalOp.id, inputPortId, input = true) -> schema)
+                Some(GlobalPortIdentity(physicalOp.id, inputPortId, input = true) -> (schema, None))
               case _ => None
             }
           val outputPortMapping = physicalOp.outputPorts
             .flatMap {
-              case (outputPortId, (_, _, Right(schema))) =>
-                Some(GlobalPortIdentity(physicalOp.id, outputPortId, input = false) -> schema)
+              case (outputPortId, (outputPort, _, Right(schema))) =>
+                Some(
+                  GlobalPortIdentity(
+                    physicalOp.id,
+                    outputPortId,
+                    input = false
+                  ) -> (schema, outputPort.storageLocation match {
+                    case ""       => None
+                    case location => Some(opResultStorage.getPortStorage(location).getStorageWriter)
+                    case _        => None
+                  })
+                )
               case _ => None
             }
           inputPortMapping ++ outputPortMapping
         }
         .flatMap {
-          case (globalPortId, schema) =>
+          case (globalPortId, (schema, storage)) =>
             resourceConfig.operatorConfigs(globalPortId.opId).workerConfigs.map(_.workerId).map {
               workerId =>
                 asyncRPCClient
-                  .send(AssignPort(globalPortId.portId, globalPortId.input, schema), workerId)
+                  .send(
+                    AssignPort(globalPortId.portId, globalPortId.input, schema, storage),
+                    workerId
+                  )
             }
         }
         .toSeq

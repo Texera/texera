@@ -5,13 +5,15 @@ import edu.uci.ics.amber.engine.architecture.worker.promisehandlers.AssignPortHa
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCServer.ControlCommand
 import edu.uci.ics.amber.engine.common.workflow.PortIdentity
 import edu.uci.ics.texera.workflow.common.tuple.schema.Schema
+import edu.uci.ics.texera.workflow.operators.sink.storage.SinkStorageWriter
 
 object AssignPortHandler {
 
   final case class AssignPort(
       portId: PortIdentity,
       input: Boolean,
-      schema: Schema
+      schema: Schema,
+      storage: Option[SinkStorageWriter]
   ) extends ControlCommand[Unit]
 }
 
@@ -22,7 +24,7 @@ trait AssignPortHandler {
     if (msg.input) {
       dp.inputManager.addPort(msg.portId, msg.schema)
     } else {
-      dp.outputManager.addPort(msg.portId, msg.schema)
+      dp.outputManager.addPort(msg.portId, msg.schema, msg.storage)
     }
   }
 

@@ -40,6 +40,7 @@ export interface PortDescription
     isDynamicPort?: boolean;
     partitionRequirement?: PartitionInfo;
     dependencies?: { id: number; internal: boolean }[];
+    hasStorage?: boolean;
   }> {}
 
 export interface OperatorPredicate

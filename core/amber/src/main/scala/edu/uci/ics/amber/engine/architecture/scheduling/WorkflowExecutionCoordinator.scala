@@ -7,6 +7,7 @@ import edu.uci.ics.amber.engine.architecture.controller.ControllerConfig
 import edu.uci.ics.amber.engine.architecture.controller.execution.WorkflowExecution
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
 import edu.uci.ics.amber.engine.common.workflow.PhysicalLink
+import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 
 import scala.collection.mutable
 
@@ -14,7 +15,8 @@ class WorkflowExecutionCoordinator(
     getNextRegions: () => Set[Region],
     workflowExecution: WorkflowExecution,
     controllerConfig: ControllerConfig,
-    asyncRPCClient: AsyncRPCClient
+    asyncRPCClient: AsyncRPCClient,
+    opResultStorage: OpResultStorage
 ) extends LazyLogging {
 
   private val executedRegions: mutable.ListBuffer[Set[Region]] = mutable.ListBuffer()
@@ -41,7 +43,8 @@ class WorkflowExecutionCoordinator(
               region,
               workflowExecution,
               asyncRPCClient,
-              controllerConfig
+              controllerConfig,
+              opResultStorage
             )
             regionExecutionCoordinators(region.id)
           })

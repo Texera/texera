@@ -26,6 +26,9 @@ import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.{
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
 import edu.uci.ics.amber.engine.common.virtualidentity._
 import edu.uci.ics.amber.engine.common.workflow.{InputPort, OutputPort, PhysicalLink, PortIdentity}
+import edu.uci.ics.texera.workflow.common.WorkflowContext
+import edu.uci.ics.texera.workflow.common.operators.LogicalOp
+import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import edu.uci.ics.texera.workflow.common.tuple.schema.Schema
 import edu.uci.ics.texera.workflow.common.workflow._
 import org.jgrapht.graph.{DefaultEdge, DirectedAcyclicGraph}
@@ -438,6 +441,49 @@ case class PhysicalOp(
       // Not all input schemas are defined, return the updated operation without changes
       updatedOp
     }
+  }
+
+  def assignOutputPortStorages(
+      logicalOp: LogicalOp,
+      context: WorkflowContext,
+      opResultStorageOptional: Option[OpResultStorage]
+  ): PhysicalOp = {
+    opResultStorageOptional match {
+      case Some(opResultStorage: OpResultStorage) =>
+        logicalOp.outputPorts.zipWithIndex.foldLeft(this) { (currentOp, portWithIndex) =>
+          {
+            if (
+              portWithIndex._1.hasStorage && currentOp.outputPorts
+                .exists(pred => pred._1.id == portWithIndex._2)
+            ) {
+              val correspondingPortId =
+                currentOp.outputPorts.keys.filter(portId => portId.id == portWithIndex._2).head
+              val existingContent = outputPorts(correspondingPortId)
+              val storageKey = s"${currentOp.id}_outPort_${correspondingPortId.id}"
+              val storageType = OpResultStorage.defaultStorageMode
+              val createdStorageReader = opResultStorage.createPortStorage(
+                s"${context.executionId}_",
+                storageKey,
+                storageType
+              )
+              existingContent._3 match {
+                case Left(_)       =>
+                case Right(schema) => createdStorageReader.setSchema(schema)
+              }
+              currentOp.copy(outputPorts =
+                outputPorts.updated(
+                  correspondingPortId,
+                  existingContent.copy(_1 = existingContent._1.copy(storageLocation = storageKey))
+                )
+              )
+            } else {
+              currentOp
+            }
+          }
+        }
+      case _ => this
+    }
+
   }
 
   /**
