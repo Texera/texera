@@ -10,19 +10,18 @@ import com.google.api.services.drive.Drive
 import com.google.api.services.drive.model.{File, FileList, Permission}
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.model.{Spreadsheet, SpreadsheetProperties, ValueRange}
+import edu.uci.ics.amber.engine.common.storage.VirtualDocument
 import edu.uci.ics.amber.engine.common.virtualidentity.OperatorIdentity
 import edu.uci.ics.texera.Utils.retry
 import edu.uci.ics.texera.web.model.websocket.request.ResultExportRequest
 import edu.uci.ics.texera.web.model.websocket.response.ResultExportResponse
 import edu.uci.ics.texera.web.resource.GoogleResource
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.DatasetResource.createNewDatasetVersionByAddingFiles
-
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.utils.PathUtils
 import edu.uci.ics.texera.web.resource.dashboard.user.file.UserFileResource
 import edu.uci.ics.texera.web.resource.dashboard.user.workflow.WorkflowVersionResource
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import edu.uci.ics.texera.workflow.common.tuple.Tuple
-import edu.uci.ics.texera.workflow.operators.sink.storage.SinkStorageReader
 import org.jooq.types.UInteger
 
 import java.time.LocalDateTime
@@ -59,14 +58,14 @@ class ResultExportService(opResultStorage: OpResultStorage, wId: UInteger) {
     }
 
     // By now the workflow should finish running
-    val operatorWithResult: SinkStorageReader =
-      opResultStorage.get(OperatorIdentity(request.operatorId))
+    val operatorWithResult: VirtualDocument[Tuple] =
+      opResultStorage.getStorage(OperatorIdentity(request.operatorId))
     if (operatorWithResult == null) {
       return ResultExportResponse("error", "The workflow contains no results")
     }
 
     // convert the ITuple into tuple
-    val results: Iterable[Tuple] = operatorWithResult.getAll
+    val results: Iterable[Tuple] = operatorWithResult.get().to(Iterable)
     val attributeNames = results.head.getSchema.getAttributeNames
 
     // handle the request according to export type

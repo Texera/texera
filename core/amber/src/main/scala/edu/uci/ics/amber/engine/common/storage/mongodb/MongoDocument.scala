@@ -10,17 +10,27 @@ import org.bson.Document
 import java.net.URI
 
 /**
-  * MongoDocument provides an implementation of VirtualDocument for MongoDB.
-  * It supports various operations like read, write, and remove on a MongoDB collection.
-  * @param id the identifier for the MongoDB collection.
+  * MongoDocumentMetadata class to encapsulate the metadata for MongoDocument.
   * @param toDocument a function that converts an item of type T to a MongoDB Document.
   * @param fromDocument a function that converts a MongoDB Document to an item of type T.
   * @tparam T the type of data items stored in the document.
   */
-class MongoDocument[T >: Null <: AnyRef](
-    id: String,
+case class MongoDocumentMetadata[T >: Null <: AnyRef](
     toDocument: T => Document,
     fromDocument: Document => T
+)
+
+/**
+  * MongoDocument provides an implementation of VirtualDocument for MongoDB.
+  * It supports various operations like read, write, and remove on a MongoDB collection.
+  * @param id the identifier for the MongoDB collection.
+  * @param metadata the metadata needed for MongoDocument.
+  * @tparam T the type of data items stored in the document.
+  */
+class MongoDocument[T >: Null <: AnyRef](
+    id: String,
+    var toDocument: Option[T => Document] = None,
+    var fromDocument: Option[Document => T] = None
 ) extends VirtualDocument[T] {
 
   /**
@@ -56,7 +66,7 @@ class MongoDocument[T >: Null <: AnyRef](
     * @return a new instance of MongoDBBufferedItemWriter.
     */
   override def write(): BufferedItemWriter[T] = {
-    new MongoDBBufferedItemWriter[T](commitBatchSize, id, toDocument)
+    new MongoDBBufferedItemWriter[T](commitBatchSize, id, toDocument.get)
   }
 
   /**
@@ -68,7 +78,7 @@ class MongoDocument[T >: Null <: AnyRef](
     new Iterator[T] {
       override def hasNext: Boolean = cursor.hasNext
 
-      override def next(): T = fromDocument(cursor.next())
+      override def next(): T = fromDocument.get(cursor.next())
     }.iterator
   }
 
@@ -124,7 +134,7 @@ class MongoDocument[T >: Null <: AnyRef](
     if (!cursor.hasNext) {
       throw new RuntimeException(f"Index $i out of bounds")
     }
-    fromDocument(cursor.next())
+    fromDocument.get(cursor.next())
   }
 
   /**
@@ -133,5 +143,16 @@ class MongoDocument[T >: Null <: AnyRef](
     */
   override def getCount: Long = {
     collectionMgr.getCount
+  }
+
+  /**
+    * Reset the document with new metadata.
+    * @param metadata the new metadata for resetting.
+    * @tparam R the type of the new metadata.
+    */
+  override def reset[R](metadata: R): Unit = {
+    val mongoMetadata = metadata.asInstanceOf[MongoDocumentMetadata[T]]
+    this.toDocument = Some(mongoMetadata.toDocument)
+    this.fromDocument = Some(mongoMetadata.fromDocument)
   }
 }

@@ -105,19 +105,19 @@ object WorkflowCacheRewriter {
           if (sink.getChartType.contains(VisualizationConstants.HTML_VIZ)) OpResultStorage.MEMORY
           else OpResultStorage.defaultStorageMode
         }
+
+        val storageSchema =
+          logicalPlan.getOperator(storageKey).outputPortToSchemaMapping.values.head
         if (reuseStorageSet.contains(storageKey) && storage.contains(storageKey)) {
-          sink.setStorage(storage.get(storageKey))
+          sink.setStorage(storage.getStorage(storageKey))
         } else {
           sink.setStorage(
             storage.create(
               s"${o.getContext.executionId}_",
               storageKey,
-              storageType
+              storageType,
+              Some(storageSchema)
             )
-          )
-
-          sink.getStorage.setSchema(
-            logicalPlan.getOperator(storageKey).outputPortToSchemaMapping.values.head
           )
           // add the sink collection name to the JSON array of sinks
           val storageNode = objectMapper.createObjectNode()
@@ -125,7 +125,7 @@ object WorkflowCacheRewriter {
           storageNode.put("storageKey", s"${o.getContext.executionId}_$storageKey")
           sinksPointers.add(storageNode)
         }
-        storage.get(storageKey)
+        storage.getStorage(storageKey)
 
       case _ =>
     }

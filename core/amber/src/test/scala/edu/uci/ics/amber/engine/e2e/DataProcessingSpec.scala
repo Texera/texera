@@ -77,7 +77,7 @@ class DataProcessingSpec
             }
             .map {
               case (sinkOpId, upstreamOpId) =>
-                (sinkOpId, resultStorage.get(upstreamOpId).getAll.toList)
+                (sinkOpId, resultStorage.getStorage(upstreamOpId).get().toList)
             }
             .toMap
           completion.setDone()

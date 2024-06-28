@@ -104,6 +104,14 @@ abstract class VirtualDocument[T >: Null <: AnyRef] {
   def asFile(): File = throw new NotImplementedError("asFile method is not implemented")
 
   /**
+    * used to reset the whole document
+    * @param metadata the metadata needed for resetting
+    * @tparam R the type of the metadata
+    */
+  def reset[R](metadata: R): Unit =
+    throw new NotImplementedError("reset method is not implemented")
+
+  /**
     * physically remove the current document
     */
   def remove(): Unit
