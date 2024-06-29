@@ -7,20 +7,12 @@ import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.PortComp
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.WorkerExecutionCompletedHandler.WorkerExecutionCompleted
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers.WorkerStateUpdatedHandler.WorkerStateUpdated
 import edu.uci.ics.amber.engine.architecture.logreplay.ReplayLogManager
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{
-  InputManager,
-  OutputManager,
-  WorkerTimerService
-}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{InputManager, OutputManager, WorkerTimerService}
 import edu.uci.ics.amber.engine.architecture.worker.DataProcessor.{FinalizeExecutor, FinalizePort}
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
 import edu.uci.ics.amber.engine.architecture.worker.managers.SerializationManager
 import edu.uci.ics.amber.engine.architecture.worker.promisehandlers.PauseHandler.PauseWorker
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.{
-  COMPLETED,
-  READY,
-  RUNNING
-}
+import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.{COMPLETED, READY, RUNNING}
 import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics
 import edu.uci.ics.amber.engine.common.ambermessage._
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager
@@ -29,6 +21,7 @@ import edu.uci.ics.amber.engine.common.virtualidentity.util.{CONTROLLER, SELF}
 import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.engine.common.workflow.PortIdentity
 import edu.uci.ics.amber.error.ErrorUtils.{mkConsoleMessage, safely}
+import edu.uci.ics.texera.workflow.common.{EndOfUpstream, StartOfUpstream, State}
 import edu.uci.ics.texera.workflow.common.operators.OperatorExecutor
 import edu.uci.ics.texera.workflow.common.tuple.Tuple
 
@@ -99,17 +92,23 @@ class DataProcessor(
     }
   }
 
+  private[this] def processInputState(state: State, port: Int): Unit = {
+    executor.processState(state, port)
+  }
+
   /**
     * process end of an input port with Executor.onFinish().
     * this function is only called by the DP thread.
     */
-  private[this] def processInputExhausted(): Unit = {
+  private[this] def processEndOfUpstream(port: Int): Unit = {
     try {
       outputManager.outputIterator.setTupleOutput(
-        executor.onFinishMultiPort(
-          this.inputGateway.getChannel(inputManager.currentChannelId).getPortId.id
-        )
+        executor.onInputFinishMultiPort(port)
       )
+      val outputState = executor.produceState()
+      if (outputState!= null) {
+        outputManager.emitMarker(outputState)
+      }
     } catch safely {
       case e =>
         // forward input tuple to the user and pause DP thread
@@ -142,7 +141,7 @@ class DataProcessor(
 
     outputTuple match {
       case FinalizeExecutor() =>
-        outputManager.emitEndOfUpstream()
+        outputManager.emitMarker(EndOfUpstream())
         // Send Completed signal to worker actor.
         executor.close()
         adaptiveBatchingMonitor.stopAdaptiveBatching()
@@ -154,6 +153,7 @@ class DataProcessor(
         )
         asyncRPCClient.send(WorkerExecutionCompleted(), CONTROLLER)
       case FinalizePort(portId, input) =>
+        //operator.onOutputFinish(portId.id)
         asyncRPCClient.send(PortCompleted(portId, input), CONTROLLER)
       case schemaEnforceable: SchemaEnforceable =>
         if (outputPortOpt.isEmpty) {
@@ -182,6 +182,7 @@ class DataProcessor(
       dataPayload: DataPayload
   ): Unit = {
     val dataProcessingStartTime = System.nanoTime()
+    val portId = this.inputGateway.getChannel(channelId).getPortId
     dataPayload match {
       case DataFrame(tuples) =>
         stateManager.conditionalTransitTo(
@@ -196,20 +197,24 @@ class DataProcessor(
         )
         inputManager.initBatch(channelId, tuples)
         processInputTuple(inputManager.getNextTuple)
-      case EndOfUpstream() =>
-        val channel = this.inputGateway.getChannel(channelId)
-        val portId = channel.getPortId
-
-        this.inputManager.getPort(portId).channels(channelId) = true
-
-        if (inputManager.isPortCompleted(portId)) {
-          inputManager.initBatch(channelId, Array.empty)
-          processInputExhausted()
-          outputManager.outputIterator.appendSpecialTupleToEnd(FinalizePort(portId, input = true))
-        }
-        if (inputManager.getAllPorts.forall(portId => inputManager.isPortCompleted(portId))) {
-          // assuming all the output ports finalize after all input ports are finalized.
-          outputManager.finalizeOutput()
+      case MarkerFrame(marker) =>
+        marker match {
+          case state: State =>
+            processInputState(state, portId.id)
+          case StartOfUpstream() =>
+          case EndOfUpstream() =>
+            this.inputManager.getPort(portId).channels(channelId) = true
+            if (inputManager.isPortCompleted(portId)) {
+              inputManager.initBatch(channelId, Array.empty)
+              processEndOfUpstream(portId.id)
+              outputManager.outputIterator.appendSpecialTupleToEnd(FinalizePort(portId, input = true))
+            }
+            if (inputManager.getAllPorts.forall(portId => inputManager.isPortCompleted(portId))) {
+              // assuming all the output ports finalize after all input ports are finalized.
+              outputManager.finalizeOutput()
+            }
+          case _ =>
+            logger.error(s"unsupported marker type: $marker")
         }
     }
     statisticsManager.increaseDataProcessingTime(System.nanoTime() - dataProcessingStartTime)
@@ -262,5 +267,4 @@ class DataProcessor(
     // invoke a pause in-place
     asyncRPCServer.execute(PauseWorker(), SELF)
   }
-
 }

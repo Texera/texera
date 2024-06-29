@@ -1,10 +1,6 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.OutputManager.{
-  DPOutputIterator,
-  getBatchSize,
-  toPartitioner
-}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.OutputManager.{DPOutputIterator, getBatchSize, toPartitioner}
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitioners._
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings._
 import edu.uci.ics.amber.engine.architecture.worker.DataProcessor.{FinalizeExecutor, FinalizePort}
@@ -13,6 +9,7 @@ import edu.uci.ics.amber.engine.common.rpc.AsyncRPCServer.ControlCommand
 import edu.uci.ics.amber.engine.common.tuple.amber.{SchemaEnforceable, TupleLike}
 import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.engine.common.workflow.{PhysicalLink, PortIdentity}
+import edu.uci.ics.texera.workflow.common.Marker
 import edu.uci.ics.texera.workflow.common.tuple.schema.Schema
 
 import scala.collection.mutable
@@ -161,14 +158,10 @@ class OutputManager(
     buffersToFlush.foreach(_.flush())
   }
 
-  /**
-    * Send the last batch and EOU marker to all down streams
-    */
-  def emitEndOfUpstream(): Unit = {
-    // flush all network buffers of this operator, emit end marker to network
+  def emitMarker(marker: Marker): Unit = {
     networkOutputBuffers.foreach(kv => {
       kv._2.flush()
-      kv._2.noMore()
+      kv._2.sendMarker(marker)
     })
   }
 
