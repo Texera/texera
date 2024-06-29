@@ -17,6 +17,7 @@ import { isUndefined } from "lodash";
 import { CloseAction, ErrorAction } from "vscode-languageclient/lib/common/client.js";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
 import { FormControl } from "@angular/forms";
+import { initServices } from "monaco-languageclient/vscode/services";
 
 /**
  * CodeEditorComponent is the content of the dialogue invoked by CodeareaCustomTemplateComponent.
@@ -100,7 +101,7 @@ export class CodeEditorComponent implements AfterViewInit, SafeStyle, OnDestroy 
         if (displayParticularVersion) {
           this.initDiffEditor();
         } else {
-          this.initMonaco();
+          initServices().then(r => this.initMonaco());
           this.formControl.statusChanges.pipe(untilDestroyed(this)).subscribe(_ => {
             this.editor.updateOptions({
               readOnly: this.formControl.disabled,
