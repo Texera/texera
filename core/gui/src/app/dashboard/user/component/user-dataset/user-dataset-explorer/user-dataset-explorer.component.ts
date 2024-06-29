@@ -10,13 +10,19 @@ import {
 import { DatasetVersion } from "../../../../../common/type/dataset";
 import { switchMap } from "rxjs/operators";
 import { NotificationService } from "../../../../../common/service/notification/notification.service";
-
+import { Injectable } from "@angular/core";
+import { UserWorkflowService } from "../../../service/user-workflow/user-workflow.service";
+import { EnvironmentService } from "../../../service/user-environment/environment.service";
+import { WorkflowPersistService } from "src/app/common/service/workflow-persist/workflow-persist.service";
+import { WorkflowActionService } from "src/app/workspace/service/workflow-graph/model/workflow-action.service";
+import { Point } from "plotly.js-basic-dist-min";
 @UntilDestroy()
 @Component({
   templateUrl: "./user-dataset-explorer.component.html",
   styleUrls: ["./user-dataset-explorer.component.scss"],
 })
 export class UserDatasetExplorerComponent implements OnInit {
+  public scanOption: string = "";
   public did: number | undefined;
   public datasetName: string = "";
   public datasetDescription: string = "";
@@ -41,7 +47,10 @@ export class UserDatasetExplorerComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private datasetService: DatasetService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private userWorkflowService: UserWorkflowService,
+    private environmentService: EnvironmentService,
+    private workflowPersistService: WorkflowPersistService
   ) {}
 
   // item for control the resizeable sider
@@ -222,6 +231,51 @@ export class UserDatasetExplorerComponent implements OnInit {
 
   onClickHideRightBar() {
     this.isRightBarCollapsed = !this.isRightBarCollapsed;
+  }
+
+  onClickCreateWorkflowFromDataset(): void {
+    const datasetFile: string = "/" + this.datasetName + this.currentDisplayedFileName;
+    this.userWorkflowService
+      .onClickCreateNewWorkflowFromDatasetDashboard(datasetFile, this.scanOption) // initializes a scan operator in workflow
+      .pipe(untilDestroyed(this))
+      .subscribe({
+        next: wid => {
+          if (wid && this.did) {
+            // initialize workflow action service
+            this.retrieveEnvironmentAndAddDataset(wid);
+          }
+        },
+      });
+  }
+
+  private retrieveEnvironmentAndAddDataset(wid: number): void {
+    this.workflowPersistService
+      .retrieveWorkflowEnvironment(wid)
+      .pipe(untilDestroyed(this))
+      .subscribe({
+        next: env => {
+          if (env.eid && this.did) {
+            this.addDatasetToEnvironmentAndNavigate(env.eid, wid);
+          }
+        },
+      });
+  }
+
+  private addDatasetToEnvironmentAndNavigate(eid: number, wid: number): void {
+    if (this.did != null && this.did != undefined) {
+      this.environmentService
+        .addDatasetToEnvironment(eid, this.did)
+        .pipe(untilDestroyed(this))
+        .subscribe({
+          next: response => {
+            this.navigateToWorkflowPage(wid);
+          },
+        });
+    }
+  }
+
+  private navigateToWorkflowPage(wid: number): void {
+    this.router.navigate([`/workflow/${wid}`]);
   }
 
   onVersionSelected(version: DatasetVersion): void {
