@@ -35,8 +35,25 @@ public class RUDFSourceOpDesc extends SourceOperatorDescriptor {
     @JsonProperty(
         required = true,
         defaultValue =
-            "function() {\n\n" +
-            "}"
+            "# If using Table API:\n" +
+            "# function() {\n" +
+            "# }\n" +
+            "\n" +
+            "# Table API Example:\n" +
+            "# function() { \n" +
+            "#   return (data.frame(Column_Here = \"Value_Here\")) \n" +
+            "# }\n" +
+            "\n" +
+            "# If using Tuple API:\n" +
+            "# library(coro)\n" +
+            "# coro::generator(function() {\n" +
+            "# })\n" +
+            "\n" +
+            "# Tuple API Example:\n" +
+            "# library(coro)\n" +
+            "# coro::generator(function() {\n" +
+            "#   yield (list(Column_Here = \"Value_Here\"))\n" +
+            "# })"
     )
     @JsonSchemaTitle("R Source UDF Script")
     @JsonPropertyDescription("Input your code here")
@@ -47,6 +64,11 @@ public class RUDFSourceOpDesc extends SourceOperatorDescriptor {
     @JsonPropertyDescription("Specify how many parallel workers to lunch")
     public Integer workers = 1;
 
+    @JsonProperty(required = true, defaultValue = "false")
+    @JsonSchemaTitle("Use Tuple API?")
+    @JsonPropertyDescription("Check this box to use Tuple API, leave unchecked to use Table API")
+    public Boolean useTupleAPI = false;
+
     @JsonProperty()
     @JsonSchemaTitle("Columns")
     @JsonPropertyDescription("The columns of the source")
@@ -54,7 +76,8 @@ public class RUDFSourceOpDesc extends SourceOperatorDescriptor {
 
     @Override
     public PhysicalOp getPhysicalOp(WorkflowIdentity workflowId, ExecutionIdentity executionId) {
-        OpExecInitInfo exec = OpExecInitInfo.apply(code, "r");
+        String r_operator_type = useTupleAPI ? "r-tuple" : "r-table";
+        OpExecInitInfo exec = OpExecInitInfo.apply(code, r_operator_type);
         Preconditions.checkArgument(workers >= 1, "Need at least 1 worker.");
         SchemaPropagationFunc func = SchemaPropagationFunc.apply((Function<Map<PortIdentity, Schema>, Map<PortIdentity, Schema>> & Serializable) inputSchemas -> {
             // Initialize a Java HashMap
