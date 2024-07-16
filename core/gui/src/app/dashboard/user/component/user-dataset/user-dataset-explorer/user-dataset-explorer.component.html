@@ -157,6 +157,31 @@
         (click)="onClickOpenVersionCreator()">
         + Version
       </button>
+      <button
+        nz-button
+        nzType="primary"
+        *ngIf="userHasWriteAccess()"
+        class="rounded-button"
+        (click)="onClickCreateWorkflowFromDataset()">
+        Create Workflow
+      </button>
+      <br />
+      <div style="padding: 20px">
+        <label for="scan-options">Select an option:</label>
+        <select
+          id="scan-options"
+          name="scan-options"
+          [(ngModel)]="scanOption">
+          <option value="JSONLFileScan">JSONL File Scan</option>
+          <option value="CSVFileScan">CSV File Scan</option>
+          <option value="TextInput">Text Input</option>
+          <option
+            value="FileScan"
+            selected>
+            File Scan
+          </option>
+        </select>
+      </div>
     </div>
   </nz-sider>
 </nz-layout>
