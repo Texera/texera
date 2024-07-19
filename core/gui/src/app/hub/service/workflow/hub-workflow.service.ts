@@ -4,6 +4,8 @@ import { Observable } from "rxjs";
 import { AppSettings } from "../../../common/app-setting";
 import { HubWorkflow } from "../../component/type/hub-workflow.interface";
 
+export const WORKFLOW_BASE_URL = `${AppSettings.getApiEndpoint()}/workflow`;
+
 @Injectable({
   providedIn: "root",
 })
@@ -18,5 +20,9 @@ export class HubWorkflowService {
 
   public getWorkflowList(): Observable<HubWorkflow[]> {
     return this.http.get<HubWorkflow[]>(`${this.BASE_URL}/list`);
+  }
+
+  public cloneWorkflow(wid: number): Observable<void> {
+    return this.http.post<void>(`${WORKFLOW_BASE_URL}/clone/${wid}`, null);
   }
 }

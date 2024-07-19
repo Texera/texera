@@ -14,8 +14,8 @@ class HubWorkflowResource {
   final private lazy val context = SqlServer.createDSLContext()
 
   @GET
-  @Path("/list")
-  def getWorkflowList: util.List[Workflow] = {
+  @Path("/list_all")
+  def getAllWorkflowList: util.List[Workflow] = {
     context
       .select()
       .from(WORKFLOW)
@@ -28,5 +28,15 @@ class HubWorkflowResource {
     context.selectCount
       .from(WORKFLOW)
       .fetchOne(0, classOf[Integer])
+  }
+
+  @GET
+  @Path("/list")
+  def getPublishedWorkflowList: util.List[Workflow] = {
+    context
+      .select()
+      .from(WORKFLOW)
+      .where(WORKFLOW.IS_PUBLISHED.eq(1.toByte))
+      .fetchInto(classOf[Workflow])
   }
 }

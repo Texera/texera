@@ -378,7 +378,8 @@ class WorkflowResource extends LazyLogging {
               null,
               workflow.getContent,
               null,
-              null
+              null,
+              0.toByte
             ),
             sessionUser
           )
@@ -408,6 +409,27 @@ class WorkflowResource extends LazyLogging {
         throw new WebApplicationException(exception)
     }
     resultWorkflows.toList
+  }
+
+  @POST
+  @Consumes(Array(MediaType.APPLICATION_JSON))
+  @Path("/clone/{wid}")
+  def cloneWorkflow(@PathParam("wid") wid: UInteger, @Auth sessionUser: SessionUser): Unit = {
+    val user = sessionUser.getUser
+    val workflow: Workflow = workflowDao.fetchOneByWid(wid)
+    createWorkflow(
+      new Workflow(
+        workflow.getName + "_clone",
+        workflow.getDescription,
+        null,
+        workflow.getContent,
+        null,
+        null,
+        0.toByte
+      ),
+      sessionUser
+    )
+    //TODO: copy the environment as well
   }
 
   /**
@@ -531,5 +553,35 @@ class WorkflowResource extends LazyLogging {
     }
 
     EnvironmentResource.getEnvironmentByWid(context, uid, wid)
+  }
+
+  @PUT
+  @RolesAllowed(Array("REGULAR", "ADMIN"))
+  @Path("/public/{wid}")
+  def makePublic(@PathParam("wid") wid: UInteger, @Auth user: SessionUser): Unit = {
+    println(wid + " is public now")
+    val workflow: Workflow = workflowDao.fetchOneByWid(wid)
+    workflow.setIsPublished(1.toByte)
+    workflowDao.update(workflow)
+  }
+
+  @PUT
+  @RolesAllowed(Array("REGULAR", "ADMIN"))
+  @Path("/private/{wid}")
+  def makePrivate(@PathParam("wid") wid: UInteger): Unit = {
+    println(wid + " is private now")
+    val workflow: Workflow = workflowDao.fetchOneByWid(wid)
+    workflow.setIsPublished(0.toByte)
+    workflowDao.update(workflow)
+  }
+
+  @GET
+  @Path("/type/{wid}")
+  def getWorkflowType(@PathParam("wid") wid: UInteger): String = {
+    val workflow: Workflow = workflowDao.fetchOneByWid(wid)
+    if (workflow.getIsPublished() == 1.toByte)
+      "Public"
+    else
+      "Private"
   }
 }

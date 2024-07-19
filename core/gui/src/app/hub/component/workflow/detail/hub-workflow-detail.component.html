@@ -1,4 +1,19 @@
+<div>
+  <button
+    (click)="goBack()"
+    class="back-button">
+    Go Back
+  </button>
+</div>
+
 <div class="container">
+  <div class="workflow-panel">
+    <button
+      (click)="cloneWorkflow()"
+      class="clone-button">
+      Copy & Edit
+    </button>
+  </div>
   <h1>Workflow Detail Page</h1>
   <div class="workflow-info">
     <div>
@@ -14,10 +29,8 @@
       <p>{{ workflow.createdBy }}</p>
     </div>
   </div>
-
   <div class="workflow-steps">
     <h2>Steps</h2>
-
     <div
       *ngFor="let step of workflow.steps"
       class="workflow-step">
