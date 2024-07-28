@@ -45,7 +45,7 @@ export class ShareAccessComponent implements OnInit {
       accessLevel: ["READ"],
     });
     this.currentEmail = this.userService.getCurrentUser()?.email;
-    
+
   }
 
   ngOnInit(): void {
@@ -89,12 +89,12 @@ export class ShareAccessComponent implements OnInit {
             this.gmailService.sendEmail(
               "Texera: " + this.owner + " shared a " + this.type + " with you",
               this.owner +
-                " shared a " +
-                this.type +
-                " with you, access the workflow at " +
-                location.origin +
-                "/workflow/" +
-                this.id,
+              " shared a " +
+              this.type +
+              " with you, access the workflow at " +
+              location.origin +
+              "/workflow/" +
+              this.id,
               this.validateForm.value.email
             );
           },
@@ -138,7 +138,7 @@ export class ShareAccessComponent implements OnInit {
         ]
       });
     }
-    
+
   }
   verifyUnpublish(): void {
     if (this.isPublic) {
