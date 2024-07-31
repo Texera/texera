@@ -1,34 +1,72 @@
-<div>
-  <button
-    (click)="goBack()"
-    class="back-button">
-    Go Back
-  </button>
-</div>
-
 <div class="container">
-  <div class="workflow-panel">
-    <button
-      (click)="cloneWorkflow()"
-      class="clone-button">
-      Copy & Edit
-    </button>
-  </div>
-  <h1>Workflow Detail Page</h1>
+  <button
+    nz-button
+    nzType="text"
+    nzSize="large"
+    class="go-back-button"
+    (click)="goBack()">
+    <span
+      nz-icon
+      nzType="arrow-left"
+      nzTheme="outline"></span>
+  </button>
   <div class="workflow-info">
-    <div>
-      <h2>ID</h2>
-      <p>{{ wid }}</p>
+    <div class="entity-type">
+      <span
+        class="type-icon"
+        nz-icon
+        nzType="project"
+        nzTheme="outline"></span>
+      <span class="type-text">Workflow</span>
     </div>
-    <div>
-      <h2>Workflow Name</h2>
-      <p>{{ workflow.name }}</p>
+
+    <div class="workflow-title">
+      <h1>{{ workflowName }}</h1>
+      <texera-user-avatar
+        [googleAvatar]="ownerUser.googleAvatar || ''"
+        userColor="grey"
+        [userName]="''+ wid"
+        nz-button>
+      </texera-user-avatar>
     </div>
-    <div>
-      <h2>Created By</h2>
-      <p>{{ workflow.createdBy }}</p>
+    <div class="workflow-panel">
+      <div class="workflow-owner-info">
+        <texera-user-avatar
+          [googleAvatar]="ownerUser.googleAvatar || ''"
+          userColor="grey"
+          [userName]="ownerUser.name || ''"
+          nz-button>
+        </texera-user-avatar>
+        <span class="owner-name"><strong>{{ ownerUser.name }}</strong> - Created on Nov 26, 2023 2:30 AM</span>
+      </div>
+      <div class="workflow-button-group">
+        <button
+          nz-button
+          nzType="default"
+          nzShape="circle">
+          <i
+            nz-icon
+            nzType="heart"
+            nzTheme="outline"></i>
+        </button>
+        <button
+          *ngIf="clonePrompt"
+          nz-button
+          (click)="cloneWorkflow()">
+          {{ clonePrompt }}
+        </button>
+        <button
+          nz-button
+          nzType="primary">
+          <i
+            nz-icon
+            nzType="play-circle"></i>
+          <span>Execute</span>
+        </button>
+      </div>
     </div>
   </div>
+  <div class="main-canvas">Main Canvas Here</div>
   <div class="workflow-steps">
     <h2>Steps</h2>
     <div

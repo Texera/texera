@@ -62,6 +62,7 @@ The following is a workflow formulated using the Texera GUI in a Web browser, wh
 ![Sample Texera Workflow](https://user-images.githubusercontent.com/12926365/171459157-1792971d-a31f-49e7-ab98-6f3b9ead9f5b.png)
 
 ## Publications (Computer Science):
+* (7/2024) Texera: A System for Collaborative and Interactive Data Analytics Using Workflows, Zuozhi Wang, Yicong Huang, Shengquan Ni, Avinash Kumar, Sadeem Alsudais, Xiaozhen Liu, Xinyuan Lin, Yunyan Ding and Chen Li, to appear in VLDB 2024, Scalable Data Science track.
 * (3/2024) Demonstration of Udon: Line-by-line Debugging of User-Defined Functions in Data Workflows, Yicong Huang, Zuozhi Wang, and Chen Li, in SIGMOD 2024, **Best Demo Runner Up Award🏆**, [PDF](https://dl.acm.org/doi/10.1145/3626246.3654756). 
 * (2/2024) Data Science Tasks Implemented with Scripts versus GUI-Based Workflows: The Good, the Bad, and the Ugly, Alexander K Taylor, Yicong Huang, Junheng Hao, Xinyuan Lin, Xiusi Chen, Wei Wang, and Chen Li, in DataPlat Workshop at ICDE 2024 [PDF](https://ieeexplore.ieee.org/abstract/document/10555112). 
 * (8/2023) Building a Collaborative Data Analytics System: Opportunities and Challenges, Zuozhi Wang, Chen Li, in Tutorial at VLDB 2023 [PDF](https://www.vldb.org/pvldb/vol16/p3898-wang.pdf), [Slides](https://chenli.ics.uci.edu/files/vldb2023-texera-tutorial.pdf).
@@ -116,7 +117,7 @@ To try our collaborative data analytics in _Demonstration of Collaborative and I
 
 ## Acknowledgements
 
-This project is supported by the <a href="http://www.nsf.gov">National Science Foundation</a> under the awards [III 1745673](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1745673), [III 2107150](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2107150), AWS Research Credits, and Google Cloud Platform Education Programs.
+This project is supported by the <a href="http://www.nsf.gov">National Science Foundation</a> under the awards [IIS-1745673](https://www.nsf.gov/awardsearch/showAward?AWD_ID=1745673), [IIS-2107150](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2107150), AWS Research Credits, and Google Cloud Platform Education Programs.
 
 * <a href="https://www.niddk.nih.gov/"><img src="https://github.com/Texera/texera/assets/17627829/d279897a-3efb-41c1-b2d3-8fd20c800ad7" alt="NIH NIDDK" height="30"/></a> This project is supported by an <a href="https://reporter.nih.gov/project-details/10818244">NIH NIDDK</a> award.
 

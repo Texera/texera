@@ -130,7 +130,6 @@ import { NzTreeModule } from "ng-zorro-antd/tree";
 import { NzTreeViewModule } from "ng-zorro-antd/tree-view";
 import { NzNoAnimationModule } from "ng-zorro-antd/core/no-animation";
 import { TreeModule } from "@ali-hm/angular-tree-component";
-import { EnvironmentComponent } from "./workspace/component/left-panel/environment/environment.component";
 import { FileSelectionComponent } from "./workspace/component/file-selection/file-selection.component";
 import { ResultExportationComponent } from "./workspace/component/result-exportation/result-exportation.component";
 import { HubComponent } from "./hub/component/hub.component";
@@ -140,6 +139,8 @@ import { HubWorkflowResultComponent } from "./hub/component/workflow/result/hub-
 import { HubWorkflowComponent } from "./hub/component/workflow/hub-workflow.component";
 import { HubWorkflowSearchBarComponent } from "./hub/component/workflow/search-bar/hub-workflow-search-bar.component";
 import { HubWorkflowDetailComponent } from "./hub/component/workflow/detail/hub-workflow-detail.component";
+import { HubResultCardComponent } from "./hub/component/workflow/result-card/hub-result-card.component";
+import { HubWorkflowBrowseSectionComponent } from "./hub/component/workflow/browse-section/hub-workflow-browse-section.component";
 
 registerLocaleData(en);
 
@@ -201,7 +202,6 @@ registerLocaleData(en);
     UserDatasetListItemComponent,
     UserDatasetFileRendererComponent,
     NzModalCommentBoxComponent,
-    EnvironmentComponent,
     LeftPanelComponent,
     LocalLoginComponent,
     ContextMenuComponent,
@@ -229,6 +229,8 @@ registerLocaleData(en);
     HubWorkflowDetailComponent,
     HubWorkflowResultComponent,
     GoogleLoginComponent,
+    HubResultCardComponent,
+    HubWorkflowBrowseSectionComponent,
   ],
   imports: [
     BrowserModule,

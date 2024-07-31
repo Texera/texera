@@ -69,22 +69,32 @@ object DashboardResource {
       @BeanParam params: SearchQueryParams
   ): DashboardSearchResult = {
     val uid = user.getUid
-    val query = params.resourceType match {
-      case SearchQueryBuilder.WORKFLOW_RESOURCE_TYPE =>
-        WorkflowSearchQueryBuilder.constructQuery(uid, params)
-      case SearchQueryBuilder.FILE_RESOURCE_TYPE =>
-        FileSearchQueryBuilder.constructQuery(uid, params)
-      case SearchQueryBuilder.PROJECT_RESOURCE_TYPE =>
-        ProjectSearchQueryBuilder.constructQuery(uid, params)
-      case SearchQueryBuilder.DATASET_RESOURCE_TYPE =>
-        DatasetSearchQueryBuilder.constructQuery(uid, params)
-      case SearchQueryBuilder.ALL_RESOURCE_TYPE =>
-        val q1 = WorkflowSearchQueryBuilder.constructQuery(uid, params)
-        val q2 = FileSearchQueryBuilder.constructQuery(uid, params)
-        val q3 = ProjectSearchQueryBuilder.constructQuery(uid, params)
-        val q4 = DatasetSearchQueryBuilder.constructQuery(uid, params)
-        q1.unionAll(q2).unionAll(q3).unionAll(q4)
-      case _ => throw new IllegalArgumentException(s"Unknown resource type: ${params.resourceType}")
+    val query = if (uid == null) {
+      params.resourceType match {
+        case SearchQueryBuilder.WORKFLOW_RESOURCE_TYPE =>
+          DefaultWorkflowSearchQueryBuilder.constructQuery(uid, params)
+        case _ =>
+          throw new IllegalArgumentException(s"Unknown resource type: ${params.resourceType}")
+      }
+    } else {
+      params.resourceType match {
+        case SearchQueryBuilder.WORKFLOW_RESOURCE_TYPE =>
+          WorkflowSearchQueryBuilder.constructQuery(uid, params)
+        case SearchQueryBuilder.FILE_RESOURCE_TYPE =>
+          FileSearchQueryBuilder.constructQuery(uid, params)
+        case SearchQueryBuilder.PROJECT_RESOURCE_TYPE =>
+          ProjectSearchQueryBuilder.constructQuery(uid, params)
+        case SearchQueryBuilder.DATASET_RESOURCE_TYPE =>
+          DatasetSearchQueryBuilder.constructQuery(uid, params)
+        case SearchQueryBuilder.ALL_RESOURCE_TYPE =>
+          val q1 = WorkflowSearchQueryBuilder.constructQuery(uid, params)
+          val q2 = FileSearchQueryBuilder.constructQuery(uid, params)
+          val q3 = ProjectSearchQueryBuilder.constructQuery(uid, params)
+          val q4 = DatasetSearchQueryBuilder.constructQuery(uid, params)
+          q1.unionAll(q2).unionAll(q3).unionAll(q4)
+        case _ =>
+          throw new IllegalArgumentException(s"Unknown resource type: ${params.resourceType}")
+      }
     }
 
     val finalQuery =
@@ -165,5 +175,13 @@ class DashboardResource {
       @BeanParam params: SearchQueryParams
   ): DashboardSearchResult = {
     DashboardResource.searchAllResources(user, params)
+  }
+
+  @GET
+  @Path("/public-search")
+  def publicSearchAllResources(
+      @BeanParam params: SearchQueryParams
+  ): DashboardSearchResult = {
+    DashboardResource.searchAllResources(new SessionUser(new User()), params)
   }
 }

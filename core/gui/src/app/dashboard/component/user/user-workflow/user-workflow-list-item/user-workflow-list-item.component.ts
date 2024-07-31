@@ -14,7 +14,6 @@ import { DashboardProject } from "../../../../type/dashboard-project.interface";
 import { UserProjectService } from "../../../../service/user/project/user-project.service";
 import { DashboardEntry } from "../../../../type/dashboard-entry";
 import { firstValueFrom } from "rxjs";
-import { PublicWorkflowService } from "src/app/dashboard/service/user/public-workflow/public-workflow.service";
 
 @UntilDestroy()
 @Component({
@@ -26,7 +25,6 @@ export class UserWorkflowListItemComponent {
   ROUTER_WORKFLOW_BASE_URL = "/workflow";
   ROUTER_USER_PROJECT_BASE_URL = "/dashboard/user/project";
   private _entry?: DashboardEntry;
-  isPublic: boolean = false;
   @Input() public keywords: string[] = [];
 
   @Input()
@@ -65,23 +63,13 @@ export class UserWorkflowListItemComponent {
     private modalService: NzModalService,
     private workflowPersistService: WorkflowPersistService,
     private fileSaverService: FileSaverService,
-    private userProjectService: UserProjectService,
-    private publicWorkflowService: PublicWorkflowService
+    private userProjectService: UserProjectService
   ) {
     this.userProjectService
       .getProjectList()
       .pipe(untilDestroyed(this))
       .subscribe(userProjectsList => {
         this.userProjectsMap = new Map(userProjectsList.map(userProject => [userProject.pid, userProject]));
-      });
-  }
-
-  ngOnInit(): void {
-    this.publicWorkflowService
-      .getWorkflowType(this.workflow.wid as number)
-      .pipe(untilDestroyed(this))
-      .subscribe(type => {
-        this.isPublic = type === "Public";
       });
   }
 
@@ -138,10 +126,12 @@ export class UserWorkflowListItemComponent {
         type: "workflow",
         id: this.workflow.wid,
         allOwners: await firstValueFrom(this.workflowPersistService.retrieveOwners()),
+        inWorkspace: false,
       },
       nzFooter: null,
       nzTitle: "Share this workflow with others",
       nzCentered: true,
+      nzWidth: "800px",
     });
   }
 
@@ -182,21 +172,5 @@ export class UserWorkflowListItemComponent {
       .subscribe(() => {
         this.entry.workflow.projectIDs = this.entry.workflow.projectIDs.filter(projectID => projectID != pid);
       });
-  }
-
-  public visibilityChange(): void {
-    console.log("visibilityChange Occurred");
-    console.log("The pid used is " + this.workflow.wid);
-    if (this.isPublic) {
-      this.publicWorkflowService
-        .makePrivate(this.workflow.wid as number)
-        .pipe(untilDestroyed(this))
-        .subscribe(() => this.ngOnInit());
-    } else {
-      this.publicWorkflowService
-        .makePublic(this.workflow.wid as number)
-        .pipe(untilDestroyed(this))
-        .subscribe(() => this.ngOnInit());
-    }
   }
 }

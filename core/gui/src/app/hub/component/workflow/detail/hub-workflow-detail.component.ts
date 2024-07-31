@@ -1,8 +1,13 @@
-import { Component } from "@angular/core";
+import { Component, OnInit } from "@angular/core";
 import { UntilDestroy, untilDestroyed } from "@ngneat/until-destroy";
-import { ActivatedRoute } from "@angular/router";
+import { ActivatedRoute, Router } from "@angular/router";
 import { Location } from "@angular/common";
 import { HubWorkflowService } from "../../../service/workflow/hub-workflow.service";
+import { User } from "src/app/common/type/user";
+import { UserService } from "src/app/common/service/user/user.service";
+import { NzModalService } from "ng-zorro-antd/modal";
+import { LocalLoginComponent } from "../../home/local-login/local-login.component";
+import { switchMap } from "rxjs";
 
 @UntilDestroy()
 @Component({
@@ -10,12 +15,15 @@ import { HubWorkflowService } from "../../../service/workflow/hub-workflow.servi
   templateUrl: "hub-workflow-detail.component.html",
   styleUrls: ["hub-workflow-detail.component.scss"],
 })
-export class HubWorkflowDetailComponent {
-  wid: string | null;
-
+export class HubWorkflowDetailComponent implements OnInit {
+  wid: number;
+  clonedWorklowId: number | undefined;
+  workflowName: string | null;
+  ownerUser!: User;
+  private currentUser?: User;
+  public clonePrompt: String = "";
+  public hasCloned: Boolean = false;
   workflow = {
-    name: "Example Workflow",
-    createdBy: "John Doe",
     steps: [
       {
         name: "Step 1: Data Collection",
@@ -43,9 +51,51 @@ export class HubWorkflowDetailComponent {
   constructor(
     private route: ActivatedRoute,
     private location: Location,
-    private hubWorkflowService: HubWorkflowService
+    private hubWorkflowService: HubWorkflowService,
+    private router: Router,
+    private userService: UserService,
+    private modalService: NzModalService
   ) {
-    this.wid = this.route.snapshot.queryParamMap.get("wid");
+    this.wid = Number(this.route.snapshot.queryParamMap.get("wid"));
+    this.workflowName = this.route.snapshot.queryParamMap.get("name");
+    this.currentUser = this.userService.getCurrentUser();
+  }
+
+  ngOnInit() {
+    if (!this.currentUser) {
+      this.hasCloned = false;
+      this.hubWorkflowService
+        .getOwnerUser(this.wid)
+        .pipe(untilDestroyed(this))
+        .subscribe(owner => {
+          this.ownerUser = owner;
+          this.clonePrompt = "Clone & Edit";
+        });
+    } else {
+      this.hubWorkflowService
+        .checkUserClonedWorkflow(this.wid, this.currentUser.uid)
+        .pipe(
+          switchMap(cloned => {
+            this.hasCloned = cloned;
+            return this.hubWorkflowService.getOwnerUser(this.wid);
+          })
+        )
+        .pipe(untilDestroyed(this))
+        .subscribe({
+          next: owner => {
+            this.ownerUser = owner;
+            if (this.currentUser!.uid !== this.ownerUser.uid) {
+              if (this.hasCloned) {
+                this.clonePrompt = "Create Another Clone";
+              } else {
+                this.clonePrompt = "Clone & Edit";
+              }
+            } else {
+              this.clonePrompt = "Edit";
+            }
+          },
+        });
+    }
   }
 
   goBack(): void {
@@ -53,7 +103,23 @@ export class HubWorkflowDetailComponent {
   }
 
   cloneWorkflow(): void {
-    alert("Workflow " + this.wid + " is cloned to your workspace.");
-    this.hubWorkflowService.cloneWorkflow(Number(this.wid)).pipe(untilDestroyed(this)).subscribe();
+    if (!this.currentUser) {
+      this.modalService.create({
+        nzContent: LocalLoginComponent,
+        nzTitle: "Login",
+        nzFooter: null,
+        nzCentered: true,
+      });
+    } else if (this.currentUser.uid !== this.ownerUser.uid) {
+      this.hubWorkflowService
+        .cloneWorkflow(this.wid)
+        .pipe(untilDestroyed(this))
+        .subscribe(newWid => {
+          this.clonedWorklowId = newWid;
+          this.router.navigate([`/workflow/${this.clonedWorklowId}`]);
+        });
+    } else {
+      this.router.navigate([`/workflow/${this.wid}`]);
+    }
   }
 }

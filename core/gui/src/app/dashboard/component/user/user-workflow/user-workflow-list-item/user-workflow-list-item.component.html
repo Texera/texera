@@ -138,15 +138,6 @@
 
   <ul nz-list-item-actions>
     <nz-list-item-action>
-      <div nz-col>
-        <nz-switch
-          [ngModel]="isPublic"
-          nzCheckedChildren="Public"
-          nzUnCheckedChildren="Private"
-          (ngModelChange)="visibilityChange()"></nz-switch>
-      </div>
-    </nz-list-item-action>
-    <nz-list-item-action>
       <button
         (click)="onClickOpenShareAccess()"
         nz-button

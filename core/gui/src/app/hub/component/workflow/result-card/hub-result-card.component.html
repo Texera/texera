@@ -1,0 +1,55 @@
+<div
+  class="workflow-card-container"
+  [routerLink]="['/dashboard/hub/workflow/search/result/detail']"
+  [queryParams]="{ wid: workflow.wid, name: workflow.name }">
+  <nz-card class="workflow-card">
+    <div class="card-content">
+      <div class="icon-container">
+        <i
+          nz-icon
+          nzType="project"
+          class="card-cover-icon"></i>
+      </div>
+      <div class="card-details">
+        <div class="title-container">
+          <h2 class="workflow-title">{{ truncatedTitle }}</h2>
+        </div>
+        <div class="workflow-meta">
+          <span>ID: {{ workflow.wid }}</span>
+          <span>Created On: {{ workflow.creationTime | date }}</span>
+          <span>Modified On: {{ workflow.lastModifiedTime | date }}</span>
+        </div>
+        <p class="truncated-description">Description: {{ workflow.description }}</p>
+        <div class="card-actions">
+          <button
+            nz-button
+            nzType="default"
+            nzShape="circle">
+            <i
+              nz-icon
+              nzType="heart"
+              nzTheme="outline"></i>
+          </button>
+          <button
+            nz-button
+            nzType="default"
+            nzShape="circle">
+            <i
+              nz-icon
+              nzType="copy"
+              nzTheme="outline"></i>
+          </button>
+        </div>
+      </div>
+      <div class="separator"></div>
+      <div class="right-section">
+        <texera-user-avatar
+          [googleAvatar]="workflow.userGoogleAvatar || ''"
+          [userColor]="workflow.color || ''"
+          [userName]="workflow.userName || ''">
+        </texera-user-avatar>
+        <div class="username">{{ workflow.userName }}</div>
+      </div>
+    </div>
+  </nz-card>
+</div>

@@ -1,12 +1,43 @@
 <div class="container">
-  <div class="box">
-    <h1>Welcome to Texera Community Hub</h1>
-    <br />
-    <i>Access <a routerLink="/dashboard/hub/workflow/search/result">{{workflowCount}} workflows</a></i>
-    <br />
-    <i>provided by Texera and our community.</i>
-    <br />
-    <br />
+  <div class="search-bar">
     <texera-hub-workflow-search-bar></texera-hub-workflow-search-bar>
+  </div>
+  <div class="section-intro">
+    <div class="section-intro-text">
+      <h1>Workflows</h1>
+      <p>
+        Join our community to explore public workflows, collaborate with others, and enhance your data analytics
+        capabilities. Access <a (click)="navigateToSearchResult()">{{workflowCount}} workflows</a>
+        provided by Texera and our community.
+      </p>
+
+      <div class="button-group">
+        <button
+          nz-button
+          nzType="primary">
+          Upload Workflows
+        </button>
+        <button
+          *ngIf="isLoggedIn"
+          nz-button
+          [routerLink]="'/dashboard/user/workflow'">
+          Your Workflows
+        </button>
+      </div>
+    </div>
+    <img
+      class="section-intro-img"
+      src="../../../../../assets/svg/hub_icon.svg"
+      alt="hub icon" />
+  </div>
+  <div class="browse-section">
+    <texera-hub-workflow-browse-section
+      *ngIf="isLoggedIn && recentWorkflowList.length > 0"
+      sectionTitle="Recent Work"
+      [workflowList]="recentWorkflowList"></texera-hub-workflow-browse-section>
+    <texera-hub-workflow-browse-section
+      *ngIf="popularWorkflowList.length > 0"
+      sectionTitle="Most Popular"
+      [workflowList]="popularWorkflowList"></texera-hub-workflow-browse-section>
   </div>
 </div>

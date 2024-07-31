@@ -1,26 +1,43 @@
-<texera-hub-workflow-search-bar></texera-hub-workflow-search-bar>
-
-<nz-list
-  nzBordered
-  nzHeader="Results"
-  nzFooter="Total Workflows: {{listOfWorkflows.length}}">
-  <div class="workflow-list">
-    <nz-list-item *ngFor="let workflow of listOfWorkflows">
-      <nz-card
-        class="workflow-card"
-        nzTitle="{{ workflow.name }}">
-        <p>ID: {{ workflow.wid }}</p>
-        <p>Description: {{ workflow.description }}</p>
-        <p>Created On: {{ workflow.creationTime | date }}</p>
-        <p>Modified On: {{ workflow.lastModifiedTime | date }}</p>
-        <button
-          nz-button
-          nzType="primary"
-          routerLink="/dashboard/hub/workflow/search/result/detail"
-          [queryParams]="{ wid: workflow.wid}">
-          View Details
-        </button>
-      </nz-card>
-    </nz-list-item>
+<div
+  id="workflow-result-container"
+  class="workflow-result-container">
+  <!-- 标题和搜索栏 -->
+  <div
+    id="title-container"
+    class="title-container">
+    <div class="title-inner">
+      <h1
+        id="results-title"
+        class="results-title">
+        Workflows
+      </h1>
+    </div>
   </div>
-</nz-list>
+  <div
+    id="search-container"
+    class="search-container">
+    <div class="search-inner">
+      <texera-hub-workflow-search-bar></texera-hub-workflow-search-bar>
+    </div>
+  </div>
+
+  <div class="content-wrapper">
+    <h2 class="list-title">Results: {{ listOfWorkflowsWithUserInfo.length }}</h2>
+    <nz-list>
+      <div class="workflow-list">
+        <nz-list-item *ngFor="let workflow of listOfWorkflowsWithUserInfo">
+          <texera-hub-result-card [workflow]="workflow"></texera-hub-result-card>
+        </nz-list-item>
+      </div>
+    </nz-list>
+
+    <nz-pagination
+      [nzPageIndex]="currentPage"
+      [nzTotal]="totalResults"
+      [nzPageSize]="resultsPerPage"
+      [nzShowSizeChanger]="false"
+      [nzShowQuickJumper]="true"
+      (nzPageIndexChange)="onPageChange($event)">
+    </nz-pagination>
+  </div>
+</div>

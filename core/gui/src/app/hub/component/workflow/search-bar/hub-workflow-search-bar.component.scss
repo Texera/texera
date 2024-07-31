@@ -1,0 +1,22 @@
+#input-group {
+  border-radius: 8px;
+  overflow: hidden;
+
+  .ant-input {
+    border-radius: 8px;
+  }
+
+  .ant-input-affix-wrapper {
+    border-radius: 8px;
+  }
+
+  .ant-input-prefix {
+    border-radius: 8px;
+  }
+}
+
+.nz-autocomplete {
+  .ant-select-dropdown {
+    border-radius: 8px;
+  }
+}

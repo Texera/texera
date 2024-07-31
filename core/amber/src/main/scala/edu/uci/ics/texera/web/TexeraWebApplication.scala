@@ -31,7 +31,10 @@ import edu.uci.ics.texera.web.resource.dashboard.user.dataset.{
   DatasetAccessResource,
   DatasetResource
 }
-import edu.uci.ics.texera.web.resource.dashboard.user.dataset.`type`.{FileNode, FileNodeSerializer}
+import edu.uci.ics.texera.web.resource.dashboard.user.dataset.`type`.{
+  DatasetFileNode,
+  DatasetFileNodeSerializer
+}
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.service.GitVersionControlLocalFileStorage
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.utils.PathUtils.getAllDatasetDirectories
 import edu.uci.ics.texera.web.resource.dashboard.user.file.{
@@ -45,7 +48,6 @@ import edu.uci.ics.texera.web.resource.dashboard.user.project.{
 }
 import edu.uci.ics.texera.web.resource.dashboard.user.quota.UserQuotaResource
 import edu.uci.ics.texera.web.resource.dashboard.user.discussion.UserDiscussionResource
-import edu.uci.ics.texera.web.resource.dashboard.user.environment.EnvironmentResource
 import edu.uci.ics.texera.web.resource.dashboard.user.workflow.{
   WorkflowAccessResource,
   WorkflowExecutionsResource,
@@ -158,7 +160,7 @@ class TexeraWebApplication
 
     // register a new custom module and add the custom serializer into it
     val customSerializerModule = new SimpleModule("CustomSerializers")
-    customSerializerModule.addSerializer(classOf[FileNode], new FileNodeSerializer())
+    customSerializerModule.addSerializer(classOf[DatasetFileNode], new DatasetFileNodeSerializer())
     bootstrap.getObjectMapper.registerModule(customSerializerModule)
 
     if (AmberConfig.isUserSystemEnabled) {
@@ -256,7 +258,6 @@ class TexeraWebApplication
     environment.jersey.register(classOf[WorkflowVersionResource])
     environment.jersey.register(classOf[DatasetResource])
     environment.jersey.register(classOf[DatasetAccessResource])
-    environment.jersey.register(classOf[EnvironmentResource])
     environment.jersey.register(classOf[ProjectResource])
     environment.jersey.register(classOf[ProjectAccessResource])
     environment.jersey.register(classOf[WorkflowExecutionsResource])

@@ -1,0 +1,53 @@
+.workflow-access-button-group {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  align-items: center;
+}
+.workflow-access-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  height: 200px;
+  width: 350px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border-radius: 10px;
+}
+
+.button-icon {
+  font-size: 55px;
+}
+
+.button-text > p {
+  font-size: 12px;
+  font-weight: thin;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-self: space-between;
+}
+
+.button-text-header {
+  font-size: 25px;
+  font-weight: bold;
+}
+.input-group {
+  display: flex;
+  align-items: center;
+}
+
+.input-group input[nz-input] {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.add-button {
+  margin-left: 8px;
+  white-space: nowrap;
+  padding: 8 18px;
+  height: 25px;
+  font-size: 14px;
+  line-height: 1;
+}

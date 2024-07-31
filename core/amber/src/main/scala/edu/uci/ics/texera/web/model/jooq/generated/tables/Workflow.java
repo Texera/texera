@@ -35,7 +35,7 @@ import org.jooq.types.UInteger;
 @SuppressWarnings({ "all", "unchecked", "rawtypes" })
 public class Workflow extends TableImpl<WorkflowRecord> {
 
-    private static final long serialVersionUID = 457705511;
+    private static final long serialVersionUID = -1770381178;
 
     /**
      * The reference instance of <code>texera_db.workflow</code>
@@ -83,7 +83,7 @@ public class Workflow extends TableImpl<WorkflowRecord> {
     /**
      * The column <code>texera_db.workflow.is_published</code>.
      */
-    public final TableField<WorkflowRecord, Byte> IS_PUBLISHED = createField(DSL.name("is_published"), org.jooq.impl.SQLDataType.TINYINT.defaultValue(org.jooq.impl.DSL.inline("0", org.jooq.impl.SQLDataType.TINYINT)), this, "");
+    public final TableField<WorkflowRecord, Byte> IS_PUBLISHED = createField(DSL.name("is_published"), org.jooq.impl.SQLDataType.TINYINT.nullable(false).defaultValue(org.jooq.impl.DSL.inline("0", org.jooq.impl.SQLDataType.TINYINT)), this, "");
 
     /**
      * Create a <code>texera_db.workflow</code> table reference

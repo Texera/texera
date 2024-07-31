@@ -1,0 +1,170 @@
+.workflow-card-container {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+}
+
+.workflow-card {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition:
+    box-shadow 0.3s,
+    transform 0.3s,
+    height 0.3s ease-out;
+  background-color: #fff;
+  padding: 5px;
+  position: relative;
+
+  &:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+  }
+}
+
+.ant-card-body {
+  padding: 8px;
+}
+
+.card-content {
+  display: flex;
+  width: 100%;
+}
+
+.icon-container {
+  display: flex;
+  align-items: center;
+  margin-right: 16px;
+}
+
+.card-cover-icon {
+  font-size: 90px;
+  margin-right: 14px;
+  color: #333;
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+.card-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+  flex-shrink: 1; /* 允许在必要时缩小 */
+  max-width: 100%;
+}
+
+.title-container {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.workflow-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #333;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  max-width: 100%;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.workflow-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  color: #555;
+  font-size: 14px;
+}
+
+.workflow-meta span {
+  margin-right: 10px;
+}
+
+.workflow-card p {
+  margin: 8px 0;
+  color: #333;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.workflow-card p:last-child {
+  margin-bottom: 0;
+}
+
+.truncated-description,
+.full-description {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  max-height: 1.8em;
+  -webkit-line-clamp: 1;
+  transition: max-height 0.3s ease-out;
+}
+
+.workflow-card:hover .truncated-description,
+.workflow-card:hover .full-description {
+  -webkit-line-clamp: 2;
+  max-height: 3.6em;
+}
+
+.card-actions {
+  position: absolute;
+  right: 10px;
+  top: 15px;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.card-actions button {
+  cursor: pointer;
+  transition: transform 0.3s ease;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+}
+
+.separator {
+  width: 1px;
+  background-color: #e0e0e0;
+  margin: 0 16px;
+}
+
+.right-section {
+  width: 10%;
+}
+
+.right-section {
+  width: 10%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.username {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #333;
+}
