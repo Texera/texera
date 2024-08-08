@@ -30,6 +30,10 @@ import { isDefined } from "../../../common/util/predicate";
 import { FileSelectionComponent } from "../file-selection/file-selection.component";
 import { NzModalService } from "ng-zorro-antd/modal";
 import { ResultExportationComponent } from "../result-exportation/result-exportation.component";
+import { Subject } from "rxjs";
+import { WorkflowResultService } from "../../service/workflow-result/workflow-result.service";
+import html2canvas from "html2canvas";
+import * as joint from "jointjs";
 
 /**
  * MenuComponent is the top level menu bar that shows
@@ -82,6 +86,8 @@ export class MenuComponent implements OnInit {
   public displayParticularWorkflowVersion: boolean = false;
   public onClickRunHandler: () => void;
 
+  private destroy$: Subject<void> = new Subject<void>();
+
   constructor(
     public executeWorkflowService: ExecuteWorkflowService,
     public workflowActionService: WorkflowActionService,
@@ -99,7 +105,8 @@ export class MenuComponent implements OnInit {
     private notificationService: NotificationService,
     public operatorMenu: OperatorMenuService,
     public coeditorPresenceService: CoeditorPresenceService,
-    private modalService: NzModalService
+    private modalService: NzModalService,
+    private workflowResultService: WorkflowResultService
   ) {
     workflowWebsocketService
       .subscribeToEvent("ExecutionDurationUpdateEvent")
@@ -126,6 +133,421 @@ export class MenuComponent implements OnInit {
     // this.currentWorkflowName = this.workflowCacheService.getCachedWorkflow();
     this.registerWorkflowModifiableChangedHandler();
     this.registerWorkflowIdUpdateHandler();
+  }
+
+  public onClickExportAllResults(): void {
+    // get JSON
+    const workflowContent: WorkflowContent = this.workflowActionService.getWorkflowContent();
+    const workflowContentJson = JSON.stringify(workflowContent);
+    const payload = JSON.parse(workflowContentJson);
+
+    // Log the parsed payload
+    console.log("Parsed paylohaoad: ", payload);
+
+    // Extract operatorIDs and operators from the parsed payload
+    const operatorIds = payload.operators.map((operator: { operatorID: string }) => operator.operatorID);
+    const operators = payload.operators;
+
+    // Ensure operatorIds and operators are logged
+    console.log("Extracted operatorIds: ", operatorIds);
+    console.log("Extracted operators: ", operators);
+
+    // Get shot
+    this.getWorkflowSnapshot()
+      .then(snapshot => {
+        this.getAllOperatorResults({ operatorIds, operators, workflowSnapshot: snapshot });
+      })
+      .catch(error => {
+        console.error("Error capturing workflow snapshot: ", error);
+      });
+  }
+
+  private paper!: joint.dia.Paper;
+
+  private async getWorkflowSnapshot(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const element = document.querySelector("#workflow-editor") as HTMLElement;
+      console.log("Query selector for #workflow-editor returned:", element); // Ensure the selector found the element
+      if (element) {
+        console.log("Selected element: ", element); // Log the selected element
+
+        // Create a container element to hold the workflow
+        const snapshotContainer = document.createElement("div");
+        snapshotContainer.style.width = "75%"; // Set to 3/4 size
+        snapshotContainer.style.height = "75%"; // Set to 3/4 size
+        snapshotContainer.style.position = "fixed";
+        snapshotContainer.style.top = "0";
+        snapshotContainer.style.left = "0";
+        snapshotContainer.style.zIndex = "-1";
+        snapshotContainer.style.background = "#FFFFFF"; // Ensure the background is white
+        document.body.appendChild(snapshotContainer);
+
+        console.log("Snapshot container created and appended to body:", snapshotContainer);
+
+        // Create paper and render the current workflow diagram
+        const jointGraph = this.workflowActionService.getJointGraphWrapper().jointGraph;
+        console.log("JointGraph data passed to paper:", jointGraph.toJSON()); // Ensure JointGraph data is correct
+
+        this.paper = new joint.dia.Paper({
+          el: snapshotContainer,
+          model: jointGraph,
+          width: snapshotContainer.clientWidth,
+          height: snapshotContainer.clientHeight,
+          interactive: false,
+          background: { color: "#FFFFFF" },
+        });
+
+        console.log("Paper created with size:", {
+          width: snapshotContainer.clientWidth,
+          height: snapshotContainer.clientHeight,
+        });
+
+        this.paper.scale(0.75, 0.75); // Scaling ratio
+        console.log("Paper scaled to 0.75");
+
+        // Add more logs to capture child elements
+        console.log("Snapshot container innerHTML before timeout:", snapshotContainer.innerHTML);
+
+        // Increase delay time to ensure all content is fully loaded
+        setTimeout(() => {
+          const svgIcons = snapshotContainer.querySelectorAll("svg");
+          console.log("SVG icons count within snapshot container:", svgIcons.length);
+          if (svgIcons.length > 0) {
+            console.log("SVG icons found within snapshot container:", svgIcons.length);
+            svgIcons.forEach((icon, index) => {
+              console.log(`SVG Icon ${index} within snapshot container:`, icon);
+            });
+          } else {
+            console.log("No SVG icons found within snapshot container.");
+          }
+
+          console.log("Starting html2canvas capture");
+          html2canvas(snapshotContainer, {
+            logging: true,
+            useCORS: true,
+            allowTaint: true,
+            foreignObjectRendering: true,
+            onclone: clonedDoc => {
+              console.log("onclone callback called");
+              const clonedContainer = clonedDoc.querySelector("div");
+              console.log("Cloned container:", clonedContainer);
+            },
+          })
+            .then((canvas: HTMLCanvasElement) => {
+              const dataUrl: string = canvas.toDataURL("image/png");
+              console.log("Canvas data URL:", dataUrl.substring(0, 100)); // Only print the first 100 characters
+              resolve(dataUrl);
+              document.body.removeChild(snapshotContainer); // Remove snapshot container
+              console.log("Snapshot container removed from body");
+            })
+            .catch(error => {
+              console.error("Error in html2canvas:", error);
+              reject(error);
+              document.body.removeChild(snapshotContainer); // Remove snapshot container
+              console.log("Snapshot container removed from body due to error");
+            });
+        }, 1000); // Increase delay time to 1 seconds
+      } else {
+        console.error("Workflow canvas element not found");
+        reject("Workflow canvas element not found");
+      }
+    });
+  }
+
+  public getAllOperatorResults(payload: { operatorIds: string[]; operators: any[]; workflowSnapshot: string }): void {
+    console.log("Starting getAllOperatorResults with payload: ", payload);
+    console.log("Type of payload.operatorIds: ", typeof payload.operatorIds);
+    console.log("Is Array: ", Array.isArray(payload.operatorIds));
+
+    const allResults: { operatorId: string; html: string }[] = [];
+
+    const promises = payload.operatorIds.map(operatorId => {
+      const operatorInfo = payload.operators.find((op: any) => op.operatorID === operatorId);
+      return this.displayResult(operatorId, operatorInfo, allResults);
+    });
+
+    Promise.all(promises)
+      .then(() => {
+        console.log("All results before sorting: ", allResults);
+        console.log("Payload: ", payload);
+
+        const sortedResults = payload.operatorIds.map(
+          id => allResults.find(result => result.operatorId === id)?.html || ""
+        );
+
+        console.log("All results after sorting: ", sortedResults);
+
+        this.downloadResultsAsHtml(payload.workflowSnapshot, sortedResults);
+        console.log("Completed getAllOperatorResults");
+      })
+      .catch(error => {
+        console.error("Error in getAllOperatorResults: ", error);
+      });
+  }
+
+  public async displayResult(
+    operatorId: string,
+    operatorInfo: any,
+    allResults: { operatorId: string; html: string }[]
+  ): Promise<void> {
+    try {
+      const resultService = this.workflowResultService.getResultService(operatorId);
+      const paginatedResultService = this.workflowResultService.getPaginatedResultService(operatorId);
+
+      const operatorDetails = operatorInfo;
+
+      const operatorDetailsHtml = `
+    <div style="text-align: center;">
+        <h4>Operator Details</h4>
+        <div id="json-editor-${operatorId}" style="height: 400px;"></div>
+        <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            const container = document.querySelector("#json-editor-${operatorId}");
+            const options = { mode: 'view', language: 'en' };
+            const editor = new JSONEditor(container, options);
+            editor.set(${JSON.stringify(operatorDetails)});
+          });
+        </script>
+    </div>
+  `;
+
+      if (paginatedResultService) {
+        try {
+          const pageData = await paginatedResultService.selectPage(1, 10).toPromise();
+          if (!pageData || !pageData.table || !pageData.table.length) {
+            allResults.push({
+              operatorId,
+              html: `
+            <h3>Operator ID: ${operatorId}</h3>
+            <p>No results found for operator</p>
+            <button onclick="toggleDetails('details-${operatorId}')">Toggle Details</button>
+            <div id="details-${operatorId}" style="display: none;">${operatorDetailsHtml}</div>
+            <div contenteditable="true" id="comment-${operatorId}" style="width: 100%; margin-top: 10px; border: 1px solid black; padding: 10px;">Add your comments here...</div>
+          `,
+            });
+            return;
+          }
+
+          const table = pageData.table;
+          const columns: string[] = Object.keys(table[0]);
+          const rows: any[][] = table.map(row => columns.map(col => row[col]));
+
+          const tableHtml: string = `
+        <div style="width: 50%; margin: 0 auto; text-align: center;">
+          <h3>Operator ID: ${operatorId}</h3>
+          <table style="width: 100%; border-collapse: collapse; margin: 0 auto;">
+            <thead>
+              <tr>${columns.map(col => `<th style="border: 1px solid black; padding: 8px; text-align: center;">${col}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${rows.map(row => `<tr>${row.map(cell => `<td style="border: 1px solid black; padding: 8px; text-align: center;">${String(cell)}</td>`).join("")}</tr>`).join("")}
+            </tbody>
+          </table>
+          <button onclick="toggleDetails('details-${operatorId}')">Toggle Details</button>
+          <div id="details-${operatorId}" style="display: none;">${operatorDetailsHtml}</div>
+          <div contenteditable="true" id="comment-${operatorId}" style="width: 100%; margin-top: 10px; border: 1px solid black; padding: 10px;">Add your comments here...</div>
+        </div>
+      `;
+
+          allResults.push({ operatorId, html: tableHtml });
+        } catch (error) {
+          console.error(`Error displaying paginated results for operator ${operatorId}:`, error);
+          throw error;
+        }
+      } else if (resultService) {
+        const data = resultService.getCurrentResultSnapshot();
+        if (data) {
+          const parser = new DOMParser();
+          const lastData = data[data.length - 1];
+          const doc = parser.parseFromString(Object(lastData)["html-content"], "text/html");
+
+          doc.documentElement.style.height = "50%";
+          doc.body.style.height = "50%";
+
+          const firstDiv = doc.body.querySelector("div");
+          if (firstDiv) firstDiv.style.height = "100%";
+
+          const serializer = new XMLSerializer();
+          const newHtmlString = serializer.serializeToString(doc);
+
+          const visualizationHtml = `
+        <h3 style="text-align: center;">Operator ID: ${operatorId}</h3>
+        ${newHtmlString}
+        <button onclick="toggleDetails('details-${operatorId}')">Toggle Details</button>
+        <div id="details-${operatorId}" style="display: none;">${operatorDetailsHtml}</div>
+        <div contenteditable="true" id="comment-${operatorId}" style="width: 100%; margin-top: 10px; border: 1px solid black; padding: 10px;">Add your comments here...</div>
+      `;
+
+          allResults.push({ operatorId, html: visualizationHtml });
+        } else {
+          allResults.push({
+            operatorId,
+            html: `
+          <h3>Operator ID: ${operatorId}</h3>
+          <p>No data found for operator</p>
+          <button onclick="toggleDetails('details-${operatorId}')">Toggle Details</button>
+          <div id="details-${operatorId}" style="display: none;">${operatorDetailsHtml}</div>
+          <div contenteditable="true" id="comment-${operatorId}" style="width: 100%; margin-top: 10px; border: 1px solid black; padding: 10px;">Add your comments here...</div>
+        `,
+          });
+        }
+      } else {
+        allResults.push({
+          operatorId,
+          html: `
+        <h3>Operator ID: ${operatorId}</h3>
+        <p>No results found for operator</p>
+        <button onclick="toggleDetails('details-${operatorId}')">Toggle Details</button>
+        <div id="details-${operatorId}" style="display: none;">${operatorDetailsHtml}</div>
+        <div contenteditable="true" id="comment-${operatorId}" style="width: 100%; margin-top: 10px; border: 1px solid black; padding: 10px;">Add your comments here...</div>
+      `,
+        });
+      }
+    } catch (error) {
+      console.error(`Error displaying results for operator ${operatorId}:`, error);
+    }
+  }
+
+  public downloadResultsAsHtml(workflowSnapshot: string, allResults: string[]): void {
+    const htmlContent = `
+  <html>
+    <head>
+      <title>Operator Results</title>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsoneditor@latest/dist/jsoneditor.min.css">
+      <script src="https://cdn.jsdelivr.net/npm/jsoneditor@latest/dist/jsoneditor.min.js"></script>
+      <style>
+        .button {
+          margin-top: 20px;
+          padding: 10px 20px;
+          border: 1px solid #ccc;
+          background-color: #f8f8f8;
+          color: #333;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+        }
+        .button:hover {
+          background-color: #e8e8e8;
+        }
+        .hidden-input {
+          display: none;
+        }
+        .json-editor-container {
+          height: 400px;
+        }
+        .comment-box {
+          margin-top: 20px;
+          padding: 10px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+        }
+      </style>
+      <script>
+        let overallCommentCounter = 1;
+
+        function saveComments() {
+          const comments = {};
+          const divs = document.querySelectorAll('div[contenteditable="true"]');
+          divs.forEach(div => {
+            comments[div.id] = div.innerHTML;
+          });
+          const blob = new Blob([JSON.stringify(comments, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'comments.json';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+
+        function loadComments() {
+          fetch('comments.json')
+            .then(response => response.json())
+            .then(data => {
+              Object.keys(data).forEach(id => {
+                const div = document.getElementById(id);
+                if (div) {
+                  div.innerHTML = data[id];
+                }
+              });
+            });
+        }
+
+        function toggleDetails(detailsId) {
+          const detailsDiv = document.getElementById(detailsId);
+          if (detailsDiv.style.display === "none") {
+            detailsDiv.style.display = "block";
+          } else {
+            detailsDiv.style.display = "none";
+          }
+        }
+
+        function downloadJson() {
+          const workflowContent = ${JSON.stringify(this.workflowActionService.getWorkflowContent())};
+          const workflowContentJson = JSON.stringify(workflowContent, null, 2);
+          const blob = new Blob([workflowContentJson], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'workflowContent.json';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+
+        function uploadComments(event) {
+          const file = event.target.files[0];
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const comments = JSON.parse(e.target.result);
+            Object.keys(comments).forEach(id => {
+              const div = document.getElementById(id);
+              if (div) {
+                div.innerHTML = comments[id];
+              }
+            });
+          };
+          reader.readAsText(file);
+        }
+
+        function addOverallComment() {
+          overallCommentCounter++;
+          const commentContainer = document.createElement('div');
+          commentContainer.className = 'comment-box';
+          commentContainer.contentEditable = 'true';
+          commentContainer.id = 'overall-comment-' + overallCommentCounter;
+          commentContainer.innerText = 'Overall Comment ' + overallCommentCounter;
+          document.getElementById('overall-comments-container').appendChild(commentContainer);
+        }
+
+        window.onload = loadComments;
+      </script>
+    </head>
+    <body>
+      <div style="text-align: center;">
+        <h2>Workflow Static State</h2>
+        <img src="${workflowSnapshot}" alt="Workflow Snapshot" style="width: 100%; max-width: 800px;">
+      </div>
+      ${allResults.join("")}
+      <div id="overall-comments-container">
+        <div class="comment-box" contentEditable="true" id="overall-comment-1">Overall Comment 1</div>
+      </div>
+      <button onclick="addOverallComment()" class="button">Add Overall Comment</button>
+      <button onclick="downloadJson()" class="button">Download JSON</button>
+      <button onclick="saveComments()" class="button">Save All Comments</button>
+      <label for="upload-comments" class="button">
+        Upload all Comments
+        <input id="upload-comments" type="file" accept=".json" onchange="uploadComments(event)" class="hidden-input">
+      </label>
+    </body>
+  </html>
+  `;
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "operator-results.html";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   public ngOnInit(): void {
