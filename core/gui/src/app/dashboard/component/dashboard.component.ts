@@ -1,4 +1,10 @@
-import { Component, OnInit } from "@angular/core";
+import {
+  OnInit,
+  Component,
+} from "@angular/core";
+import { Location } from "@angular/common";
+import { ActivatedRoute, Router } from "@angular/router";
+import { environment } from "../../../environments/environment";
 import { WorkflowPersistService } from "../../common/service/workflow-persist/workflow-persist.service";
 import { UserService } from "../../common/service/user/user.service";
 import { UntilDestroy, untilDestroyed } from "@ngneat/until-destroy";
@@ -22,11 +28,17 @@ import { HttpErrorResponse } from "@angular/common/http";
 export class DashboardComponent implements OnInit {
   isAdmin = this.userService.isAdmin();
   displayForum = true;
-
+  showNavbar = true;
+  isCollapsed = false;
   constructor(
     private userService: UserService,
-    private flarumService: FlarumService
-  ) {}
+    private flarumService: FlarumService,
+    private workflowPersistService: WorkflowPersistService,
+    private location: Location,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {
+  }
 
   ngOnInit(): void {
     if (!document.cookie.includes("flarum_remember")) {
@@ -49,5 +61,28 @@ export class DashboardComponent implements OnInit {
           },
         });
     }
+    this.router.events.subscribe(() => {
+      this.checkRoute();
+    })
+  }
+
+  checkRoute() {
+    const currentRoute = this.router.url;
+    const routeWithoutNavbar = '/workspace';
+    const routeWithPanelCollapsed = '/workspace'
+    this.showNavbar = !currentRoute.includes(routeWithoutNavbar);
+    this.isCollapsed = currentRoute.includes(routeWithPanelCollapsed);
+    this.handleCollapseChange();
+  }
+
+  handleCollapseChange() {
+    const resizeEvent = new Event("resize");
+    const editor = document.getElementById("workflow-editor")
+    setTimeout(() => {
+      if (editor) {
+        window.dispatchEvent(resizeEvent);
+      }
+    }, 175);
   }
 }
+

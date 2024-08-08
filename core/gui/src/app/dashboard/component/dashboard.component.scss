@@ -1,7 +1,15 @@
-#nav {
-  height: 70px;
-  background-color: #f8f9fa;
-  padding: 8px 16px;
+.navbar {
+  height: 75px;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  background-color: white;
+  justify-content: space-around;
+}
+
+.logo {
+  height: 75px;
+  padding: 15px 0 10px 45px;
 }
 
 button {
@@ -14,7 +22,7 @@ texera-user-icon {
 }
 
 .layout {
-  height: calc(100vh - 70px);
+  height: 100vh;
 }
 
 .ant-layout-content {
@@ -26,4 +34,8 @@ texera-user-icon {
   overflow-x: hidden;
   overflow-y: auto;
   height: calc(100vh - 70px - 48px);
+}
+
+nz-content {
+  position: relative;
 }
