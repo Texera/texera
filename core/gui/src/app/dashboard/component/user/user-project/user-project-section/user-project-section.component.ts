@@ -11,8 +11,6 @@ import { UntilDestroy, untilDestroyed } from "@ngneat/until-destroy";
 import { DashboardProject } from "../../../../type/dashboard-project.interface";
 import { isDefined } from "../../../../../common/util/predicate";
 
-export const ROUTER_USER_PROJECT_BASE_URL = "/dashboard/user-project";
-
 @UntilDestroy()
 @Component({
   selector: "texera-user-project-section",
@@ -98,7 +96,7 @@ export class UserProjectSectionComponent implements OnInit {
    * navigate to another project page
    */
   public jumpToProject({ pid }: DashboardProject): void {
-    this.router.navigate([`${ROUTER_USER_PROJECT_BASE_URL}/${pid}`]).then(null);
+    this.router.navigate([`/dashboard/user/project/${pid}`]).then(null);
   }
   public updateProjectColor(color: string) {
     color = color.substring(1);

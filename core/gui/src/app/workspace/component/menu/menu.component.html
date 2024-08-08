@@ -1,6 +1,6 @@
 <div id="menu-container">
   <div id="logo">
-    <a href="{{userSystemEnabled?'/dashboard/workflow':'/'}}">
+    <a href="{{userSystemEnabled?'/dashboard/user/workflow':'/'}}">
       <img
         alt="Texera"
         height="{{userSystemEnabled?75:38}}"
@@ -57,7 +57,7 @@
       <nz-button-group
         id="user-buttons"
         *ngIf="!displayParticularWorkflowVersion">
-        <a [routerLink]="'/dashboard/workflow'">
+        <a [routerLink]="'/dashboard/user/workflow'">
           <button
             *ngIf="userSystemEnabled"
             nz-button

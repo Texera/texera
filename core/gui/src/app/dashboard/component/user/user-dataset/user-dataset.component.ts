@@ -41,7 +41,7 @@ export class UserDatasetComponent implements OnInit {
   }
 
   public onClickOpenDatasetAddComponent(): void {
-    this.router.navigate(["/dashboard/dataset/create"]);
+    this.router.navigate(["/dashboard/user/dataset/create"]);
   }
 
   public searchInputOnChange(value: string): void {

@@ -1,16 +1,35 @@
 #nav {
+  list-style-type: none;
   height: 70px;
+  padding: 10px;
   background-color: #f8f9fa;
-  padding: 8px 16px;
+  span {
+    float: left;
+    padding: 14px;
+    a {
+      color: black;
+      font-weight: bold;
+    }
+  }
 }
 
-button {
-  border: none;
+#logo {
+  float: left;
+  margin-right: 14px;
+}
+
+texera-google-login {
+  float: right;
+  padding: 5px 0;
 }
 
 texera-user-icon {
   float: right;
   padding: 8px;
+}
+
+button {
+  border: none;
 }
 
 .layout {

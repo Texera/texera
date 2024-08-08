@@ -8,7 +8,7 @@ import { UserQuotaComponent } from "./dashboard/component/user/user-quota/user-q
 import { UserProjectSectionComponent } from "./dashboard/component/user/user-project/user-project-section/user-project-section.component";
 import { UserProjectComponent } from "./dashboard/component/user/user-project/user-project.component";
 import { WorkspaceComponent } from "./workspace/component/workspace.component";
-import { HomeComponent } from "./home/component/home.component";
+import { HomeComponent } from "./hub/component/home/home.component";
 import { AuthGuardService } from "./common/service/user/auth-guard.service";
 import { AdminUserComponent } from "./dashboard/component/admin/user/admin-user.component";
 import { AdminExecutionComponent } from "./dashboard/component/admin/execution/admin-execution.component";
@@ -18,10 +18,11 @@ import { FlarumComponent } from "./dashboard/component/user/flarum/flarum.compon
 import { AdminGmailComponent } from "./dashboard/component/admin/gmail/admin-gmail.component";
 import { UserDatasetExplorerComponent } from "./dashboard/component/user/user-dataset/user-dataset-explorer/user-dataset-explorer.component";
 import { UserDatasetComponent } from "./dashboard/component/user/user-dataset/user-dataset.component";
-/*
- *  This file defines the url path
- *  The workflow workspace is set as default path
- */
+import { HubWorkflowSearchComponent } from "./hub/component/workflow/search/hub-workflow-search.component";
+import { HubWorkflowResultComponent } from "./hub/component/workflow/result/hub-workflow-result.component";
+import { HubWorkflowComponent } from "./hub/component/workflow/hub-workflow.component";
+import { HubWorkflowDetailComponent } from "./hub/component/workflow/detail/hub-workflow-detail.component";
+
 const routes: Routes = [
   {
     path: "",
@@ -35,81 +36,103 @@ const routes: Routes = [
   },
 ];
 if (environment.userSystemEnabled) {
-  /*
-   *  The user dashboard is under path '/dashboard'
-   *  The saved workflow is under path '/dashboard/workflow'
-   *  The user file is under path '/dashboard/user-file'
-   *  The user dictionary is under path '/dashboard/user-dictionary'
-   *  The user project list is under path '/dashboard/project'
-   *  The single user project is under path 'dashboard/project/{pid}'
-   */
   routes.push({
     path: "dashboard",
     component: DashboardComponent,
-    canActivate: [AuthGuardService],
     children: [
       {
-        path: "user-project",
-        component: UserProjectComponent,
+        path: "home",
+        component: HomeComponent,
       },
       {
-        path: "user-project/:pid",
-        component: UserProjectSectionComponent,
+        path: "hub",
+        children: [
+          {
+            path: "workflow",
+            component: HubWorkflowComponent,
+            children: [
+              {
+                path: "search",
+                component: HubWorkflowSearchComponent,
+              },
+              {
+                path: "search/result",
+                component: HubWorkflowResultComponent,
+              },
+              {
+                path: "search/result/detail",
+                component: HubWorkflowDetailComponent,
+              },
+            ],
+          },
+        ],
       },
       {
-        path: "workflow",
-        component: UserWorkflowComponent,
+        path: "user",
+        canActivate: [AuthGuardService],
+        children: [
+          {
+            path: "project",
+            component: UserProjectComponent,
+          },
+          {
+            path: "project/:pid",
+            component: UserProjectSectionComponent,
+          },
+          {
+            path: "workflow",
+            component: UserWorkflowComponent,
+          },
+          {
+            path: "file",
+            component: UserFileComponent,
+          },
+          {
+            path: "dataset",
+            component: UserDatasetComponent,
+          },
+          // the below two URLs route to the same Component. The component will render the page accordingly
+          {
+            path: "dataset/:did",
+            component: UserDatasetExplorerComponent,
+          },
+          {
+            path: "dataset/create",
+            component: UserDatasetExplorerComponent,
+          },
+          {
+            path: "quota",
+            component: UserQuotaComponent,
+          },
+          {
+            path: "search",
+            component: SearchComponent,
+          },
+          {
+            path: "discussion",
+            component: FlarumComponent,
+          },
+        ],
       },
       {
-        path: "user-file",
-        component: UserFileComponent,
-      },
-      {
-        path: "dataset",
-        component: UserDatasetComponent,
-      },
-      // the below two URLs route to the same Component. The component will render the page accordingly
-      {
-        path: "dataset/:did",
-        component: UserDatasetExplorerComponent,
-      },
-      {
-        path: "dataset/create",
-        component: UserDatasetExplorerComponent,
-      },
-      {
-        path: "user-quota",
-        component: UserQuotaComponent,
-      },
-      {
-        path: "search",
-        component: SearchComponent,
-      },
-      {
-        path: "discussion",
-        component: FlarumComponent,
-      },
-      {
-        path: "admin/user",
-        component: AdminUserComponent,
+        path: "admin",
         canActivate: [AdminGuardService],
-      },
-      {
-        path: "admin/gmail",
-        component: AdminGmailComponent,
-        canActivate: [AdminGuardService],
-      },
-      {
-        path: "admin/execution",
-        component: AdminExecutionComponent,
-        canActivate: [AdminGuardService],
+        children: [
+          {
+            path: "user",
+            component: AdminUserComponent,
+          },
+          {
+            path: "gmail",
+            component: AdminGmailComponent,
+          },
+          {
+            path: "execution",
+            component: AdminExecutionComponent,
+          },
+        ],
       },
     ],
-  });
-
-  routes.push({
-    path: "home",
-    component: HomeComponent,
   });
 }
 // redirect all other paths to index.
