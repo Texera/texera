@@ -15,7 +15,7 @@ trait SinkOperatorExecutor extends OperatorExecutor {
     Iterator.empty
   }
 
-  override def onFinishMultiPort(port: Int): Iterator[(TupleLike, Option[PortIdentity])] =
+  override def onInputFinishMultiPort(port: Int): Iterator[(TupleLike, Option[PortIdentity])] =
     Iterator.empty
 
   def consumeTuple(tuple: Tuple, input: Int): Unit

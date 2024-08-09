@@ -12,10 +12,7 @@ from core.architecture.handlers.actorcommand.backpressure_handler import (
 from core.architecture.handlers.actorcommand.credit_update_handler import (
     CreditUpdateHandler,
 )
-from core.models import (
-    InputDataFrame,
-    EndOfUpstream,
-)
+import core.models.payload
 from core.models.internal_queue import DataElement, ControlElement, InternalQueue
 from core.proxy import ProxyServer
 from core.util import Stoppable, get_one_of
@@ -62,14 +59,12 @@ class NetworkReceiver(Runnable, Stoppable):
             :return: sender credits
             """
             data_header = PythonDataHeader().parse(command)
-            if not data_header.is_end:
-                shared_queue.put(
-                    DataElement(tag=data_header.tag, payload=InputDataFrame(table))
-                )
-            else:
-                shared_queue.put(
-                    DataElement(tag=data_header.tag, payload=EndOfUpstream())
-                )
+            shared_queue.put(
+                DataElement(
+                    tag=data_header.tag,
+                    payload=getattr(core.models.payload, data_header.marker)(table))
+            )
+
             return shared_queue.in_mem_size()
 
         self._proxy_server.register_data_handler(data_handler)

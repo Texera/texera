@@ -20,6 +20,7 @@ import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import com.twitter.util.Promise
+import edu.uci.ics.texera.workflow.common.{EndOfUpstream, State}
 
 import java.nio.charset.Charset
 
@@ -83,8 +84,6 @@ private class AmberProducer(
     val dataHeader: PythonDataHeader = PythonDataHeader
       .parseFrom(flightStream.getDescriptor.getCommand)
     val to: ActorVirtualIdentity = dataHeader.tag
-    val isEnd: Boolean = dataHeader.isEnd
-
     val root = flightStream.getRoot
 
     // send back ack with credits on ackStream
@@ -104,10 +103,12 @@ private class AmberProducer(
     // closing the stream will release the dictionaries
     flightStream.takeDictionaryOwnership
 
-    if (isEnd) {
-      // EndOfUpstream
+    if (dataHeader.marker == EndOfUpstream().getClass.getSimpleName) {
       assert(root.getRowCount == 0)
-      outputPort.sendTo(to, EndOfUpstream())
+      outputPort.sendTo(to, MarkerFrame(EndOfUpstream()))
+    } else if (dataHeader.marker == "StateFrame") {
+      assert(root.getRowCount == 1)
+      outputPort.sendTo(to, MarkerFrame(State().fromTuple(ArrowUtils.getTexeraTuple(0, root))))
     } else {
       // normal data batches
       val queue = mutable.Queue[Tuple]()
