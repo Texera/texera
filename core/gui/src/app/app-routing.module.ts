@@ -28,11 +28,6 @@ const routes: Routes = [
     component: WorkspaceComponent,
     canActivate: [AuthGuardService],
   },
-  {
-    path: "workflow/:id",
-    component: WorkspaceComponent,
-    canActivate: [AuthGuardService],
-  },
 ];
 if (environment.userSystemEnabled) {
   /*
@@ -51,6 +46,11 @@ if (environment.userSystemEnabled) {
       {
         path: "user-project",
         component: UserProjectComponent,
+      },
+      {
+        path: "workspace/:id",
+        component: WorkspaceComponent,
+        canActivate: [AuthGuardService],
       },
       {
         path: "user-project/:pid",

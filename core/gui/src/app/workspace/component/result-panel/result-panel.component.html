@@ -1,7 +1,5 @@
 <div
   id="result-container"
-  cdkDrag
-  cdkDragBoundary="body"
   nz-resizable
   [nzMinWidth]="300"
   [nzMinHeight]="250"
@@ -18,18 +16,18 @@
       nz-menu-item
       (click)="closePanel()"
       *ngIf="width">
-      <span
-        nz-icon
-        nzType="minus"></span>
+    <span
+      nz-icon
+      nzType="minus"></span>
     </li>
     <li
       nz-menu-item
       nzSelected="{{!width}}"
       cdkDragHandle
       *ngIf="!width">
-      <span
-        nz-icon
-        nzType="drag"></span>
+    <span
+      nz-icon
+      nzType="drag"></span>
     </li>
     <li
       nz-menu-divider
@@ -39,9 +37,9 @@
       (click)="openPanel()"
       *ngIf="!width"
       nz-tooltip="Result Panel: {{operatorTitle}}">
-      <span
-        nz-icon
-        nzType="border"></span>
+    <span
+      nz-icon
+      nzType="border"></span>
     </li>
   </ul>
   <div
