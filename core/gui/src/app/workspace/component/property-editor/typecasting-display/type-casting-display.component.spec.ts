@@ -1,7 +1,5 @@
 import { ComponentFixture, TestBed, waitForAsync } from "@angular/core/testing";
 import { HttpClientTestingModule, HttpTestingController } from "@angular/common/http/testing";
-import { SchemaPropagationService } from "../../../service/dynamic-schema/schema-propagation/schema-propagation.service";
-
 import { TypeCastingDisplayComponent } from "./type-casting-display.component";
 import { WorkflowActionService } from "../../../service/workflow-graph/model/workflow-action.service";
 import { OperatorMetadataService } from "../../../service/operator-metadata/operator-metadata.service";
@@ -9,6 +7,7 @@ import { StubOperatorMetadataService } from "../../../service/operator-metadata/
 import { JointUIService } from "../../../service/joint-ui/joint-ui.service";
 import { UndoRedoService } from "../../../service/undo-redo/undo-redo.service";
 import { WorkflowUtilService } from "../../../service/workflow-graph/util/workflow-util.service";
+import { WorkflowCompilingService } from "../../../service/workflow-compilation/workflow-compiling.service";
 
 describe("TypecastingDisplayComponent", () => {
   let component: TypeCastingDisplayComponent;
@@ -26,7 +25,7 @@ describe("TypecastingDisplayComponent", () => {
         UndoRedoService,
         WorkflowUtilService,
         WorkflowActionService,
-        SchemaPropagationService,
+        WorkflowCompilingService,
       ],
       declarations: [TypeCastingDisplayComponent],
     }).compileComponents();

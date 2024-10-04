@@ -163,6 +163,8 @@ object PhysicalOp {
 @JsonIgnoreProperties(
   Array(
     "opExecInitInfo", // function type, ignore it
+    "locationPreference", // runtime info, ignore it
+    "partitionRequirement", // runtime info, ignore it
     "derivePartition", // function type, ignore it
     "inputPorts", // may contain very long stacktrace, ignore it
     "outputPorts", // same reason with above
@@ -225,6 +227,7 @@ case class PhysicalOp(
     outputPorts.forall(port => port._2._2.isEmpty)
   }
 
+  @JsonIgnore
   def isPythonBased: Boolean = {
     opExecInitInfo match {
       case opExecInfo: OpExecInitInfoWithCode =>

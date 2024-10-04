@@ -28,8 +28,8 @@ public enum AttributeType implements Serializable {
      * New AttributeTypes might need to be converted into a numerical value in order to perform
      * aggregations.
      * <p>
-     * 5. SchemaPropagationService.SchemaAttribute
-     * <code>src/app/workspace/service/dynamic-schema/schema-propagation/schema-propagation.service.ts</code>
+     * 5. WorkflowCompilingService.SchemaAttribute
+     * <code>src/app/workspace/service/workflow-compilation/workflow-compiling.service.ts</code>
      * Declare the frontend SchemaAttribute for the new AttributeType.
      * <p>
      * 6. ArrowUtils (Java)

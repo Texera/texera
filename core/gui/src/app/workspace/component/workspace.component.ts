@@ -17,10 +17,9 @@ import { of } from "rxjs";
 import { isDefined } from "../../common/util/predicate";
 import { NotificationService } from "src/app/common/service/notification/notification.service";
 import { Version } from "../../../environments/version";
-import { SchemaPropagationService } from "../service/dynamic-schema/schema-propagation/schema-propagation.service";
 import { WorkflowConsoleService } from "../service/workflow-console/workflow-console.service";
-import { OperatorReuseCacheStatusService } from "../service/workflow-status/operator-reuse-cache-status.service";
 import { CodeEditorService } from "../service/code-editor/code-editor.service";
+import { WorkflowCompilingService } from "../service/workflow-compilation/workflow-compiling.service";
 import { WorkflowMetadata } from "src/app/dashboard/type/workflow-metadata.interface";
 
 export const SAVE_DEBOUNCE_TIME_IN_MS = 5000;
@@ -45,8 +44,8 @@ export class WorkspaceComponent implements AfterViewInit, OnInit, OnDestroy {
   constructor(
     private userService: UserService,
     // list additional services in constructor so they are initialized even if no one use them directly
-    private schemaPropagationService: SchemaPropagationService,
-    private operatorReuseCacheStatus: OperatorReuseCacheStatusService,
+    private workflowCompilingService: WorkflowCompilingService,
+    // private operatorReuseCacheStatus: OperatorReuseCacheStatusService,
     private workflowConsoleService: WorkflowConsoleService,
     private undoRedoService: UndoRedoService,
     private workflowCacheService: WorkflowCacheService,

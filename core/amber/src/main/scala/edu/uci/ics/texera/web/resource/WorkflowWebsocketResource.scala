@@ -90,42 +90,6 @@ class WorkflowWebsocketResource extends LazyLogging {
               )
             sessionState.send(modifyLogicResponse)
           }
-        case editingTimeCompilationRequest: EditingTimeCompilationRequest =>
-          // TODO: remove this after separating the workflow compiler as a standalone service
-          val stateStore = if (executionStateOpt.isDefined) {
-            val currentState =
-              executionStateOpt.get.executionStateStore.metadataStore.getState.state
-            if (currentState == RUNNING || currentState == PAUSED) {
-              // disable check if the workflow execution is active.
-              return
-            }
-            executionStateOpt.get.executionStateStore
-          } else {
-            new ExecutionStateStore()
-          }
-          val workflowContext = new WorkflowContext(
-            sessionState.getCurrentWorkflowState.get.workflowId
-          )
-          try {
-            val workflowCompiler =
-              new WorkflowCompiler(workflowContext)
-            val newPlan = workflowCompiler.compileLogicalPlan(
-              editingTimeCompilationRequest.toLogicalPlanPojo,
-              stateStore
-            )
-            val validateResult = WorkflowCacheChecker.handleCacheStatusUpdate(
-              workflowStateOpt.get.lastCompletedLogicalPlan,
-              newPlan,
-              editingTimeCompilationRequest
-            )
-            sessionState.send(CacheStatusUpdateEvent(validateResult))
-          } catch {
-            case t: Throwable => // skip, rethrow this exception will overwrite the compilation errors reported below.
-          } finally {
-            if (stateStore.metadataStore.getState.fatalErrors.nonEmpty) {
-              sessionState.send(WorkflowErrorEvent(stateStore.metadataStore.getState.fatalErrors))
-            }
-          }
         case workflowExecuteRequest: WorkflowExecuteRequest =>
           workflowStateOpt match {
             case Some(workflow) => workflow.initExecutionService(workflowExecuteRequest, uidOpt)

@@ -28,10 +28,10 @@ class SchemaPropagationResource extends LazyLogging {
   @Path("/autocomplete/{wid}")
   @RolesAllowed(Array("REGULAR", "ADMIN"))
   def suggestAutocompleteSchema(
-      workflowStr: String,
-      @PathParam("wid") wid: UInteger,
-      @Auth sessionUser: SessionUser
-  ): SchemaPropagationResponse = {
+                                 workflowStr: String,
+                                 @PathParam("wid") wid: UInteger,
+                                 @Auth sessionUser: SessionUser
+                               ): SchemaPropagationResponse = {
 
     val logicalPlanPojo = Utils.objectMapper.readValue(workflowStr, classOf[LogicalPlanPojo])
 
@@ -42,7 +42,7 @@ class SchemaPropagationResource extends LazyLogging {
     val logicalPlan = LogicalPlan(logicalPlanPojo)
 
     // the PhysicalPlan with topology expanded.
-    val physicalPlan = PhysicalPlan(context, logicalPlan)
+    val physicalPlan = PhysicalPlan(context, logicalPlan, None)
 
     // Extract physical input schemas, excluding internal ports
     val physicalInputSchemas = physicalPlan.operators.map { physicalOp =>

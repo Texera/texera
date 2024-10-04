@@ -11,6 +11,11 @@ kill -9 $(pgrep -f TexeraWebApplication)
 echo "${green}Terminated.${reset}"
 echo
 
+echo "${red}Terminating TexeraWorkflowCompilingService at $(pgrep -f TexeraWorkflowCompilingService)...${reset}"
+kill -9 $(pgrep -f TexeraWorkflowCompilingService)
+echo "${green}Terminated.${reset}"
+echo
+
 echo "${red}Terminating TexeraRunWorker at $(pgrep -f TexeraRunWorker)...${reset}"
 kill -9 $(pgrep -f TexeraRunWorker)
 echo "${green}Terminated.${reset}"

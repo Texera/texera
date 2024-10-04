@@ -37,6 +37,15 @@ done
 echo "${green}TexeraWebApplication launched at $(pgrep -f TexeraWebApplication)${reset}"
 echo
 
+echo "${green}Starting TexeraWorkflowCompilingService in daemon...${reset}"
+setsid nohup ./scripts/workflow-compiling-service.sh >/dev/null 2>&1 &
+echo "${green}Waiting TexeraWorkflowCompilingService to launch on 8082...${reset}"
+while ! nc -z localhost 8082; do
+	sleep 0.1 # wait 100ms before check again
+done
+echo "${green}TexeraWorkflowCompilingService launched at $(pgrep -f TexeraWorkflowCompilingService)${reset}"
+echo
+
 echo "${green}Starting TexeraRunWorker in daemon...${reset}"
 setsid nohup ./scripts/worker.sh >/dev/null 2>&1 &
 sleep 0.2 # wait for 200ms to get the pid

@@ -16,6 +16,9 @@ import { WorkflowConsoleService } from "../../service/workflow-console/workflow-
 import { NzResizeEvent } from "ng-zorro-antd/resizable";
 import { VisualizationFrameContentComponent } from "../visualization-panel-content/visualization-frame-content.component";
 import { calculateTotalTranslate3d } from "../../../common/util/panel-dock";
+import { WorkflowCompilingService } from "../../service/workflow-compilation/workflow-compiling.service";
+import { CompilationState } from "../../types/compile-workflow.interface";
+import { WorkflowFatalError } from "../../types/workflow-websocket.interface";
 
 /**
  * ResultPanelComponent is the bottom level area that displays the
@@ -48,6 +51,7 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
 
   constructor(
     private executeWorkflowService: ExecuteWorkflowService,
+    private workflowCompilingService: WorkflowCompilingService,
     private workflowActionService: WorkflowActionService,
     private workflowResultService: WorkflowResultService,
     private workflowVersionService: WorkflowVersionService,
@@ -140,6 +144,7 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
       this.executeWorkflowService
         .getExecutionStateStream()
         .pipe(filter(event => ResultPanelComponent.needRerenderOnStateChange(event))),
+      this.workflowCompilingService.getCompilationStateInfoChangedStream(),
       this.workflowActionService.getJointGraphWrapper().getJointOperatorHighlightStream(),
       this.workflowActionService.getJointGraphWrapper().getJointOperatorUnhighlightStream(),
       this.workflowResultService.getResultInitiateStream()
@@ -167,12 +172,15 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
       this.currentOperatorId = currentHighlightedOperator;
     }
 
-    if (this.executeWorkflowService.getExecutionState().state === ExecutionState.Failed) {
+    if (
+      this.executeWorkflowService.getExecutionState().state === ExecutionState.Failed ||
+      this.workflowCompilingService.getWorkflowCompilationState() === CompilationState.Failed
+    ) {
       if (this.currentOperatorId == null) {
         this.displayError(this.currentOperatorId);
       } else {
-        const errorMessages = this.executeWorkflowService.getErrorMessages();
-        if (errorMessages.filter(msg => msg.operatorId === this.currentOperatorId).length > 0) {
+        const errorMessages = this.getWorkflowFatalErrors(this.currentOperatorId);
+        if (errorMessages.length > 0) {
           this.displayError(this.currentOperatorId);
         } else {
           this.frameComponentConfigs.delete("Static Error");
@@ -225,6 +233,18 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
         componentInputs: { operatorId },
       });
     }
+  }
+
+  private getWorkflowFatalErrors(operatorId?: string): readonly WorkflowFatalError[] {
+    // first fetch the error messages from the execution state store
+    let errorMessages = this.executeWorkflowService.getErrorMessages();
+    // then fetch error from the compilation state store
+    errorMessages = errorMessages.concat(this.workflowCompilingService.getWorkflowCompilationErrors());
+    // finally, if any operatorId is given, filter out those with matched Id
+    if (operatorId) {
+      errorMessages = errorMessages.filter(err => err.operatorId === operatorId);
+    }
+    return errorMessages;
   }
 
   private registerOperatorDisplayNameChangeHandler(): void {

@@ -51,6 +51,9 @@ class TexeraWorkflowCompilingService
     // serve backend at /api/texera
     environment.jersey.setUrlPattern("/api/texera/*")
 
+    // register CORS filter
+    environment.jersey.register(classOf[CORSFilter])
+
     // register the compilation endpoint
     environment.jersey.register(classOf[WorkflowCompilationResource])
 
