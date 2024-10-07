@@ -15,5 +15,10 @@
     "ws": true,
     "secure": false,
     "changeOrigin": false
+  },
+  "/workflowpod": {
+    "target": "http://localhost:8888",
+    "secure":  false,
+    "changeOrigin": false
   }
 }

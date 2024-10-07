@@ -25,12 +25,14 @@ import { saveAs } from "file-saver";
 import { NotificationService } from "src/app/common/service/notification/notification.service";
 import { OperatorMenuService } from "../../service/operator-menu/operator-menu.service";
 import { CoeditorPresenceService } from "../../service/workflow-graph/model/coeditor-presence.service";
-import { Subscription, timer } from "rxjs";
+import { delay, Subscription, timer } from "rxjs";
 import { isDefined } from "../../../common/util/predicate";
-import { FileSelectionComponent } from "../file-selection/file-selection.component";
 import { NzModalService } from "ng-zorro-antd/modal";
 import { ResultExportationComponent } from "../result-exportation/result-exportation.component";
 import { ReportGenerationService } from "../../service/report-generation/report-generation.service";
+import { PowerState } from "../power-button/power-button.component";
+import { WorkflowPodBrainService } from "../../service/workflow-pod-brain/workflow-pod-brain.service";
+
 /**
  * MenuComponent is the top level menu bar that shows
  *  the Texera title and workflow execution button
@@ -82,6 +84,8 @@ export class MenuComponent implements OnInit {
   public displayParticularWorkflowVersion: boolean = false;
   public onClickRunHandler: () => void;
 
+  public powerState: PowerState;
+
   constructor(
     public executeWorkflowService: ExecuteWorkflowService,
     public workflowActionService: WorkflowActionService,
@@ -100,7 +104,8 @@ export class MenuComponent implements OnInit {
     public operatorMenu: OperatorMenuService,
     public coeditorPresenceService: CoeditorPresenceService,
     private modalService: NzModalService,
-    private reportGenerationService: ReportGenerationService
+    private reportGenerationService: ReportGenerationService,
+    public workflowPodBrainService: WorkflowPodBrainService
   ) {
     workflowWebsocketService
       .subscribeToEvent("ExecutionDurationUpdateEvent")
@@ -127,6 +132,8 @@ export class MenuComponent implements OnInit {
     // this.currentWorkflowName = this.workflowCacheService.getCachedWorkflow();
     this.registerWorkflowModifiableChangedHandler();
     this.registerWorkflowIdUpdateHandler();
+
+    this.powerState = PowerState.Off;
   }
 
   public ngOnInit(): void {
@@ -239,6 +246,52 @@ export class MenuComponent implements OnInit {
 
   public onClickAddCommentBox(): void {
     this.workflowActionService.addCommentBox(this.workflowUtilService.getNewCommentBox());
+  }
+
+  public async onPowerStateChange(newState: PowerState) {
+    this.powerState = newState;
+
+    switch (newState) {
+      case PowerState.Initializing:
+        await this.sendPodRequest();
+        break;
+      case PowerState.Running:
+        // Handle running state
+        console.log("System is now running");
+        break;
+      case PowerState.Stopping:
+        await this.sendPodRequest();
+        break;
+      case PowerState.Off:
+        console.log("System is now off");
+        break;
+    }
+  }
+
+  private async sendPodRequest() {
+    try {
+      const response = await this.workflowPodBrainService.sendRequest(this.powerState);
+      console.log("Request successful, response:", response);
+
+      if (this.powerState === PowerState.Initializing) {
+        await this.waitForConditions();
+        this.powerState = PowerState.Running;
+      } else {
+        this.powerState = PowerState.Off;
+      }
+    } catch (error) {
+      console.error("Error sending pod request:", error);
+    }
+  }
+
+  private async waitForConditions(): Promise<void> {
+    const checkConditions = () => {
+      return !this.runDisable && this.workflowWebsocketService.isConnected && !this.displayParticularWorkflowVersion;
+    };
+
+    while (!checkConditions()) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 
   public handleKill(): void {
@@ -543,4 +596,5 @@ export class MenuComponent implements OnInit {
   }
 
   protected readonly environment = environment;
+  protected readonly PowerState = PowerState;
 }
