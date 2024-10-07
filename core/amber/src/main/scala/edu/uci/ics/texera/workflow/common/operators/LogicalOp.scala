@@ -147,6 +147,7 @@ import edu.uci.ics.texera.workflow.operators.visualization.quiverPlot.QuiverPlot
 import edu.uci.ics.texera.workflow.operators.visualization.contourPlot.ContourPlotOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.figureFactoryTable.FigureFactoryTableOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.sankeyDiagram.SankeyDiagramOpDesc
+import edu.uci.ics.texera.workflow.operators.state.{DataToStateOpDesc, StateToDataOpDesc}
 import java.util.UUID
 import scala.collection.mutable
 import scala.util.Try
@@ -162,6 +163,8 @@ trait StateTransferFunc
 )
 @JsonSubTypes(
   Array(
+    new Type(value = classOf[StateToDataOpDesc], name = "StateToData"),
+    new Type(value = classOf[DataToStateOpDesc], name = "DataToState"),
     new Type(value = classOf[SankeyDiagramOpDesc], name = "SankeyDiagram"),
     new Type(value = classOf[IcicleChartOpDesc], name = "IcicleChart"),
     new Type(value = classOf[CSVScanSourceOpDesc], name = "CSVFileScan"),
