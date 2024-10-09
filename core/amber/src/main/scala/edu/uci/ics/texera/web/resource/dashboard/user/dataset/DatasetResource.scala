@@ -1,6 +1,6 @@
 package edu.uci.ics.texera.web.resource.dashboard.user.dataset
 
-import edu.uci.ics.texera.Utils.withTransaction
+import edu.uci.ics.amber.engine.common.Utils.withTransaction
 import edu.uci.ics.texera.web.SqlServer
 import edu.uci.ics.texera.web.auth.SessionUser
 import edu.uci.ics.texera.web.model.jooq.generated.enums.DatasetUserAccessPrivilege
@@ -90,7 +90,7 @@ import javax.ws.rs.core.{MediaType, Response, StreamingOutput}
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.ListHasAsScala
 
 object DatasetResource {
   val DATASET_IS_PUBLIC: Byte = 1;
