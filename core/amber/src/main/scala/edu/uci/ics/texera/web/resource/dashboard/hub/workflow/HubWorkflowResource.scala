@@ -104,4 +104,116 @@ class HubWorkflowResource {
       .where(WORKFLOW.WID.eq(wid))
       .fetchOneInto(classOf[String])
   }
+
+  @GET
+  @Path("/isLiked")
+  @Produces(Array(MediaType.APPLICATION_JSON))
+  def isLiked(
+      @QueryParam("workflowId") workflowId: UInteger,
+      @QueryParam("userId") userId: UInteger
+  ): Boolean = {
+    val existingLike = context
+      .selectFrom(WORKFLOW_USER_LIKES)
+      .where(
+        WORKFLOW_USER_LIKES.UID
+          .eq(userId)
+          .and(WORKFLOW_USER_LIKES.WID.eq(workflowId))
+      )
+      .fetchOne()
+
+    existingLike != null
+  }
+
+  @POST
+  @Path("/like")
+  @Consumes(Array(MediaType.APPLICATION_JSON))
+  def likeWorkflow(likeRequest: Array[UInteger]): Boolean = {
+    if (likeRequest.length != 2) {
+      return false
+    }
+
+    val workflowId = likeRequest(0)
+    val userId = likeRequest(1)
+
+    val existingLike = context
+      .selectFrom(WORKFLOW_USER_LIKES)
+      .where(
+        WORKFLOW_USER_LIKES.UID
+          .eq(userId)
+          .and(WORKFLOW_USER_LIKES.WID.eq(workflowId))
+      )
+      .fetchOne()
+
+    if (existingLike == null) {
+      context
+        .insertInto(WORKFLOW_USER_LIKES)
+        .set(WORKFLOW_USER_LIKES.UID, userId)
+        .set(WORKFLOW_USER_LIKES.WID, workflowId)
+        .execute()
+      true
+    } else {
+      false
+    }
+  }
+
+  @POST
+  @Path("/unlike")
+  @Consumes(Array(MediaType.APPLICATION_JSON))
+  def unlikeWorkflow(likeRequest: Array[UInteger]): Boolean = {
+    if (likeRequest.length != 2) {
+      return false
+    }
+
+    val workflowId = likeRequest(0)
+    val userId = likeRequest(1)
+
+    val existingLike = context
+      .selectFrom(WORKFLOW_USER_LIKES)
+      .where(
+        WORKFLOW_USER_LIKES.UID
+          .eq(userId)
+          .and(WORKFLOW_USER_LIKES.WID.eq(workflowId))
+      )
+      .fetchOne()
+
+    if (existingLike != null) {
+      context
+        .deleteFrom(WORKFLOW_USER_LIKES)
+        .where(
+          WORKFLOW_USER_LIKES.UID
+            .eq(userId)
+            .and(WORKFLOW_USER_LIKES.WID.eq(workflowId))
+        )
+        .execute()
+      true
+    } else {
+      false
+    }
+  }
+
+  @GET
+  @Path("/likeCount/{wid}")
+  @Produces(Array(MediaType.APPLICATION_JSON))
+  def getLikeCount(@PathParam("wid") wid: UInteger): Int = {
+    val likeCount = context
+      .selectCount()
+      .from(WORKFLOW_USER_LIKES)
+      .where(WORKFLOW_USER_LIKES.WID.eq(wid))
+      .fetchOne(0, classOf[Int])
+
+    likeCount
+  }
+
+  @GET
+  @Path("/cloneCount/{wid}")
+  @Produces(Array(MediaType.APPLICATION_JSON))
+  def getCloneCount(@PathParam("wid") wid: UInteger): Int = {
+    val cloneCount = context
+      .selectCount()
+      .from(WORKFLOW_USER_CLONES)
+      .where(WORKFLOW_USER_CLONES.WID.eq(wid))
+      .fetchOne(0, classOf[Int])
+
+    cloneCount
+  }
 }
