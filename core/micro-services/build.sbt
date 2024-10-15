@@ -1,8 +1,10 @@
 lazy val WorkflowCore = project in file("workflow-core")
+lazy val WorkflowCompilingService = project in file("workflow-compiling-service")
+
 
 // root project definition
 lazy val MicroServices = (project in file("."))
-  .aggregate(WorkflowCore)
+  .aggregate(WorkflowCore, WorkflowCompilingService)
   .settings(
     name := "micro-services",
     version := "0.1.0",
