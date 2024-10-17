@@ -1,3 +1,4 @@
+import scala.collection.Seq
 /////////////////////////////////////////////////////////////////////////////
 // Project Settings
 /////////////////////////////////////////////////////////////////////////////
@@ -62,4 +63,23 @@ libraryDependencies ++= Seq(
 val dropwizardVersion = "4.0.7"
 libraryDependencies ++= Seq(
   "io.dropwizard" % "dropwizard-core" % dropwizardVersion,
+)
+
+// Lucene related
+val luceneVersion = "8.7.0"
+libraryDependencies ++= Seq(
+  "org.apache.lucene" % "lucene-core" % luceneVersion,
+  "org.apache.lucene" % "lucene-queryparser" % luceneVersion,
+  "org.apache.lucene" % "lucene-queries" % luceneVersion,
+  "org.apache.lucene" % "lucene-memory" % luceneVersion
+)
+
+/////////////////////////////////////////////////////////////////////////////
+// Additional Dependencies
+/////////////////////////////////////////////////////////////////////////////
+
+libraryDependencies ++= Seq(
+  "org.jgrapht" % "jgrapht-core" % "1.4.0",                      // JGraphT Core
+  "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.0.202109080827-r", // JGit
+  "com.thesamet.scalapb" %% "scalapb-json4s" % "0.12.0",
 )
