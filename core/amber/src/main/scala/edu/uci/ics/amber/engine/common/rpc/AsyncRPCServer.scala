@@ -2,89 +2,110 @@ package edu.uci.ics.amber.engine.common.rpc
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGateway
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ControlInvocation
+import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{ControlReturn, ReturnInvocation}
 import edu.uci.ics.amber.engine.common.AmberLogging
-import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.{ControlInvocation, ReturnInvocation}
-import edu.uci.ics.amber.engine.common.rpc.AsyncRPCServer.ControlCommand
 import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.error.ErrorUtils.mkControlError
+import io.grpc.ServiceDescriptor
 
-/** Motivation of having a separate module to handle control messages as RPCs:
-  * In the old design, every control message and its response are handled by
-  * message passing. That means developers need to manually send response back
-  * and write proper handlers on the sender side.
-  * Writing control messages becomes tedious if we use this way.
-  *
-  * So we want to implement rpc model on top of message passing.
-  * rpc (request-response)
-  * remote.callFunctionX().then(response => {
-  * })
-  * user-api: promise
-  *
-  * goal: request-response model with multiplexing
-  * client: initiate request
-  * (web browser, actor that invoke control command)
-  * server: handle request, return response
-  * (web server, actor that handles control command)
-  */
-object AsyncRPCServer {
-
-  trait ControlCommand[T] {
-    type ReturnType = T
-  }
-
-}
+import java.lang.reflect.Method
+import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
 
 class AsyncRPCServer(
     outputGateway: NetworkOutputGateway,
-    val actorId: ActorVirtualIdentity
+    val actorId: ActorVirtualIdentity,
+    serviceDescriptor: ServiceDescriptor
 ) extends AmberLogging {
 
-  // all handlers
-  protected var handlers: PartialFunction[(ControlCommand[_], ActorVirtualIdentity), Future[_]] =
-    PartialFunction.empty
+  var handler: AnyRef = _
 
-  // note that register handler allows multiple handlers for a control message and uses the latest handler.
-  def registerHandler(
-      newHandler: PartialFunction[(ControlCommand[_], ActorVirtualIdentity), Future[_]]
-  ): Unit = {
-    handlers =
-      newHandler orElse handlers
+  // Define the MethodKey case class
+  private case class MethodKey(name: String, paramTypes: Seq[Class[_]])
 
+  // Cache to store methods based on method name and parameter types
+  private val methodCache: TrieMap[MethodKey, Method] = TrieMap()
+
+  // Secondary cache mapping method names to methods
+  private lazy val methodsByName: Map[String, Method] = {
+    val mapping = mutable.HashMap[String, Method]()
+    serviceDescriptor.getMethods.forEach { method =>
+      val targetMethodName = method.getBareMethodName.toLowerCase
+      val handlerMethod =
+        handler.getClass.getMethods.find(m => m.getName.toLowerCase == targetMethodName)
+      if (handlerMethod.nonEmpty) {
+        mapping(targetMethodName) = handlerMethod.get
+      }
+    }
+    mapping.toMap
   }
 
-  def receive(control: ControlInvocation, senderID: ActorVirtualIdentity): Unit = {
+  def receive(request: ControlInvocation, senderID: ActorVirtualIdentity): Unit = {
+    val methodName = request.methodName.toLowerCase
+    val requestArg = request.command
+    val contextArg = request.context
+    val id = request.commandId
     logger.debug(
-      s"receive command: ${control.command} from $senderID (controlID: ${control.commandID})"
+      s"receive command: ${methodName} from $senderID (controlID: ${id})"
     )
+
+    val paramTypes = Seq(requestArg.getClass, contextArg.getClass)
+    val key = MethodKey(methodName, paramTypes)
+
+    methodCache.get(key) match {
+      case Some(method) =>
+        // Exact match found
+        invokeMethod(method, requestArg, contextArg, id, senderID)
+      case None =>
+        // Attempt to find a compatible method
+        methodsByName.get(methodName) match {
+          case Some(method) =>
+            // Cache this method for future calls
+            methodCache.put(key, method)
+            invokeMethod(method, requestArg, contextArg, id, senderID)
+          case None =>
+            logger.error(s"No methods found with name $methodName")
+        }
+    }
+  }
+
+  private def invokeMethod(
+      method: Method,
+      requestArg: Any,
+      contextArg: Any,
+      id: Long,
+      senderID: ActorVirtualIdentity
+  ): Unit = {
     try {
-      execute((control.command, senderID))
+      val result =
+        method.invoke(handler, requestArg.asInstanceOf[AnyRef], contextArg.asInstanceOf[AnyRef])
+      result
+        .asInstanceOf[Future[ControlReturn]]
         .onSuccess { ret =>
-          returnResult(senderID, control.commandID, ret)
+          returnResult(senderID, id, ret)
         }
         .onFailure { err =>
           logger.error("Exception occurred", err)
-          returnResult(senderID, control.commandID, err)
+          returnResult(senderID, id, mkControlError(err))
         }
 
     } catch {
       case err: Throwable =>
         // if error occurs, return it to the sender.
         logger.error("Exception occurred", err)
-        returnResult(senderID, control.commandID, err)
+        returnResult(senderID, id, mkControlError(err))
       // if throw this exception right now, the above message might not be able
       // to be sent out. We do not throw for now.
       //        throw err
     }
   }
 
-  def execute(cmd: (ControlCommand[_], ActorVirtualIdentity)): Future[_] = {
-    handlers(cmd)
-  }
-
   @inline
   private def noReplyNeeded(id: Long): Boolean = id < 0
 
   @inline
-  private def returnResult(sender: ActorVirtualIdentity, id: Long, ret: Any): Unit = {
+  private def returnResult(sender: ActorVirtualIdentity, id: Long, ret: ControlReturn): Unit = {
     if (noReplyNeeded(id)) {
       return
     }

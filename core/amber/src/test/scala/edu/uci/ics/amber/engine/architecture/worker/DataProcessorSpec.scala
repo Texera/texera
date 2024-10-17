@@ -1,9 +1,12 @@
 package edu.uci.ics.amber.engine.architecture.worker
 
-import edu.uci.ics.amber.engine.architecture.messaginglayer.OutputManager.FlushNetworkBuffer
 import edu.uci.ics.amber.engine.architecture.messaginglayer.WorkerTimerService
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.{
+  METHOD_FLUSH_NETWORK_BUFFER,
+  METHOD_OPEN_EXECUTOR
+}
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
-import edu.uci.ics.amber.engine.architecture.worker.promisehandlers.OpenExecutorHandler.OpenExecutor
 import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.READY
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
 import edu.uci.ics.amber.engine.common.ambermessage.{DataFrame, MarkerFrame, WorkflowFIFOMessage}
@@ -12,7 +15,6 @@ import edu.uci.ics.amber.engine.common.model.EndOfInputChannel
 import edu.uci.ics.amber.engine.common.model.tuple.{AttributeType, Schema, Tuple, TupleLike}
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.ControlInvocation
-import edu.uci.ics.amber.engine.common.rpc.AsyncRPCServer.ControlCommand
 import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
 import edu.uci.ics.amber.engine.common.virtualidentity.{
   ActorVirtualIdentity,
@@ -59,8 +61,6 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
     dp
   }
 
-  case class DummyControl() extends ControlCommand[Unit]
-
   "data processor" should "process data messages" in {
     val dp = mkDataProcessor
     dp.executor = executor
@@ -92,7 +92,6 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
         0
       )
     (adaptiveBatchingMonitor.startAdaptiveBatching _).expects().anyNumberOfTimes()
-    (dp.asyncRPCClient.send[Unit] _).expects(*, *).anyNumberOfTimes()
     (adaptiveBatchingMonitor.stopAdaptiveBatching _).expects().once()
     (executor.close _).expects().once()
     dp.inputManager.addPort(inputPortId, schema)
@@ -102,7 +101,12 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
     dp.outputManager.addPort(outputPortId, schema)
     dp.processControlPayload(
       ChannelIdentity(CONTROLLER, testWorkerId, isControl = true),
-      ControlInvocation(0, OpenExecutor())
+      ControlInvocation(
+        METHOD_OPEN_EXECUTOR,
+        EmptyRequest(),
+        AsyncRPCContext(CONTROLLER, testWorkerId),
+        0
+      )
     )
     dp.processDataPayload(
       ChannelIdentity(senderWorkerId, testWorkerId, isControl = false),
@@ -149,7 +153,6 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
     )
       .expects(0)
     (adaptiveBatchingMonitor.startAdaptiveBatching _).expects().anyNumberOfTimes()
-    (dp.asyncRPCClient.send[Unit] _).expects(*, *).anyNumberOfTimes()
     dp.inputManager.addPort(inputPortId, schema)
     dp.inputGateway
       .getChannel(ChannelIdentity(senderWorkerId, testWorkerId, isControl = false))
@@ -157,7 +160,12 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
     dp.outputManager.addPort(outputPortId, schema)
     dp.processControlPayload(
       ChannelIdentity(CONTROLLER, testWorkerId, isControl = true),
-      ControlInvocation(0, OpenExecutor())
+      ControlInvocation(
+        METHOD_OPEN_EXECUTOR,
+        EmptyRequest(),
+        AsyncRPCContext(CONTROLLER, testWorkerId),
+        0
+      )
     )
     dp.processDataPayload(
       ChannelIdentity(senderWorkerId, testWorkerId, isControl = false),
@@ -166,7 +174,12 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
     while (dp.inputManager.hasUnfinishedInput || dp.outputManager.hasUnfinishedOutput) {
       dp.processControlPayload(
         ChannelIdentity(CONTROLLER, testWorkerId, isControl = true),
-        ControlInvocation(0, FlushNetworkBuffer())
+        ControlInvocation(
+          METHOD_FLUSH_NETWORK_BUFFER,
+          EmptyRequest(),
+          AsyncRPCContext(CONTROLLER, testWorkerId),
+          1
+        )
       )
       dp.continueDataProcessing()
     }

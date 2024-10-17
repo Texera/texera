@@ -5,17 +5,20 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.{
   NetworkInputGateway,
   NetworkOutputGateway
 }
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ControlInvocation
+import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.ReturnInvocation
 import edu.uci.ics.amber.engine.architecture.worker.managers.StatisticsManager
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
 import edu.uci.ics.amber.engine.common.AmberLogging
 import edu.uci.ics.amber.engine.common.ambermessage.{ControlPayload, WorkflowFIFOMessage}
-import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.{ControlInvocation, ReturnInvocation}
 import edu.uci.ics.amber.engine.common.rpc.{AsyncRPCClient, AsyncRPCServer}
 import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
+import io.grpc.ServiceDescriptor
 
-class AmberProcessor(
+abstract class AmberProcessor(
     val actorId: ActorVirtualIdentity,
-    @transient var outputHandler: Either[MainThreadDelegateMessage, WorkflowFIFOMessage] => Unit
+    @transient var outputHandler: Either[MainThreadDelegateMessage, WorkflowFIFOMessage] => Unit,
+    serviceDescriptor: ServiceDescriptor
 ) extends AmberLogging
     with Serializable {
 
@@ -32,10 +35,9 @@ class AmberProcessor(
       }
     )
   // 2. RPC Layer
-  val asyncRPCClient: AsyncRPCClient =
-    new AsyncRPCClient(outputGateway, actorId)
+  val asyncRPCClient = new AsyncRPCClient(outputGateway, actorId)
   val asyncRPCServer: AsyncRPCServer =
-    new AsyncRPCServer(outputGateway, actorId)
+    new AsyncRPCServer(outputGateway, actorId, serviceDescriptor)
 
   // statistics manager
   val statisticsManager: StatisticsManager = new StatisticsManager()
