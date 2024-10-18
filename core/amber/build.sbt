@@ -1,3 +1,4 @@
+
 name := "texera"
 organization := "edu.uci.ics"
 version := "0.1-SNAPSHOT"
@@ -5,7 +6,6 @@ version := "0.1-SNAPSHOT"
 scalaVersion := "2.13.12"
 
 enablePlugins(JavaAppPackaging)
-
 semanticdbEnabled := true
 semanticdbVersion := scalafixSemanticdb.revision
 
@@ -163,14 +163,21 @@ libraryDependencies ++= hadoopDependencies
 
 PB.protocVersion := "3.19.4"
 
+enablePlugins(Fs2Grpc)
+
+fs2GrpcOutputPath := (Compile / sourceDirectory).value / "scalapb"
+
 Compile / PB.targets := Seq(
   scalapb.gen(
     singleLineToProtoString = true
-  ) -> (Compile / sourceDirectory).value / "scalapb"
+  ) -> (Compile / sourceDirectory).value / "scalapb",
+  // let fs2 compile grpc-related proto, skip other protos in fs2 compilation pipeline.
+  scalapbCodeGenerators.value(1)
 )
 
 libraryDependencies ++= Seq(
-  "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
+  "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
+  "io.grpc" % "grpc-netty-shaded" % scalapb.compiler.Version.grpcJavaVersion
 )
 // For ScalaPB 0.11.x:
 libraryDependencies += "com.thesamet.scalapb" %% "scalapb-json4s" % "0.12.0"
