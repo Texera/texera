@@ -2,9 +2,9 @@ package edu.uci.ics.texera.workflow.operators.aggregate
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonProperty, JsonPropertyDescription}
 import com.kjetland.jackson.jsonSchema.annotations.{JsonSchemaInject, JsonSchemaTitle}
+import edu.uci.ics.amber.core.tuple.AttributeTypeUtils.parseTimestamp
 import edu.uci.ics.amber.core.tuple.{Attribute, AttributeType, Tuple}
 import edu.uci.ics.texera.workflow.common.metadata.annotations.AutofillAttributeName
-import scalapb.json4s.Timestamps.parseTimestamp
 
 import java.sql.Timestamp
 

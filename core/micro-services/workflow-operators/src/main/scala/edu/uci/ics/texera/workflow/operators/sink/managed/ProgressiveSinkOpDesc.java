@@ -2,25 +2,23 @@ package edu.uci.ics.texera.workflow.operators.sink.managed;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Preconditions;
-import edu.uci.ics.amber.engine.common.model.PhysicalOp;
-import edu.uci.ics.amber.engine.common.model.SchemaPropagationFunc;
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.OpExecInitInfo;
-import edu.uci.ics.amber.engine.common.virtualidentity.ExecutionIdentity;
-import edu.uci.ics.amber.engine.common.virtualidentity.OperatorIdentity;
-import edu.uci.ics.amber.engine.common.virtualidentity.WorkflowIdentity;
-import edu.uci.ics.amber.engine.common.workflow.InputPort;
-import edu.uci.ics.amber.engine.common.workflow.OutputPort;
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity;
-import edu.uci.ics.amber.engine.common.IncrementalOutputMode;
-import edu.uci.ics.amber.engine.common.ProgressiveUtils;
+import edu.uci.ics.amber.core.executor.OpExecInitInfo;
+import edu.uci.ics.amber.core.executor.OperatorExecutor;
+import edu.uci.ics.amber.core.tuple.Schema;
+import edu.uci.ics.amber.core.workflow.PhysicalOp;
+import edu.uci.ics.amber.core.workflow.SchemaPropagationFunc;
+import edu.uci.ics.amber.storage.result.SinkStorageReader;
+import edu.uci.ics.amber.storage.result.SinkStorageWriter;
+import edu.uci.ics.amber.virtualidentity.ExecutionIdentity;
+import edu.uci.ics.amber.virtualidentity.OperatorIdentity;
+import edu.uci.ics.amber.virtualidentity.WorkflowIdentity;
+import edu.uci.ics.amber.workflow.InputPort;
+import edu.uci.ics.amber.workflow.OutputPort;
+import edu.uci.ics.amber.workflow.PortIdentity;
+import edu.uci.ics.texera.workflow.operators.sink.IncrementalOutputMode;
 import edu.uci.ics.texera.workflow.common.metadata.OperatorGroupConstants;
 import edu.uci.ics.texera.workflow.common.metadata.OperatorInfo;
-import edu.uci.ics.amber.engine.common.executor.OperatorExecutor;
-import edu.uci.ics.amber.engine.common.model.tuple.Schema;
 import edu.uci.ics.texera.workflow.operators.sink.SinkOpDesc;
-import edu.uci.ics.texera.workflow.operators.sink.managed.ProgressiveSinkOpExec;
-import edu.uci.ics.texera.workflow.operators.sink.storage.SinkStorageReader;
-import edu.uci.ics.texera.workflow.operators.sink.storage.SinkStorageWriter;
 import edu.uci.ics.texera.workflow.operators.util.OperatorDescriptorUtils;
 import scala.Option;
 import scala.Tuple2;
@@ -31,7 +29,7 @@ import java.util.ArrayList;
 
 import java.util.function.Function;
 
-import static edu.uci.ics.amber.engine.common.IncrementalOutputMode.SET_SNAPSHOT;
+import static edu.uci.ics.texera.workflow.operators.sink.IncrementalOutputMode.SET_SNAPSHOT;
 import static java.util.Collections.singletonList;
 import static scala.jdk.javaapi.CollectionConverters.asScala;
 

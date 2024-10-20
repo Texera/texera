@@ -3,16 +3,13 @@ package edu.uci.ics.texera.workflow.operators.udf.python
 import com.fasterxml.jackson.annotation.{JsonProperty, JsonPropertyDescription}
 import com.google.common.base.Preconditions
 import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
-import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.OpExecInitInfo
-import edu.uci.ics.amber.engine.common.model.{PhysicalOp, SchemaPropagationFunc}
-import edu.uci.ics.amber.engine.common.model.tuple.{Attribute, Schema}
-import edu.uci.ics.amber.engine.common.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
+import edu.uci.ics.amber.core.executor.OpExecInitInfo
+import edu.uci.ics.amber.core.tuple.{Attribute, Schema}
+import edu.uci.ics.amber.core.workflow.{PhysicalOp, SchemaPropagationFunc, UnknownPartition}
 import edu.uci.ics.texera.workflow.common.metadata.{OperatorGroupConstants, OperatorInfo}
-import edu.uci.ics.texera.workflow.common.operators.LogicalOp
-import edu.uci.ics.texera.workflow.common.workflow.UnknownPartition
-import edu.uci.ics.amber.engine.common.workflow.InputPort
-import edu.uci.ics.amber.engine.common.workflow.OutputPort
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
+import edu.uci.ics.amber.workflow.{InputPort, OutputPort, PortIdentity}
+import edu.uci.ics.texera.workflow.operators.LogicalOp
 
 class DualInputPortsPythonUDFOpDescV2 extends LogicalOp {
   @JsonProperty(

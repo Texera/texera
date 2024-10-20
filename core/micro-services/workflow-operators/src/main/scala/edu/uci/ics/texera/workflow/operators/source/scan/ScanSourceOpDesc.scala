@@ -3,13 +3,13 @@ package edu.uci.ics.texera.workflow.operators.source.scan
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonProperty, JsonPropertyDescription}
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
-import edu.uci.ics.amber.engine.common.AmberConfig
-import edu.uci.ics.amber.engine.common.model.WorkflowContext
-import edu.uci.ics.amber.engine.common.model.tuple.Schema
-import edu.uci.ics.amber.engine.common.storage.DatasetFileDocument
-import edu.uci.ics.amber.engine.common.workflow.OutputPort
+import edu.uci.ics.amber.WorkflowCoreConfig
+import edu.uci.ics.amber.core.tuple.Schema
+import edu.uci.ics.amber.core.workflow.WorkflowContext
+import edu.uci.ics.amber.storage.dataset.DatasetFileDocument
+import edu.uci.ics.amber.workflow.OutputPort
 import edu.uci.ics.texera.workflow.common.metadata.{OperatorGroupConstants, OperatorInfo}
-import edu.uci.ics.texera.workflow.common.operators.source.SourceOperatorDescriptor
+import edu.uci.ics.texera.workflow.operators.source.SourceOperatorDescriptor
 import org.apache.commons.lang3.builder.EqualsBuilder
 
 import java.nio.file.Paths
@@ -65,7 +65,7 @@ abstract class ScanSourceOpDesc extends SourceOperatorDescriptor {
       throw new RuntimeException("no input file name")
     }
 
-    if (AmberConfig.isUserSystemEnabled) {
+    if (WorkflowCoreConfig.userSysEnabled) {
       // if user system is defined, a datasetFileDesc will be initialized, which is the handle of reading file from the dataset
       datasetFile = Some(new DatasetFileDocument(Paths.get(fileName.get)))
     } else {
@@ -90,7 +90,7 @@ abstract class ScanSourceOpDesc extends SourceOperatorDescriptor {
   // resolve the file path based on whether the user system is enabled
   // it will check for the presence of the given filePath/Desc
   def determineFilePathOrDatasetFile(): (String, DatasetFileDocument) = {
-    if (AmberConfig.isUserSystemEnabled) {
+    if (WorkflowCoreConfig.userSysEnabled) {
       val file = datasetFile.getOrElse(
         throw new RuntimeException("Dataset file descriptor is not provided.")
       )

@@ -37,7 +37,6 @@ import edu.uci.ics.texera.workflow.operators.sklearn.{SklearnAdaptiveBoostingOpD
 import edu.uci.ics.texera.workflow.operators.sort.SortOpDesc
 import edu.uci.ics.texera.workflow.operators.sortPartitions.SortPartitionsOpDesc
 import edu.uci.ics.texera.workflow.operators.source.apis.reddit.RedditSearchSourceOpDesc
-import edu.uci.ics.texera.workflow.operators.source.apis.twitter.v2.{TwitterFullArchiveSearchSourceOpDesc, TwitterSearchSourceOpDesc}
 import edu.uci.ics.texera.workflow.operators.source.fetcher.URLFetcherOpDesc
 import edu.uci.ics.texera.workflow.operators.source.scan.FileScanSourceOpDesc
 import edu.uci.ics.texera.workflow.operators.source.scan.csv.CSVScanSourceOpDesc
@@ -110,14 +109,6 @@ trait StateTransferFunc
     new Type(value = classOf[JSONLScanSourceOpDesc], name = "JSONLFileScan"),
     new Type(value = classOf[FileScanSourceOpDesc], name = "FileScan"),
     new Type(value = classOf[TextInputSourceOpDesc], name = "TextInput"),
-    new Type(
-      value = classOf[TwitterFullArchiveSearchSourceOpDesc],
-      name = "TwitterFullArchiveSearch"
-    ),
-    new Type(
-      value = classOf[TwitterSearchSourceOpDesc],
-      name = "TwitterSearch"
-    ),
     new Type(value = classOf[ProgressiveSinkOpDesc], name = "SimpleSink"),
     new Type(value = classOf[CandlestickChartOpDesc], name = "CandlestickChart"),
     new Type(value = classOf[SplitOpDesc], name = "Split"),

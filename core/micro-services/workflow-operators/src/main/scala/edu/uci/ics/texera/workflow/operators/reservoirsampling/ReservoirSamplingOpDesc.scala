@@ -7,6 +7,7 @@ import edu.uci.ics.amber.core.tuple.Schema
 import edu.uci.ics.amber.core.workflow.PhysicalOp
 import edu.uci.ics.amber.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.workflow.{InputPort, OutputPort}
+import edu.uci.ics.texera.workflow.WorkflowOperatorsConfig
 import edu.uci.ics.texera.workflow.operators.util.OperatorDescriptorUtils.equallyPartitionGoal
 import edu.uci.ics.texera.workflow.common.metadata.{OperatorGroupConstants, OperatorInfo}
 import edu.uci.ics.texera.workflow.operators.LogicalOp
@@ -19,7 +20,7 @@ class ReservoirSamplingOpDesc extends LogicalOp {
   // (n is the number of the executors)
   @JsonIgnore
   private lazy val kPerActor: List[Int] =
-    equallyPartitionGoal(k, AmberConfig.numWorkerPerOperatorByDefault)
+    equallyPartitionGoal(k, WorkflowOperatorsConfig.numWorkerPerOperator)
 
   // Store random seeds for each executor to satisfy the fault tolerance requirement.
   // If a worker failed, the engine will start a new worker and rerun the computation.
@@ -27,7 +28,7 @@ class ReservoirSamplingOpDesc extends LogicalOp {
   // Therefore the seeds have to be stored.
   @JsonIgnore
   private val seeds: Array[Int] =
-    Array.fill(AmberConfig.numWorkerPerOperatorByDefault)(Random.nextInt())
+    Array.fill(WorkflowOperatorsConfig.numWorkerPerOperator)(Random.nextInt())
 
   @JsonProperty(value = "number of item sampled in reservoir sampling", required = true)
   @JsonPropertyDescription("reservoir sampling with k items being kept randomly")

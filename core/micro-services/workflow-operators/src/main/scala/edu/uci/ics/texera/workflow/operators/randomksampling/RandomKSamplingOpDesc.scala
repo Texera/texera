@@ -5,6 +5,7 @@ import edu.uci.ics.amber.core.executor.OpExecInitInfo
 import edu.uci.ics.amber.core.workflow.PhysicalOp
 import edu.uci.ics.amber.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.workflow.{InputPort, OutputPort}
+import edu.uci.ics.texera.workflow.WorkflowOperatorsConfig
 import edu.uci.ics.texera.workflow.common.metadata.{OperatorGroupConstants, OperatorInfo}
 import edu.uci.ics.texera.workflow.operators.filter.FilterOpDesc
 
@@ -17,7 +18,7 @@ class RandomKSamplingOpDesc extends FilterOpDesc {
   // Therefore the seeds have to be stored.
   @JsonIgnore
   private val seeds: Array[Int] =
-    Array.fill(AmberConfig.numWorkerPerOperatorByDefault)(Random.nextInt())
+    Array.fill(WorkflowOperatorsConfig.numWorkerPerOperator)(Random.nextInt())
 
   @JsonProperty(value = "random k sample percentage", required = true)
   @JsonPropertyDescription("random k sampling with given percentage")

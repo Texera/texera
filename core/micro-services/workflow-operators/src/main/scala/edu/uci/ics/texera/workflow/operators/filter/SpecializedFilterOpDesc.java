@@ -9,7 +9,7 @@ import edu.uci.ics.amber.virtualidentity.WorkflowIdentity;
 import edu.uci.ics.amber.workflow.InputPort;
 import edu.uci.ics.amber.workflow.OutputPort;
 import edu.uci.ics.amber.workflow.PortIdentity;
-import edu.uci.ics.texera.workflow.common.executor.OperatorExecutor;
+import edu.uci.ics.texera.workflow.utils.executor.OperatorExecutor;
 import edu.uci.ics.texera.compilation.core.common.metadata.OperatorGroupConstants;
 import edu.uci.ics.texera.workflow.common.metadata.OperatorInfo;
 import scala.Tuple2;

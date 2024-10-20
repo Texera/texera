@@ -1,10 +1,10 @@
 package edu.uci.ics.texera.workflow.operators.sink.managed
 
-import edu.uci.ics.amber.engine.common.{IncrementalOutputMode, ProgressiveUtils}
-import edu.uci.ics.amber.engine.common.executor.SinkOperatorExecutor
-import edu.uci.ics.amber.engine.common.model.tuple.{Tuple, TupleLike}
-import edu.uci.ics.amber.engine.common.IncrementalOutputMode._
-import edu.uci.ics.texera.workflow.operators.sink.storage.SinkStorageWriter
+import edu.uci.ics.amber.core.tuple.{Tuple, TupleLike}
+import edu.uci.ics.amber.storage.result.SinkStorageWriter
+import edu.uci.ics.texera.workflow.operators.sink.IncrementalOutputMode
+import edu.uci.ics.texera.workflow.operators.sink.IncrementalOutputMode.{SET_DELTA, SET_SNAPSHOT}
+import edu.uci.ics.texera.workflow.utils.executor.SinkOperatorExecutor
 
 class ProgressiveSinkOpExec(outputMode: IncrementalOutputMode, storage: SinkStorageWriter)
     extends SinkOperatorExecutor {

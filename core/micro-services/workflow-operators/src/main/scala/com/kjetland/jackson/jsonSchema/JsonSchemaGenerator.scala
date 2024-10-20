@@ -19,6 +19,8 @@ import java.util.{Optional, List => JList}
 import javax.validation.constraints._
 import javax.validation.groups.Default
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsScala}
+import io.github.classgraph.{ClassGraph, ScanResult}
+
 
 object JsonSchemaGenerator {
 }

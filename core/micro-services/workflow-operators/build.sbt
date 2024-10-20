@@ -65,6 +65,44 @@ libraryDependencies ++= Seq(
   "org.apache.lucene" % "lucene-memory" % luceneVersion
 )
 
+// kjetland
+libraryDependencies ++= Seq(
+  "javax.validation" % "validation-api" % "2.0.1.Final",
+  "org.slf4j" % "slf4j-api" % "1.7.26",
+  "io.github.classgraph" % "classgraph" % "4.8.157",
+  "ch.qos.logback" % "logback-classic" % "1.2.3" % "test",
+  "com.github.java-json-tools" % "json-schema-validator" % "2.2.14" % "test",
+  "com.fasterxml.jackson.module" % "jackson-module-kotlin" % jacksonVersion % "test",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8" % jacksonVersion % "test",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % jacksonVersion % "test",
+  "joda-time" % "joda-time" % "2.12.5" % "test",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-joda" % jacksonVersion % "test",
+  "com.fasterxml.jackson.module" % "jackson-module-jsonSchema" % jacksonVersion,
+  "com.fasterxml.jackson.module" % "jackson-module-scala_2.13" % jacksonVersion,
+  // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-no-ctor-deser
+  "com.fasterxml.jackson.module" % "jackson-module-no-ctor-deser" % jacksonVersion,
+)
+
+//akka
+val akkaVersion = "2.8.3"
+libraryDependencies ++= Seq(
+  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
+  "com.typesafe.akka" %% "akka-remote" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster-metrics" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster-tools" % akkaVersion,
+  "com.typesafe.akka" %% "akka-multi-node-testkit" % akkaVersion,
+  "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
+  "com.typesafe.akka" %% "akka-persistence" % akkaVersion,
+  "io.kamon" % "sigar-loader" % "1.6.6-rev002",
+  "com.softwaremill.macwire" %% "macros" % "2.5.8" % Provided,
+  "com.softwaremill.macwire" %% "macrosakka" % "2.5.8" % Provided,
+  "com.softwaremill.macwire" %% "util" % "2.5.8",
+  "com.softwaremill.macwire" %% "proxy" % "2.5.8",
+  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+  "ch.qos.logback" % "logback-classic" % "1.2.3"
+)
+
 /////////////////////////////////////////////////////////////////////////////
 // Additional Dependencies
 /////////////////////////////////////////////////////////////////////////////
@@ -73,7 +111,12 @@ libraryDependencies ++= Seq(
   "org.jgrapht" % "jgrapht-core" % "1.4.0",                      // JGraphT Core
   "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.0.202109080827-r", // JGit
   "com.thesamet.scalapb" %% "scalapb-json4s" % "0.12.0",
-  // https://mvnrepository.com/artifact/org.apache.commons/commons-jcs3-core
-  "org.apache.commons" % "commons-jcs3-core" % "3.2",
-  "org.apache.commons" % "commons-lang3" % "3.14.0"
+  "com.github.tototoshi" %% "scala-csv" % "1.3.10",       // csv parser
+  "com.konghq" % "unirest-java" % "3.14.2",
+  "commons-io" % "commons-io" % "2.15.1",
+  "org.apache.commons" % "commons-compress" % "1.23.0",
+  "org.tukaani" % "xz" % "1.9",
+  "com.univocity" % "univocity-parsers" % "2.9.1",
+  "edu.stanford.nlp" % "stanford-corenlp" % "4.5.4",
+  "edu.stanford.nlp" % "stanford-corenlp" % "4.5.4" classifier "models",
 )

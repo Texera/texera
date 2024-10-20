@@ -1,26 +1,26 @@
 package edu.uci.ics.texera.workflow.operators.source.scan
 
-import edu.uci.ics.amber.engine.common.executor.SourceOperatorExecutor
-import edu.uci.ics.amber.engine.common.model.tuple.TupleLike
-import edu.uci.ics.amber.engine.common.storage.DatasetFileDocument
-import edu.uci.ics.amber.engine.common.model.tuple.AttributeTypeUtils.parseField
-import org.apache.commons.compress.archivers.{ArchiveInputStream, ArchiveStreamFactory}
-import org.apache.commons.io.IOUtils.toByteArray
+import edu.uci.ics.amber.core.tuple.AttributeTypeUtils.parseField
+import edu.uci.ics.amber.core.tuple.TupleLike
+import edu.uci.ics.amber.storage.dataset.DatasetFileDocument
+import edu.uci.ics.texera.workflow.utils.executor.SourceOperatorExecutor
 
 import java.io._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.IteratorHasAsScala
+import org.apache.commons.compress.archivers.{ArchiveInputStream, ArchiveStreamFactory}
+import org.apache.commons.io.IOUtils.toByteArray
 
 class FileScanSourceOpExec private[scan] (
-    filePath: String,
-    datasetFileDesc: DatasetFileDocument,
-    fileAttributeType: FileAttributeType,
-    fileEncoding: FileDecodingMethod,
-    extract: Boolean,
-    outputFileName: Boolean,
-    fileScanLimit: Option[Int] = None,
-    fileScanOffset: Option[Int] = None
-) extends SourceOperatorExecutor {
+                                           filePath: String,
+                                           datasetFileDesc: DatasetFileDocument,
+                                           fileAttributeType: FileAttributeType,
+                                           fileEncoding: FileDecodingMethod,
+                                           extract: Boolean,
+                                           outputFileName: Boolean,
+                                           fileScanLimit: Option[Int] = None,
+                                           fileScanOffset: Option[Int] = None
+                                         ) extends SourceOperatorExecutor {
 
   @throws[IOException]
   override def produceTuple(): Iterator[TupleLike] = {
@@ -78,3 +78,4 @@ class FileScanSourceOpExec private[scan] (
   }
 
 }
+

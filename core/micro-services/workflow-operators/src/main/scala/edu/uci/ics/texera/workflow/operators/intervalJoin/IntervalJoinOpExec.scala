@@ -2,6 +2,7 @@ package edu.uci.ics.texera.workflow.operators.intervalJoin
 
 import edu.uci.ics.amber.core.executor.OperatorExecutor
 import edu.uci.ics.amber.core.tuple.{AttributeType, Tuple, TupleLike}
+import edu.uci.ics.amber.exception.WorkflowRuntimeException
 import edu.uci.ics.texera.workflow.operators.hashJoin.JoinUtils
 
 import java.sql.Timestamp

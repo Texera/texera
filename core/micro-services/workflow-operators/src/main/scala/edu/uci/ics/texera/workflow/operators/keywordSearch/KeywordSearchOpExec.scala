@@ -1,8 +1,6 @@
 package edu.uci.ics.texera.workflow.operators.keywordSearch
 
 import edu.uci.ics.amber.core.tuple.Tuple
-import edu.uci.ics.amber.engine.common.model.tuple.Tuple
-import edu.uci.ics.texera.workflow.common.operators.filter.FilterOpExec
 import edu.uci.ics.texera.workflow.operators.filter.FilterOpExec
 import org.apache.lucene.queryparser.classic.QueryParser
 import org.apache.lucene.analysis.core.SimpleAnalyzer

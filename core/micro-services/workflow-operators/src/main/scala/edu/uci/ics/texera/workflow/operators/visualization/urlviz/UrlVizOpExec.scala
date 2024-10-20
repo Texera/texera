@@ -2,8 +2,6 @@ package edu.uci.ics.texera.workflow.operators.visualization.urlviz
 
 import edu.uci.ics.amber.core.executor.OperatorExecutor
 import edu.uci.ics.amber.core.tuple.{Tuple, TupleLike}
-import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
-import edu.uci.ics.amber.engine.common.model.tuple.{Tuple, TupleLike}
 
 /**
   * URL Visualization operator to render any given URL link

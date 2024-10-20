@@ -1,8 +1,8 @@
 package edu.uci.ics.texera.workflow.operators.source.fetcher
 
-import edu.uci.ics.amber.engine.common.executor.SourceOperatorExecutor
-import edu.uci.ics.amber.engine.common.model.tuple.TupleLike
+import edu.uci.ics.amber.core.tuple.TupleLike
 import edu.uci.ics.texera.workflow.operators.source.fetcher.URLFetchUtil.getInputStreamFromURL
+import edu.uci.ics.texera.workflow.utils.executor.SourceOperatorExecutor
 import org.apache.commons.io.IOUtils
 
 import java.net.URL

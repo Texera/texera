@@ -1,7 +1,7 @@
 package edu.uci.ics.texera.workflow.operators.symmetricDifference
 
-import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
-import edu.uci.ics.amber.engine.common.model.tuple.{Tuple, TupleLike}
+import edu.uci.ics.amber.core.executor.OperatorExecutor
+import edu.uci.ics.amber.core.tuple.{Tuple, TupleLike}
 
 import scala.collection.mutable
 

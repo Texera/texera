@@ -1,12 +1,10 @@
 package edu.uci.ics.texera.workflow.operators.source.scan.csv
 
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
-import edu.uci.ics.amber.engine.common.executor.SourceOperatorExecutor
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
-import edu.uci.ics.amber.engine.common.{CheckpointState, CheckpointSupport}
-import edu.uci.ics.amber.engine.common.model.tuple.{AttributeTypeUtils, Schema, TupleLike}
-import edu.uci.ics.amber.engine.common.storage.DatasetFileDocument
+import edu.uci.ics.amber.core.tuple.{AttributeTypeUtils, Schema, TupleLike}
+import edu.uci.ics.amber.storage.dataset.DatasetFileDocument
 import edu.uci.ics.texera.workflow.operators.source.scan.FileDecodingMethod
+import edu.uci.ics.texera.workflow.utils.executor.SourceOperatorExecutor
 
 import java.io.InputStreamReader
 import scala.collection.immutable.ArraySeq
@@ -20,8 +18,7 @@ class CSVScanSourceOpExec private[csv] (
     customDelimiter: Option[String],
     hasHeader: Boolean,
     schemaFunc: () => Schema
-) extends SourceOperatorExecutor
-    with CheckpointSupport {
+) extends SourceOperatorExecutor {
   var inputReader: InputStreamReader = _
   var parser: CsvParser = _
   var schema: Schema = _
@@ -98,27 +95,5 @@ class CSVScanSourceOpExec private[csv] (
       inputReader.close()
     }
   }
-
-  override def serializeState(
-      currentIteratorState: Iterator[(TupleLike, Option[PortIdentity])],
-      checkpoint: CheckpointState
-  ): Iterator[(TupleLike, Option[PortIdentity])] = {
-    checkpoint.save(
-      "numOutputRows",
-      numRowGenerated
-    )
-    currentIteratorState
-  }
-
-  override def deserializeState(
-      checkpoint: CheckpointState
-  ): Iterator[(TupleLike, Option[PortIdentity])] = {
-    open()
-    numRowGenerated = checkpoint.load("numOutputRows")
-    var tupleIterator = produceTuple().drop(numRowGenerated)
-    if (limit.isDefined) tupleIterator = tupleIterator.take(limit.get - numRowGenerated)
-    tupleIterator.map(tuple => (tuple, Option.empty))
-  }
-
-  override def getEstimatedCheckpointCost: Long = 0L
+  // TODO: find out how to incorporate checkpoint
 }
