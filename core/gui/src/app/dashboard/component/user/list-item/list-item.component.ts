@@ -32,6 +32,7 @@ import { formatSize } from "src/app/common/util/size-formatter.util";
 })
 export class ListItemComponent implements OnInit, OnChanges {
   private owners: number[] = [];
+  @Input() isBatchSelectEnabled = false;
   public originalName: string = "";
   public originalDescription: string | undefined = undefined;
   @Input() currentUid: number | undefined;
@@ -286,4 +287,11 @@ export class ListItemComponent implements OnInit, OnChanges {
 
   // alias for formatSize
   formatSize = formatSize;
+
+  onCardClick() {
+    if (this.isBatchSelectEnabled) {
+      this.entry.checked = !this.entry.checked;
+      this.cdr.markForCheck();
+    }
+  }
 }

@@ -11,6 +11,11 @@
       display: flex;
     }
   }
+
+  &.selected {
+    border-color: #1e90ff;
+    background-color: #e6f7ff;
+  }
 }
 
 .truncate-single-line {
