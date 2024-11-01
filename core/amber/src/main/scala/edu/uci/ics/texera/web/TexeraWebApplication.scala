@@ -6,17 +6,14 @@ import com.github.dirkraft.dropwizard.fileassets.FileAssetsBundle
 import com.github.toastshaman.dropwizard.auth.jwt.JwtAuthFilter
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.controller.ControllerConfig
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState.{
-  COMPLETED,
-  FAILED
-}
 import edu.uci.ics.amber.engine.common.AmberRuntime.scheduleRecurringCallThroughActorSystem
 import edu.uci.ics.amber.engine.common.{AmberConfig, AmberRuntime, Utils}
 import edu.uci.ics.amber.engine.common.client.AmberClient
 import edu.uci.ics.amber.engine.common.model.{PhysicalPlan, WorkflowContext}
 import edu.uci.ics.amber.engine.common.storage.SequentialRecordStorage
-import edu.uci.ics.amber.engine.common.virtualidentity.ExecutionIdentity
+import edu.uci.ics.amber.engine.common.ExecutionIdentity
 import Utils.{maptoStatusCode, objectMapper}
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState.{COMPLETED, FAILED}
 import edu.uci.ics.texera.web.auth.JwtAuth.jwtConsumer
 import edu.uci.ics.texera.web.auth.{
   GuestAuthFilter,

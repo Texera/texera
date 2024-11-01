@@ -5,13 +5,13 @@ import edu.uci.ics.amber.engine.architecture.controller.{
   ControllerAsyncRPCHandlerInitializer,
   ExecutionStateUpdate
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   EmptyRequest,
   QueryStatisticsRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
-import edu.uci.ics.amber.engine.common.virtualidentity.util.SELF
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
+import edu.uci.ics.amber.engine.common.util.SELF
 
 /** indicate a worker has completed its execution
   * i.e. received and processed all data from upstreams

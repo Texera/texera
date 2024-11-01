@@ -8,14 +8,14 @@ import ch.vorburger.mariadb4j.DB
 import com.twitter.util.{Await, Duration, Promise}
 import edu.uci.ics.amber.clustering.SingleNodeListener
 import edu.uci.ics.amber.engine.architecture.controller._
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState.COMPLETED
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyRequest
 import edu.uci.ics.amber.engine.common.AmberRuntime
 import edu.uci.ics.amber.engine.common.client.AmberClient
 import edu.uci.ics.amber.engine.common.model.WorkflowContext
 import edu.uci.ics.amber.engine.common.model.tuple.{AttributeType, Tuple}
-import edu.uci.ics.amber.engine.common.virtualidentity.OperatorIdentity
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.OperatorIdentity
+import edu.uci.ics.amber.engine.common.PortIdentity
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState.COMPLETED
 import edu.uci.ics.amber.engine.e2e.TestUtils.buildWorkflow
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import edu.uci.ics.texera.workflow.common.workflow._

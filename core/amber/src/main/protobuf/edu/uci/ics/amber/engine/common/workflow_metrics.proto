@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package edu.uci.ics.amber.engine.common;
+
+import "edu/uci/ics/amber/engine/architecture/worker/statistics.proto";
+import "edu/uci/ics/amber/engine/common/virtual_identity.proto";
+import "scalapb/scalapb.proto";
+
+option (scalapb.options) = {
+  scope: FILE,
+  preserve_unknown_fields: false
+  no_default_values_in_constructor: false
+  flat_package: true
+};
+
+enum WorkflowAggregatedState {
+  UNINITIALIZED = 0;
+  READY = 1;
+  RUNNING = 2;
+  PAUSING = 3;
+  PAUSED = 4;
+  RESUMING = 5;
+  COMPLETED = 6;
+  FAILED = 7;
+  UNKNOWN = 8;
+  KILLED = 9;
+}
+
+message OperatorStatistics{
+  repeated amber.engine.architecture.worker.PortTupleCountMapping input_count = 1;
+  repeated amber.engine.architecture.worker.PortTupleCountMapping output_count = 2;
+  int32 num_workers = 3;
+  int64 data_processing_time = 4;
+  int64 control_processing_time = 5;
+  int64 idle_time = 6;
+}
+
+message OperatorMetrics{
+  WorkflowAggregatedState operator_state = 1 [(scalapb.field).no_box = true];
+  OperatorStatistics operator_statistics = 2 [(scalapb.field).no_box = true];
+}

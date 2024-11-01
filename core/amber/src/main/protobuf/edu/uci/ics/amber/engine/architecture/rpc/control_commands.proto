@@ -1,0 +1,258 @@
+syntax = "proto3";
+package edu.uci.ics.amber.engine.architecture.rpc;
+
+import "edu/uci/ics/amber/engine/common/virtual_identity.proto";
+import "edu/uci/ics/amber/engine/common/workflow.proto";
+import "edu/uci/ics/amber/engine/architecture/worker/statistics.proto";
+import "edu/uci/ics/amber/engine/architecture/sendsemantics/partitionings.proto";
+import "scalapb/scalapb.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+option (scalapb.options) = {
+  scope: FILE,
+  preserve_unknown_fields: false
+  no_default_values_in_constructor: true
+  flat_package: true
+};
+
+message ControlRequest {
+  oneof sealed_value {
+    // request for controller
+    PropagateChannelMarkerRequest propagate_channel_marker_request = 1;
+    TakeGlobalCheckpointRequest take_global_checkpoint_request = 2;
+    DebugCommandRequest debug_command_request = 3;
+    EvaluatePythonExpressionRequest evaluate_python_expression_request = 4;
+    ModifyLogicRequest modify_logic_request = 5;
+    RetryWorkflowRequest retry_workflow_request = 6;
+    ConsoleMessageTriggeredRequest console_message_triggered_request = 8;
+    PortCompletedRequest port_completed_request = 9;
+    WorkerStateUpdatedRequest worker_state_updated_request = 10;
+    LinkWorkersRequest link_workers_request = 11;
+
+    // request for worker
+    AddInputChannelRequest add_input_channel_request = 50;
+    AddPartitioningRequest add_partitioning_request = 51;
+    AssignPortRequest assign_port_request = 52;
+    FinalizeCheckpointRequest finalize_checkpoint_request = 53;
+    InitializeExecutorRequest initialize_executor_request = 54;
+    UpdateExecutorRequest update_executor_request = 55;
+    EmptyRequest empty_request = 56;
+    PrepareCheckpointRequest prepare_checkpoint_request = 57;
+    QueryStatisticsRequest query_statistics_request = 58;
+
+    // request for testing
+    Ping ping = 100;
+    Pong pong = 101;
+    Nested nested = 102;
+    Pass pass = 103;
+    ErrorCommand error_command = 104;
+    Recursion recursion = 105;
+    Collect collect = 106;
+    GenerateNumber generate_number = 107;
+    MultiCall multi_call = 108;
+    Chain chain = 109;
+  }
+}
+
+
+message EmptyRequest{}
+
+message AsyncRPCContext {
+  option (scalapb.message).no_box = true;
+  common.ActorVirtualIdentity sender = 1 [(scalapb.field).no_box = true];
+  common.ActorVirtualIdentity receiver = 2 [(scalapb.field).no_box = true];
+}
+
+message ControlInvocation {
+  option (scalapb.message).extends = "edu.uci.ics.amber.engine.common.ambermessage.ControlPayload";
+  string method_name = 1;
+  ControlRequest command = 2 [(scalapb.field).no_box = true];
+  AsyncRPCContext context = 3;
+  int64 command_id = 4;
+}
+
+// Enum for ChannelMarkerType
+enum ChannelMarkerType {
+  REQUIRE_ALIGNMENT = 0;
+  NO_ALIGNMENT = 1;
+}
+
+// Message for ChannelMarkerPayload
+message ChannelMarkerPayload {
+  option (scalapb.message).extends = "edu.uci.ics.amber.engine.common.ambermessage.WorkflowFIFOMessagePayload";
+  common.ChannelMarkerIdentity id = 1 [(scalapb.field).no_box = true];
+  ChannelMarkerType marker_type = 2;
+  repeated common.ChannelIdentity scope = 3;
+  map<string, ControlInvocation> command_mapping = 4;
+}
+
+message PropagateChannelMarkerRequest {
+  repeated common.PhysicalOpIdentity source_op_to_start_prop = 1;
+  common.ChannelMarkerIdentity id = 2 [(scalapb.field).no_box = true];
+  ChannelMarkerType marker_type = 3;
+  repeated common.PhysicalOpIdentity scope = 4;
+  repeated common.PhysicalOpIdentity target_ops = 5;
+  ControlRequest marker_command = 6;
+  string marker_method_name = 7;
+}
+
+message TakeGlobalCheckpointRequest {
+  bool estimation_only = 1;
+  common.ChannelMarkerIdentity checkpoint_id = 2 [(scalapb.field).no_box = true];
+  string destination = 3;
+}
+
+message WorkflowReconfigureRequest{
+  ModifyLogicRequest reconfiguration = 1 [(scalapb.field).no_box = true];
+  string reconfiguration_id = 2;
+}
+
+
+message DebugCommandRequest {
+  string worker_id = 1;
+  string cmd = 2;
+}
+
+message EvaluatePythonExpressionRequest {
+  string expression = 1;
+  string operator_id = 2;
+}
+
+message ModifyLogicRequest {
+  repeated UpdateExecutorRequest update_request = 1;
+}
+
+message RetryWorkflowRequest {
+  repeated common.ActorVirtualIdentity workers = 1;
+}
+
+enum ConsoleMessageType{
+  PRINT = 0;
+  ERROR = 1;
+  COMMAND = 2;
+  DEBUGGER = 3;
+}
+
+message ConsoleMessage {
+  option (scalapb.message).extends = "edu.uci.ics.amber.engine.architecture.controller.ClientEvent";
+  string worker_id = 1;
+  google.protobuf.Timestamp timestamp = 2  [(scalapb.field).no_box = true];
+  ConsoleMessageType msg_type = 3;
+  string source = 4;
+  string title = 5;
+  string message = 6;
+}
+
+message ConsoleMessageTriggeredRequest {
+  ConsoleMessage console_message = 1 [(scalapb.field).no_box = true];
+}
+
+message PortCompletedRequest {
+  common.PortIdentity port_id = 1 [(scalapb.field).no_box = true];
+  bool input = 2;
+}
+
+message WorkerStateUpdatedRequest {
+  worker.WorkerState state = 1 [(scalapb.field).no_box = true];
+}
+
+message LinkWorkersRequest {
+  common.PhysicalLink link = 1 [(scalapb.field).no_box = true];
+}
+
+// Ping message
+message Ping {
+  int32 i = 1;
+  int32 end = 2;
+  common.ActorVirtualIdentity to = 3 [(scalapb.field).no_box = true];
+}
+
+// Pong message
+message Pong {
+  int32 i = 1;
+  int32 end = 2;
+  common.ActorVirtualIdentity to = 3 [(scalapb.field).no_box = true];
+}
+
+// Pass message
+message Pass {
+  string value = 1;
+}
+
+// Nested message
+message Nested {
+  int32 k = 1;
+}
+
+// MultiCall message
+message MultiCall {
+  repeated common.ActorVirtualIdentity seq = 1;
+}
+
+// ErrorCommand message
+message ErrorCommand {
+}
+
+// Collect message
+message Collect {
+  repeated common.ActorVirtualIdentity workers = 1;
+}
+
+// GenerateNumber message
+message GenerateNumber {
+}
+
+// Chain message
+message Chain {
+  repeated common.ActorVirtualIdentity nexts = 1;
+}
+
+// Recursion message
+message Recursion {
+  int32 i = 1;
+}
+
+// Messages for the commands
+message AddInputChannelRequest {
+  common.ChannelIdentity channel_id = 1 [(scalapb.field).no_box = true];
+  common.PortIdentity port_id = 2 [(scalapb.field).no_box = true];
+}
+
+message AddPartitioningRequest {
+  common.PhysicalLink tag = 1 [(scalapb.field).no_box = true];
+  sendsemantics.Partitioning partitioning = 2 [(scalapb.field).no_box = true];
+}
+
+message AssignPortRequest {
+  common.PortIdentity port_id = 1 [(scalapb.field).no_box = true];
+  bool input = 2;
+  map<string, string> schema = 3;
+}
+
+message FinalizeCheckpointRequest {
+  common.ChannelMarkerIdentity checkpoint_id = 1 [(scalapb.field).no_box = true];
+  string write_to = 2;
+}
+
+message InitializeExecutorRequest {
+  int32 total_worker_count = 1;
+  google.protobuf.Any op_exec_init_info = 2 [(scalapb.field).no_box = true];
+  bool is_source = 3;
+  string language = 4;
+}
+
+message UpdateExecutorRequest {
+  common.PhysicalOpIdentity target_op_id = 1 [(scalapb.field).no_box = true];
+  google.protobuf.Any new_executor = 2 [(scalapb.field).no_box = true];
+  google.protobuf.Any state_transfer_func = 3;
+}
+
+message PrepareCheckpointRequest{
+  common.ChannelMarkerIdentity checkpoint_id = 1 [(scalapb.field).no_box = true];
+  bool estimation_only = 2;
+}
+
+message QueryStatisticsRequest{
+  repeated common.ActorVirtualIdentity filter_by_workers = 1;
+}

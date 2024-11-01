@@ -13,22 +13,18 @@ import edu.uci.ics.amber.engine.architecture.controller.execution.{
   OperatorExecution,
   WorkflowExecution
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AssignPortRequest,
   EmptyRequest,
   InitializeExecutorRequest,
   LinkWorkersRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{
-  EmptyReturn,
-  WorkflowAggregatedState
-}
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
 import edu.uci.ics.amber.engine.architecture.scheduling.config.{OperatorConfig, ResourceConfig}
-import edu.uci.ics.amber.engine.common.AmberRuntime
+import edu.uci.ics.amber.engine.common.{AmberRuntime, PhysicalLink, WorkflowAggregatedState}
 import edu.uci.ics.amber.engine.common.model.PhysicalOp
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
-import edu.uci.ics.amber.engine.common.workflow.PhysicalLink
+import edu.uci.ics.amber.engine.common.util.CONTROLLER
 
 class RegionExecutionCoordinator(
     region: Region,

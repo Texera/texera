@@ -2,18 +2,15 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   ControlInvocation,
   PropagateChannelMarkerRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{
-  ControlReturn,
-  PropagateChannelMarkerResponse
-}
+import edu.uci.ics.amber.engine.architecture.rpc.{ControlReturn, PropagateChannelMarkerResponse}
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.util.CONTROLLER
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
 trait ChannelMarkerHandler {
   this: ControllerAsyncRPCHandlerInitializer =>
 

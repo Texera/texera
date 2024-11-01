@@ -16,6 +16,7 @@ from core.models.internal_queue import DataElement, ControlElement
 from core.models.marker import EndOfInputChannel
 from core.runnables import MainLoop
 from core.util import set_one_of
+from proto.edu.uci.ics.amber.engine.architecture.python import ControlPayloadV2
 from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     ControlRequest,
     AssignPortRequest,
@@ -44,7 +45,6 @@ from proto.edu.uci.ics.amber.engine.architecture.worker import (
 )
 from proto.edu.uci.ics.amber.engine.common import (
     ActorVirtualIdentity,
-    ControlPayloadV2,
     PhysicalLink,
     PhysicalOpIdentity,
     OperatorIdentity,

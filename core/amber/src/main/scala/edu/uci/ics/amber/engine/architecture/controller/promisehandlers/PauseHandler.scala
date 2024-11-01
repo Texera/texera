@@ -2,10 +2,10 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{EmptyReturn, WorkerMetricsResponse}
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.{EmptyReturn, WorkerMetricsResponse}
 import edu.uci.ics.amber.engine.common.model.tuple.Tuple
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.architecture.controller.{ExecutionStatsUpdate, ExecutionStateUpdate}
 
 import scala.collection.mutable

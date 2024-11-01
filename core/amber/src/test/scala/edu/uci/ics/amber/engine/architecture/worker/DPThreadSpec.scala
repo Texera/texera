@@ -2,8 +2,8 @@ package edu.uci.ics.amber.engine.architecture.worker
 
 import edu.uci.ics.amber.engine.architecture.logreplay.{ReplayLogManager, ReplayLogRecord}
 import edu.uci.ics.amber.engine.architecture.messaginglayer.WorkerTimerService
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.{
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceGrpc.{
   METHOD_PAUSE_WORKER,
   METHOD_RESUME_WORKER
 }
@@ -17,9 +17,9 @@ import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
 import edu.uci.ics.amber.engine.common.model.tuple.{AttributeType, Schema, Tuple, TupleLike}
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.ControlInvocation
 import edu.uci.ics.amber.engine.common.storage.SequentialRecordStorage
-import edu.uci.ics.amber.engine.common.virtualidentity.util.SELF
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.util.SELF
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.PortIdentity
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.flatspec.AnyFlatSpec
 

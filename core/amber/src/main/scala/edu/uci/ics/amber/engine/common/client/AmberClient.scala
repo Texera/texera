@@ -5,9 +5,9 @@ import akka.pattern._
 import akka.util.Timeout
 import com.twitter.util.{Future, Promise}
 import edu.uci.ics.amber.engine.architecture.controller.ControllerConfig
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ControlRequest
-import edu.uci.ics.amber.engine.architecture.rpc.controllerservice.ControllerServiceFs2Grpc
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.ControlReturn
+import edu.uci.ics.amber.engine.architecture.rpc.ControlRequest
+import edu.uci.ics.amber.engine.architecture.rpc.ControllerServiceFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.ControlReturn
 import edu.uci.ics.amber.engine.common.FutureBijection._
 import edu.uci.ics.amber.engine.common.ambermessage.{NotifyFailedNode, WorkflowRecoveryMessage}
 import edu.uci.ics.amber.engine.common.client.ClientActor.{
@@ -16,7 +16,7 @@ import edu.uci.ics.amber.engine.common.client.ClientActor.{
   ObservableRequest
 }
 import edu.uci.ics.amber.engine.common.model.{PhysicalPlan, WorkflowContext}
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CLIENT
+import edu.uci.ics.amber.engine.common.util.CLIENT
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable

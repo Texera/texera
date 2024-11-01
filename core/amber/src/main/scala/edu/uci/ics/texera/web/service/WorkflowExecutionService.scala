@@ -2,8 +2,7 @@ package edu.uci.ics.texera.web.service
 
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.controller.{ControllerConfig, Workflow}
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState._
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyRequest
 import edu.uci.ics.amber.engine.common.Utils
 import edu.uci.ics.amber.engine.common.client.AmberClient
 import edu.uci.ics.amber.engine.common.model.WorkflowContext
@@ -15,7 +14,8 @@ import edu.uci.ics.texera.web.model.websocket.event.{
 import edu.uci.ics.texera.web.model.websocket.request.WorkflowExecuteRequest
 import edu.uci.ics.texera.web.storage.ExecutionStateStore
 import edu.uci.ics.texera.web.storage.ExecutionStateStore.updateWorkflowState
-import edu.uci.ics.amber.engine.common.workflowruntimestate.ExecutionMetadataStore
+import edu.uci.ics.amber.engine.common.ExecutionMetadataStore
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState.{COMPLETED, FAILED, READY}
 import edu.uci.ics.texera.web.{SubscriptionManager, TexeraWebApplication, WebsocketInput}
 import edu.uci.ics.texera.workflow.common.workflow.{LogicalPlan, WorkflowCompiler}
 
@@ -119,7 +119,7 @@ class WorkflowExecutionService(
         .withFatalErrors(Seq.empty)
     )
     executionStateStore.statsStore.updateState(stats =>
-      stats.withStartTimeStamp(System.currentTimeMillis())
+      stats.withStartTimestamp(System.currentTimeMillis())
     )
     client.controllerInterface
       .startWorkflow(EmptyRequest(), ())

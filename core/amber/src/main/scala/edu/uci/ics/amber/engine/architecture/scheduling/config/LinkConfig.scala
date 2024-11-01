@@ -1,5 +1,5 @@
 package edu.uci.ics.amber.engine.architecture.scheduling.config
-import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.{
+import edu.uci.ics.amber.engine.architecture.sendsemantics.{
   BroadcastPartitioning,
   HashBasedShufflePartitioning,
   OneToOnePartitioning,
@@ -7,7 +7,7 @@ import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.{
   RangeBasedShufflePartitioning,
   RoundRobinPartitioning
 }
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.texera.workflow.common.workflow.{
   BroadcastPartition,
   HashPartition,

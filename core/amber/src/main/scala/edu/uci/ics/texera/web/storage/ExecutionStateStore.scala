@@ -1,13 +1,13 @@
 package edu.uci.ics.texera.web.storage
 
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState
 import edu.uci.ics.amber.engine.common.Utils.maptoStatusCode
 import edu.uci.ics.texera.web.service.ExecutionsMetadataPersistService
-import edu.uci.ics.amber.engine.common.workflowruntimestate.{
+import edu.uci.ics.amber.engine.common.{
   ExecutionBreakpointStore,
   ExecutionConsoleStore,
   ExecutionMetadataStore,
-  ExecutionStatsStore
+  ExecutionStatsStore,
+  WorkflowAggregatedState
 }
 
 import java.sql.Timestamp

@@ -5,16 +5,11 @@ import com.fasterxml.jackson.annotation.{JsonTypeInfo, JsonTypeName}
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.controller.{ExecutionStateUpdate, FatalError}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState.{
-  COMPLETED,
-  FAILED,
-  KILLED
-}
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.RUNNING
+import edu.uci.ics.amber.engine.architecture.worker.WorkerState.RUNNING
 import edu.uci.ics.amber.engine.common.{AmberConfig, AmberRuntime, IncrementalOutputMode}
 import edu.uci.ics.amber.engine.common.client.AmberClient
 import edu.uci.ics.amber.engine.common.model.tuple.Tuple
-import edu.uci.ics.amber.engine.common.virtualidentity.OperatorIdentity
+import edu.uci.ics.amber.engine.common.OperatorIdentity
 import edu.uci.ics.amber.engine.common.IncrementalOutputMode.{SET_DELTA, SET_SNAPSHOT}
 import edu.uci.ics.texera.web.model.websocket.event.{
   PaginatedResultEvent,
@@ -29,7 +24,8 @@ import edu.uci.ics.texera.web.storage.{
   WorkflowResultStore,
   WorkflowStateStore
 }
-import edu.uci.ics.amber.engine.common.workflowruntimestate.ExecutionMetadataStore
+import edu.uci.ics.amber.engine.common.ExecutionMetadataStore
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState._
 import edu.uci.ics.texera.web.SubscriptionManager
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import edu.uci.ics.texera.workflow.common.workflow.LogicalPlan

@@ -10,10 +10,10 @@ from core.proxy import ProxyClient
 from core.runnables.network_receiver import NetworkReceiver
 from core.runnables.network_sender import NetworkSender
 from core.util.proto import set_one_of
+from proto.edu.uci.ics.amber.engine.architecture.python import ControlPayloadV2
 from proto.edu.uci.ics.amber.engine.architecture.rpc import ControlInvocation
 from proto.edu.uci.ics.amber.engine.common import (
     ActorVirtualIdentity,
-    ControlPayloadV2,
 )
 
 

@@ -4,28 +4,28 @@ import com.twitter.util.{Future, Promise}
 import edu.uci.ics.amber.engine.architecture.controller.ClientEvent
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGateway
 import edu.uci.ics.amber.engine.common.AmberLogging
-import edu.uci.ics.amber.engine.common.virtualidentity.{
+import edu.uci.ics.amber.engine.common.{
   ActorVirtualIdentity,
   ChannelIdentity,
   ChannelMarkerIdentity
 }
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CLIENT
+import edu.uci.ics.amber.engine.common.util.CLIENT
 import io.grpc.MethodDescriptor
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   ChannelMarkerPayload,
   ChannelMarkerType,
   ControlInvocation,
   ControlRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controllerservice.ControllerServiceFs2Grpc
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{
-  ControlError,
+import edu.uci.ics.amber.engine.architecture.rpc.ControllerServiceFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.{
+  ControlException,
   ControlReturn,
   ReturnInvocation,
   WorkerMetricsResponse
 }
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceFs2Grpc
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.createProxy
 import edu.uci.ics.amber.error.ErrorUtils.reconstructThrowable
 
@@ -166,7 +166,7 @@ class AsyncRPCClient(
     if (unfulfilledPromises.contains(ret.commandId)) {
       val p = unfulfilledPromises(ret.commandId)
       ret.returnValue match {
-        case err: ControlError =>
+        case err: ControlException =>
           p.raise(reconstructThrowable(err))
         case other =>
           p.setValue(other)
@@ -187,7 +187,7 @@ class AsyncRPCClient(
         s"receive reply: ${ret.returnValue.getClass.getSimpleName} from $channelId (controlID: ${ret.commandId})"
       )
       ret.returnValue match {
-        case err: ControlError =>
+        case err: ControlException =>
           logger.error(s"received error from $channelId", err)
         case _ =>
       }

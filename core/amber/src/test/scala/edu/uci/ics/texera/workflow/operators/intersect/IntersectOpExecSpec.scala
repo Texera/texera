@@ -7,8 +7,8 @@ import edu.uci.ics.amber.engine.common.model.tuple.{
   Tuple,
   TupleLike
 }
-import edu.uci.ics.amber.engine.common.virtualidentity.{OperatorIdentity, PhysicalOpIdentity}
-import edu.uci.ics.amber.engine.common.workflow.{PhysicalLink, PortIdentity}
+import edu.uci.ics.amber.engine.common.{OperatorIdentity, PhysicalOpIdentity}
+import edu.uci.ics.amber.engine.common.{PhysicalLink, PortIdentity}
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 

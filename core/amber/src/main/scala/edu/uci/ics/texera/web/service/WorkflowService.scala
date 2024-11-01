@@ -3,10 +3,6 @@ package edu.uci.ics.texera.web.service
 import com.google.protobuf.timestamp.Timestamp
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.controller.ControllerConfig
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState.{
-  COMPLETED,
-  FAILED
-}
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.{
   FaultToleranceConfig,
   StateRestoreConfig
@@ -14,11 +10,7 @@ import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.{
 import edu.uci.ics.amber.engine.common.AmberConfig
 import edu.uci.ics.amber.engine.common.amberexception.WorkflowRuntimeException
 import edu.uci.ics.amber.engine.common.model.WorkflowContext
-import edu.uci.ics.amber.engine.common.virtualidentity.{
-  ChannelMarkerIdentity,
-  ExecutionIdentity,
-  WorkflowIdentity
-}
+import edu.uci.ics.amber.engine.common.{ChannelMarkerIdentity, ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.error.ErrorUtils.{getOperatorFromActorIdOpt, getStackTraceWithAllCauses}
 import edu.uci.ics.texera.web.model.jooq.generated.tables.pojos.User
 import edu.uci.ics.texera.web.model.websocket.event.TexeraWebSocketEvent
@@ -26,8 +18,9 @@ import edu.uci.ics.texera.web.model.websocket.request.WorkflowExecuteRequest
 import edu.uci.ics.texera.web.service.WorkflowService.mkWorkflowStateId
 import edu.uci.ics.texera.web.storage.ExecutionStateStore.updateWorkflowState
 import edu.uci.ics.texera.web.storage.{ExecutionStateStore, WorkflowStateStore}
-import edu.uci.ics.amber.engine.common.workflowruntimestate.FatalErrorType.EXECUTION_FAILURE
-import edu.uci.ics.amber.engine.common.workflowruntimestate.WorkflowFatalError
+import edu.uci.ics.amber.engine.common.FatalErrorType.EXECUTION_FAILURE
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState._
+import edu.uci.ics.amber.engine.common.WorkflowFatalError
 import edu.uci.ics.texera.web.{SubscriptionManager, WorkflowLifecycleManager}
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import edu.uci.ics.texera.workflow.common.workflow.LogicalPlan
@@ -212,7 +205,7 @@ class WorkflowService(
         val (operatorId, workerId) = getOperatorFromActorIdOpt(fromActorOpt)
         logger.error("error during execution", t)
         executionStateStore.statsStore.updateState(stats =>
-          stats.withEndTimeStamp(System.currentTimeMillis())
+          stats.withEndTimestamp(System.currentTimeMillis())
         )
         executionStateStore.metadataStore.updateState { metadataStore =>
           updateWorkflowState(FAILED, metadataStore).addFatalErrors(

@@ -8,7 +8,7 @@ import com.google.protobuf.any.{Any => ProtoAny}
 import edu.uci.ics.amber.clustering.SingleNodeListener
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor.NetworkMessage
 import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.OpExecInitInfo
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AddInputChannelRequest,
   AddPartitioningRequest,
   AssignPortRequest,
@@ -17,7 +17,7 @@ import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
   EmptyRequest,
   InitializeExecutorRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.{
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceGrpc.{
   METHOD_ADD_INPUT_CHANNEL,
   METHOD_ADD_PARTITIONING,
   METHOD_ASSIGN_PORT,
@@ -25,7 +25,7 @@ import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc
   METHOD_INITIALIZE_EXECUTOR
 }
 import edu.uci.ics.amber.engine.architecture.scheduling.config.WorkerConfig
-import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.OneToOnePartitioning
+import edu.uci.ics.amber.engine.architecture.sendsemantics.OneToOnePartitioning
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.{
   MainThreadDelegateMessage,
   WorkerReplayInitialization
@@ -41,14 +41,14 @@ import edu.uci.ics.amber.engine.common.model.tuple.{
   TupleLike
 }
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
-import edu.uci.ics.amber.engine.common.virtualidentity.{
+import edu.uci.ics.amber.engine.common.util.CONTROLLER
+import edu.uci.ics.amber.engine.common.{
   ActorVirtualIdentity,
   ChannelIdentity,
   OperatorIdentity,
   PhysicalOpIdentity
 }
-import edu.uci.ics.amber.engine.common.workflow.{PhysicalLink, PortIdentity}
+import edu.uci.ics.amber.engine.common.{PhysicalLink, PortIdentity}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike

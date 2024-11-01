@@ -2,8 +2,8 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
 import edu.uci.ics.amber.engine.architecture.controller.ExecutionStatsUpdate
 

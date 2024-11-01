@@ -20,8 +20,8 @@
 //  WorkflowFIFOMessage
 //}
 //import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.{ControlInvocation, ReturnInvocation}
-//import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
-//import edu.uci.ics.amber.engine.common.virtualidentity.{
+//import edu.uci.ics.amber.engine.common.util.CONTROLLER
+//import edu.uci.ics.amber.engine.common.{
 //  ActorVirtualIdentity,
 //  PhysicalLink,
 //  PhysicalLink,

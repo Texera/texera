@@ -2,14 +2,14 @@ package edu.uci.ics.amber.engine.common.rpc
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGateway
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   ControlInvocation,
   ControlRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{ControlReturn, ReturnInvocation}
+import edu.uci.ics.amber.engine.architecture.rpc.{ControlReturn, ReturnInvocation}
 import edu.uci.ics.amber.engine.common.AmberLogging
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 import edu.uci.ics.amber.error.ErrorUtils.mkControlError
 
 import java.lang.reflect.Method

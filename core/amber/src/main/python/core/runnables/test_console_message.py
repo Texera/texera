@@ -3,6 +3,10 @@ import datetime
 from core.models.internal_queue import InternalQueue
 from core.util.buffer.timed_buffer import TimedBuffer
 from core.util import set_one_of
+from proto.edu.uci.ics.amber.engine.architecture.python import (
+    ControlPayloadV2,
+    PythonControlMessage,
+)
 from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     ControlInvocation,
     ControlRequest,
@@ -11,8 +15,6 @@ from proto.edu.uci.ics.amber.engine.architecture.rpc import (
 )
 from proto.edu.uci.ics.amber.engine.common import (
     ActorVirtualIdentity,
-    ControlPayloadV2,
-    PythonControlMessage,
 )
 
 

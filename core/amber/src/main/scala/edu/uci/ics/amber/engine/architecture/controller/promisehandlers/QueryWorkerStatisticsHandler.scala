@@ -5,12 +5,12 @@ import edu.uci.ics.amber.engine.architecture.controller.{
   ControllerAsyncRPCHandlerInitializer,
   ExecutionStatsUpdate
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   EmptyRequest,
   QueryStatisticsRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
 
 /** Get statistics from all the workers

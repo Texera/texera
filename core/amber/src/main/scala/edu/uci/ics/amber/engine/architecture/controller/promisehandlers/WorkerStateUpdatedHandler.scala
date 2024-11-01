@@ -5,11 +5,8 @@ import edu.uci.ics.amber.engine.architecture.controller.{
   ControllerAsyncRPCHandlerInitializer,
   ExecutionStatsUpdate
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AsyncRPCContext,
-  WorkerStateUpdatedRequest
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, WorkerStateUpdatedRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
 
 /** indicate the state change of a worker

@@ -13,14 +13,7 @@ import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.{
   OpExecInitInfoWithCode,
   OpExecInitInfoWithFunc
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  EmptyRequest,
-  TakeGlobalCheckpointRequest
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState.{
-  COMPLETED,
-  PAUSED
-}
+import edu.uci.ics.amber.engine.architecture.rpc.{EmptyRequest, TakeGlobalCheckpointRequest}
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.StateRestoreConfig
 import edu.uci.ics.amber.engine.architecture.worker.DataProcessor
 import edu.uci.ics.amber.engine.common.{AmberRuntime, CheckpointState, CheckpointSupport}
@@ -28,13 +21,10 @@ import edu.uci.ics.amber.engine.common.SerializedState.{CP_STATE_KEY, DP_STATE_K
 import edu.uci.ics.amber.engine.common.client.AmberClient
 import edu.uci.ics.amber.engine.common.executor.{OperatorExecutor, SourceOperatorExecutor}
 import edu.uci.ics.amber.engine.common.model.WorkflowContext
-import edu.uci.ics.amber.engine.common.virtualidentity.{
-  ChannelMarkerIdentity,
-  ExecutionIdentity,
-  WorkflowIdentity
-}
-import edu.uci.ics.amber.engine.common.virtualidentity.util.{CONTROLLER, SELF}
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.{ChannelMarkerIdentity, ExecutionIdentity, WorkflowIdentity}
+import edu.uci.ics.amber.engine.common.util.{CONTROLLER, SELF}
+import edu.uci.ics.amber.engine.common.PortIdentity
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState.{COMPLETED, PAUSED}
 import edu.uci.ics.amber.engine.e2e.TestOperators
 import edu.uci.ics.amber.engine.e2e.TestUtils.buildWorkflow
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage

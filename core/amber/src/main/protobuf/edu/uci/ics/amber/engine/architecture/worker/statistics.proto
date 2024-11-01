@@ -9,7 +9,7 @@ option (scalapb.options) = {
     scope: FILE,
     preserve_unknown_fields: false
     no_default_values_in_constructor: true
-
+    flat_package: true
 };
 
 enum WorkerState {

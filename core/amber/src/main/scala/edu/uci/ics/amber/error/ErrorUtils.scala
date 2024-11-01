@@ -1,11 +1,11 @@
 package edu.uci.ics.amber.error
 
 import com.google.protobuf.timestamp.Timestamp
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ConsoleMessage
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ConsoleMessageType.ERROR
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{ControlError, ErrorLanguage}
+import edu.uci.ics.amber.engine.architecture.rpc.ConsoleMessage
+import edu.uci.ics.amber.engine.architecture.rpc.ConsoleMessageType.ERROR
+import edu.uci.ics.amber.engine.architecture.rpc.{ControlException, ErrorLanguage}
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 
 import java.time.Instant
 import scala.util.control.ControlThrowable
@@ -37,12 +37,12 @@ object ErrorUtils {
     ConsoleMessage(actorId.name, Timestamp(Instant.now), ERROR, source, title, message)
   }
 
-  def mkControlError(err: Throwable): ControlError = {
+  def mkControlError(err: Throwable): ControlException = {
     val stacktrace = err.getStackTrace.mkString("\n")
-    ControlError(err.toString, err.getCause.toString, stacktrace, ErrorLanguage.SCALA)
+    ControlException(err.toString, err.getCause.toString, stacktrace, ErrorLanguage.SCALA)
   }
 
-  def reconstructThrowable(controlError: ControlError): Throwable = {
+  def reconstructThrowable(controlError: ControlException): Throwable = {
     if (controlError.language == ErrorLanguage.PYTHON) {
       return new Throwable(controlError.errorMessage)
     } else {

@@ -2,13 +2,13 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AddInputChannelRequest,
   AddPartitioningRequest,
   AsyncRPCContext,
+  EmptyReturn,
   LinkWorkersRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
 
 /** add a data transfer partitioning to the sender workers and update input linking
   * for the receiver workers of a link strategy.

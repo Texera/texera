@@ -1,12 +1,14 @@
 package edu.uci.ics.amber.engine.architecture.controller.execution
 
 import com.rits.cloning.Cloner
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState
 import edu.uci.ics.amber.engine.architecture.scheduling.Region
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics
-import edu.uci.ics.amber.engine.common.virtualidentity.PhysicalOpIdentity
-import edu.uci.ics.amber.engine.common.workflow.PhysicalLink
-import edu.uci.ics.amber.engine.common.workflowruntimestate.OperatorMetrics
+import edu.uci.ics.amber.engine.architecture.worker.WorkerStatistics
+import edu.uci.ics.amber.engine.common.{
+  OperatorMetrics,
+  PhysicalLink,
+  PhysicalOpIdentity,
+  WorkflowAggregatedState
+}
 
 import scala.collection.mutable
 

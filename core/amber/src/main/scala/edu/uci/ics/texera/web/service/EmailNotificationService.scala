@@ -1,6 +1,6 @@
 package edu.uci.ics.texera.web.service
 
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState
 
 import java.util.concurrent.{ExecutorService, Executors}
 import scala.concurrent.{ExecutionContext, Future}

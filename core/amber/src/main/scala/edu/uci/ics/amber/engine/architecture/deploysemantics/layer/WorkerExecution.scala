@@ -1,9 +1,9 @@
 package edu.uci.ics.amber.engine.architecture.deploysemantics.layer
 
 import edu.uci.ics.amber.engine.architecture.controller.execution.WorkerPortExecution
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.UNINITIALIZED
-import edu.uci.ics.amber.engine.architecture.worker.statistics.{WorkerState, WorkerStatistics}
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.architecture.worker.WorkerState.UNINITIALIZED
+import edu.uci.ics.amber.engine.architecture.worker.{WorkerState, WorkerStatistics}
+import edu.uci.ics.amber.engine.common.PortIdentity
 
 import scala.collection.mutable
 

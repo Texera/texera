@@ -4,6 +4,7 @@ from core.architecture.handlers.actorcommand.actor_handler_base import (
 
 from core.models.internal_queue import ControlElement, InternalQueue
 from core.util import set_one_of
+from proto.edu.uci.ics.amber.engine.architecture.python import ControlPayloadV2
 from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     ControlInvocation,
     ControlRequest,
@@ -14,7 +15,6 @@ from proto.edu.uci.ics.amber.engine.architecture.rpc import (
 from proto.edu.uci.ics.amber.engine.common import (
     Backpressure,
     ActorVirtualIdentity,
-    ControlPayloadV2,
 )
 
 

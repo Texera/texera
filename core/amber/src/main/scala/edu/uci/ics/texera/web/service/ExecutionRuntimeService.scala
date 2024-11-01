@@ -2,14 +2,11 @@ package edu.uci.ics.texera.web.service
 
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.controller.ExecutionStateUpdate
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  EmptyRequest,
-  TakeGlobalCheckpointRequest
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState._
+import edu.uci.ics.amber.engine.architecture.rpc.{EmptyRequest, TakeGlobalCheckpointRequest}
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.FaultToleranceConfig
 import edu.uci.ics.amber.engine.common.client.AmberClient
-import edu.uci.ics.amber.engine.common.virtualidentity.ChannelMarkerIdentity
+import edu.uci.ics.amber.engine.common.ChannelMarkerIdentity
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState._
 import edu.uci.ics.texera.web.{SubscriptionManager, WebsocketInput}
 import edu.uci.ics.texera.web.model.websocket.request.{
   SkipTupleRequest,
@@ -44,7 +41,7 @@ class ExecutionRuntimeService(
     )
     if (evt.state == COMPLETED) {
       client.shutdown()
-      stateStore.statsStore.updateState(stats => stats.withEndTimeStamp(System.currentTimeMillis()))
+      stateStore.statsStore.updateState(stats => stats.withEndTimestamp(System.currentTimeMillis()))
     }
   }))
 
@@ -74,7 +71,7 @@ class ExecutionRuntimeService(
   // Receive Kill
   addSubscription(wsInput.subscribe((req: WorkflowKillRequest, uidOpt) => {
     client.shutdown()
-    stateStore.statsStore.updateState(stats => stats.withEndTimeStamp(System.currentTimeMillis()))
+    stateStore.statsStore.updateState(stats => stats.withEndTimestamp(System.currentTimeMillis()))
     stateStore.metadataStore.updateState(metadataStore =>
       updateWorkflowState(KILLED, metadataStore)
     )

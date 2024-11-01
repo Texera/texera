@@ -2,19 +2,16 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ChannelMarkerType.NO_ALIGNMENT
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.ChannelMarkerType.NO_ALIGNMENT
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   EmptyRequest,
   PropagateChannelMarkerRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{
-  RetrieveWorkflowStateResponse,
-  StringResponse
-}
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.METHOD_RETRIEVE_STATE
-import edu.uci.ics.amber.engine.common.virtualidentity.util.SELF
-import edu.uci.ics.amber.engine.common.virtualidentity.ChannelMarkerIdentity
+import edu.uci.ics.amber.engine.architecture.rpc.{RetrieveWorkflowStateResponse, StringResponse}
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceGrpc.METHOD_RETRIEVE_STATE
+import edu.uci.ics.amber.engine.common.util.SELF
+import edu.uci.ics.amber.engine.common.ChannelMarkerIdentity
 
 import java.time.Instant
 trait RetrieveWorkflowStateHandler {

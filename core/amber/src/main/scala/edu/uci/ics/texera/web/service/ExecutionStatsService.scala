@@ -8,10 +8,16 @@ import edu.uci.ics.amber.engine.architecture.controller.{
   WorkerAssignmentUpdate,
   WorkflowRecoveryStatus
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState.FAILED
-import edu.uci.ics.amber.engine.architecture.worker.statistics.PortTupleCountMapping
-import edu.uci.ics.amber.engine.common.{AmberConfig, Utils}
+import edu.uci.ics.amber.engine.architecture.worker.PortTupleCountMapping
+import edu.uci.ics.amber.engine.common.{
+  AmberConfig,
+  OperatorMetrics,
+  OperatorStatistics,
+  OperatorWorkerMapping,
+  Utils,
+  WorkflowAggregatedState,
+  WorkflowFatalError
+}
 import edu.uci.ics.amber.engine.common.client.AmberClient
 import edu.uci.ics.amber.engine.common.model.WorkflowContext
 import edu.uci.ics.amber.error.ErrorUtils.{getOperatorFromActorIdOpt, getStackTraceWithAllCauses}
@@ -27,13 +33,8 @@ import edu.uci.ics.texera.web.model.websocket.event.{
 }
 import edu.uci.ics.texera.web.storage.ExecutionStateStore
 import edu.uci.ics.texera.web.storage.ExecutionStateStore.updateWorkflowState
-import edu.uci.ics.amber.engine.common.workflowruntimestate.FatalErrorType.EXECUTION_FAILURE
-import edu.uci.ics.amber.engine.common.workflowruntimestate.{
-  OperatorMetrics,
-  OperatorStatistics,
-  OperatorWorkerMapping,
-  WorkflowFatalError
-}
+import edu.uci.ics.amber.engine.common.FatalErrorType.EXECUTION_FAILURE
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState.FAILED
 
 import java.time.Instant
 import org.jooq.types.{UInteger, ULong}
@@ -97,19 +98,19 @@ class ExecutionStatsService(
     stateStore.statsStore.registerDiffHandler((oldState, newState) => {
       // update execution duration.
       if (
-        newState.startTimeStamp != oldState.startTimeStamp || newState.endTimeStamp != oldState.endTimeStamp
+        newState.startTimestamp != oldState.startTimestamp || newState.endTimestamp != oldState.endTimestamp
       ) {
-        if (newState.endTimeStamp != 0) {
+        if (newState.endTimestamp != 0) {
           Iterable(
             ExecutionDurationUpdateEvent(
-              newState.endTimeStamp - newState.startTimeStamp,
+              newState.endTimestamp - newState.startTimestamp,
               isRunning = false
             )
           )
         } else {
           val currentTime = System.currentTimeMillis()
           Iterable(
-            ExecutionDurationUpdateEvent(currentTime - newState.startTimeStamp, isRunning = true)
+            ExecutionDurationUpdateEvent(currentTime - newState.startTimestamp, isRunning = true)
           )
         }
       } else {
@@ -269,7 +270,7 @@ class ExecutionStatsService(
           client.shutdown()
           val (operatorId, workerId) = getOperatorFromActorIdOpt(evt.fromActor)
           stateStore.statsStore.updateState(stats =>
-            stats.withEndTimeStamp(System.currentTimeMillis())
+            stats.withEndTimestamp(System.currentTimeMillis())
           )
           stateStore.metadataStore.updateState { metadataStore =>
             logger.error("error occurred in execution", evt.e)

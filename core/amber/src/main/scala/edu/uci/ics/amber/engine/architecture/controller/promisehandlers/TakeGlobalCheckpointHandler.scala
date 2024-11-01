@@ -2,20 +2,20 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ChannelMarkerType.NO_ALIGNMENT
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.ChannelMarkerType.NO_ALIGNMENT
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   FinalizeCheckpointRequest,
   PrepareCheckpointRequest,
   PropagateChannelMarkerRequest,
   TakeGlobalCheckpointRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.TakeGlobalCheckpointResponse
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.METHOD_PREPARE_CHECKPOINT
+import edu.uci.ics.amber.engine.architecture.rpc.TakeGlobalCheckpointResponse
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceGrpc.METHOD_PREPARE_CHECKPOINT
 import edu.uci.ics.amber.engine.common.{CheckpointState, SerializedState}
 import edu.uci.ics.amber.engine.common.storage.SequentialRecordStorage
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
-import edu.uci.ics.amber.engine.common.virtualidentity.util.SELF
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.util.SELF
 
 import java.net.URI
 

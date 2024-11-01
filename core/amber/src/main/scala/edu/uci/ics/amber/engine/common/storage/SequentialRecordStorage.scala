@@ -8,7 +8,7 @@ import edu.uci.ics.amber.engine.architecture.logreplay.{
   ReplayLogRecord
 }
 import SequentialRecordStorage.{SequentialRecordReader, SequentialRecordWriter}
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState
+import edu.uci.ics.amber.engine.architecture.worker.WorkerState
 
 import java.io.{DataInputStream, DataOutputStream}
 import java.net.URI

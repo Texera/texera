@@ -8,8 +8,8 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.{
   OutputManager,
   WorkerTimerService
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ChannelMarkerType.REQUIRE_ALIGNMENT
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.ChannelMarkerType.REQUIRE_ALIGNMENT
+import edu.uci.ics.amber.engine.architecture.rpc.{
   ChannelMarkerPayload,
   ConsoleMessageTriggeredRequest,
   EmptyRequest,
@@ -18,12 +18,8 @@ import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
 }
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
 import edu.uci.ics.amber.engine.architecture.worker.managers.SerializationManager
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.{
-  COMPLETED,
-  READY,
-  RUNNING
-}
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics
+import edu.uci.ics.amber.engine.architecture.worker.WorkerState.{COMPLETED, READY, RUNNING}
+import edu.uci.ics.amber.engine.architecture.worker.WorkerStatistics
 import edu.uci.ics.amber.engine.common.ambermessage._
 import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
 import edu.uci.ics.amber.engine.common.model.{EndOfInputChannel, StartOfInputChannel, State}
@@ -35,9 +31,9 @@ import edu.uci.ics.amber.engine.common.model.tuple.{
   TupleLike
 }
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.util.CONTROLLER
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.PortIdentity
 import edu.uci.ics.amber.error.ErrorUtils.{mkConsoleMessage, safely}
 
 class DataProcessor(

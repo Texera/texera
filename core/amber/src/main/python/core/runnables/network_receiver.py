@@ -22,10 +22,12 @@ from core.models.marker import EndOfInputChannel, State, StartOfInputChannel
 from core.proxy import ProxyServer
 from core.util import Stoppable, get_one_of
 from core.util.runnable.runnable import Runnable
-from proto.edu.uci.ics.amber.engine.common import (
-    PythonControlMessage,
+from proto.edu.uci.ics.amber.engine.architecture.python import (
     PythonDataHeader,
+    PythonControlMessage,
     PythonActorMessage,
+)
+from proto.edu.uci.ics.amber.engine.common import (
     ActorCommand,
 )
 

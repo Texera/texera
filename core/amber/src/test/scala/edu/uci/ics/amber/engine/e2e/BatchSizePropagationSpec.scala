@@ -5,7 +5,7 @@ import akka.testkit.{ImplicitSender, TestKit}
 import akka.util.Timeout
 import edu.uci.ics.amber.clustering.SingleNodeListener
 import edu.uci.ics.amber.engine.architecture.controller._
-import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.{
+import edu.uci.ics.amber.engine.architecture.sendsemantics.{
   BroadcastPartitioning,
   HashBasedShufflePartitioning,
   OneToOnePartitioning,
@@ -14,7 +14,7 @@ import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.{
 }
 import edu.uci.ics.amber.engine.common.model.WorkflowContext
 import edu.uci.ics.amber.engine.common.model.WorkflowSettings
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.PortIdentity
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}

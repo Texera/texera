@@ -27,6 +27,7 @@ from core.runnables.data_processor import DataProcessor
 from core.util import StoppableQueueBlockingRunnable, get_one_of
 from core.util.console_message.timestamp import current_time_in_local_timezone
 from core.util.customized_queue.queue_base import QueueElement
+from proto.edu.uci.ics.amber.engine.architecture.python import ControlPayloadV2
 from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     ConsoleMessage,
     ControlInvocation,
@@ -41,7 +42,6 @@ from proto.edu.uci.ics.amber.engine.architecture.worker import (
 )
 from proto.edu.uci.ics.amber.engine.common import (
     ActorVirtualIdentity,
-    ControlPayloadV2,
     PortIdentity,
 )
 

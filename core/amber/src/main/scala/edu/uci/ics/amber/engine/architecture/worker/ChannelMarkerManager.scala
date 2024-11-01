@@ -1,13 +1,10 @@
 package edu.uci.ics.amber.engine.architecture.worker
 
 import edu.uci.ics.amber.engine.architecture.messaginglayer.InputGateway
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ChannelMarkerPayload
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ChannelMarkerType.{
-  NO_ALIGNMENT,
-  REQUIRE_ALIGNMENT
-}
+import edu.uci.ics.amber.engine.architecture.rpc.ChannelMarkerPayload
+import edu.uci.ics.amber.engine.architecture.rpc.ChannelMarkerType.{NO_ALIGNMENT, REQUIRE_ALIGNMENT}
 import edu.uci.ics.amber.engine.common.{AmberLogging, CheckpointState}
-import edu.uci.ics.amber.engine.common.virtualidentity.{
+import edu.uci.ics.amber.engine.common.{
   ActorVirtualIdentity,
   ChannelIdentity,
   ChannelMarkerIdentity

@@ -5,17 +5,17 @@ import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.{
   MainThreadDelegateMessage
 }
 import edu.uci.ics.amber.engine.architecture.logreplay.ReplayLogManager
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ChannelMarkerPayload
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.{READY, UNINITIALIZED}
+import edu.uci.ics.amber.engine.architecture.rpc.ChannelMarkerPayload
+import edu.uci.ics.amber.engine.architecture.worker.WorkerState.{READY, UNINITIALIZED}
 import edu.uci.ics.amber.engine.common.AmberLogging
-import edu.uci.ics.amber.engine.common.actormessage.{ActorCommand, Backpressure}
+import edu.uci.ics.amber.engine.common.{ActorCommand, Backpressure}
 import edu.uci.ics.amber.engine.common.ambermessage.{
   ControlPayload,
   DataPayload,
   WorkflowFIFOMessage
 }
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.virtualidentity.util.SELF
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.util.SELF
 import edu.uci.ics.amber.error.ErrorUtils.safely
 
 import java.util.concurrent.{

@@ -2,9 +2,9 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState.RUNNING
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.StartWorkflowResponse
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.StartWorkflowResponse
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState.RUNNING
 
 /** start the workflow by starting the source workers
   * note that this SHOULD only be called once per workflow

@@ -1,8 +1,8 @@
 package edu.uci.ics.amber.engine.architecture.sendsemantics.partitioners
 
-import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.BroadcastPartitioning
+import edu.uci.ics.amber.engine.architecture.sendsemantics.BroadcastPartitioning
 import edu.uci.ics.amber.engine.common.model.tuple.Tuple
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 
 case class BroadcastPartitioner(partitioning: BroadcastPartitioning) extends Partitioner {
 

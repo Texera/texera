@@ -1,0 +1,112 @@
+syntax = "proto3";
+package edu.uci.ics.amber.engine.architecture.rpc;
+
+import "edu/uci/ics/amber/engine/architecture/worker/statistics.proto";
+import "edu/uci/ics/amber/engine/common/workflow_metrics.proto";
+import "scalapb/scalapb.proto";
+
+option (scalapb.options) = {
+  scope: FILE,
+  preserve_unknown_fields: false
+  no_default_values_in_constructor: true
+  flat_package: true
+};
+
+
+// The generic return message
+message ControlReturn {
+  // Oneof block for various return types
+  oneof sealed_value {
+    // controller responses
+    RetrieveWorkflowStateResponse retrieve_workflow_state_response = 1;
+    PropagateChannelMarkerResponse propagate_channel_marker_response = 2;
+    TakeGlobalCheckpointResponse take_global_checkpoint_response = 3;
+    EvaluatePythonExpressionResponse evaluate_python_expression_response = 4;
+    StartWorkflowResponse start_workflow_response = 5;
+
+    // worker responses
+    WorkerStateResponse worker_state_response = 50;
+    WorkerMetricsResponse worker_metrics_response = 51;
+    FinalizeCheckpointResponse finalize_checkpoint_response = 52;
+
+    // common responses
+    ControlException error = 101;
+    EmptyReturn empty_return = 102;
+    StringResponse string_response = 103;
+    IntResponse int_response = 104;
+  }
+}
+
+message EmptyReturn {}
+
+enum ErrorLanguage {
+  PYTHON = 0;
+  SCALA = 1;
+}
+
+message ControlException {
+  string errorMessage = 1;
+  string errorDetails = 2;
+  string stackTrace = 3;
+  ErrorLanguage language = 4;
+}
+
+message ReturnInvocation {
+  option (scalapb.message).extends = "edu.uci.ics.amber.engine.common.ambermessage.ControlPayload";
+  int64 commandId = 1;
+  ControlReturn returnValue = 2 [(scalapb.field).no_box = true];
+}
+
+
+message StringResponse {
+  string value = 1;
+}
+
+message IntResponse {
+  int32 value = 1;
+}
+
+message RetrieveWorkflowStateResponse {
+  map<string, string> state = 1;
+}
+
+message FinalizeCheckpointResponse {
+  int64 size = 1;
+}
+
+message PropagateChannelMarkerResponse {
+  map<string, ControlReturn> returns = 1;
+}
+
+message TakeGlobalCheckpointResponse {
+  int64 totalSize = 1;
+}
+
+message TypedValue {
+  string expression = 1;
+  string value_ref = 2;
+  string value_str = 3;
+  string value_type = 4;
+  bool expandable = 5;
+}
+
+message EvaluatedValue {
+  TypedValue value = 1;
+  repeated TypedValue attributes = 2;
+}
+
+message EvaluatePythonExpressionResponse {
+  repeated EvaluatedValue values = 1;
+}
+
+message StartWorkflowResponse {
+  common.WorkflowAggregatedState workflow_state = 1 [(scalapb.field).no_box = true];
+}
+
+message WorkerStateResponse {
+   worker.WorkerState state = 1 [(scalapb.field).no_box = true];
+}
+
+message WorkerMetricsResponse {
+  worker.WorkerMetrics metrics = 1  [(scalapb.field).no_box = true];
+}

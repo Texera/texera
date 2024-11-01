@@ -5,8 +5,8 @@ import edu.uci.ics.amber.engine.architecture.common.WorkflowActor.NetworkAck
 import edu.uci.ics.amber.engine.architecture.common.{AmberProcessor, WorkflowActor}
 import edu.uci.ics.amber.engine.architecture.control.utils.TrivialControlTester.ControlTesterRPCClient
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGateway
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.AsyncRPCContext
-import edu.uci.ics.amber.engine.architecture.rpc.testerservice.RPCTesterFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.AsyncRPCContext
+import edu.uci.ics.amber.engine.architecture.rpc.RPCTesterFs2Grpc
 import edu.uci.ics.amber.engine.common.CheckpointState
 import edu.uci.ics.amber.engine.common.ambermessage.WorkflowMessage.getInMemSize
 import edu.uci.ics.amber.engine.common.ambermessage.{
@@ -15,7 +15,7 @@ import edu.uci.ics.amber.engine.common.ambermessage.{
   WorkflowFIFOMessage
 }
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
 
 object TrivialControlTester {
   class ControlTesterRPCClient(outputGateway: NetworkOutputGateway, actorId: ActorVirtualIdentity)

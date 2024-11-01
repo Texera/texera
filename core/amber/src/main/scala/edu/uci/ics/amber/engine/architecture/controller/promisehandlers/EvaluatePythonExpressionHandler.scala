@@ -2,12 +2,9 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AsyncRPCContext,
-  EvaluatePythonExpressionRequest
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EvaluatePythonExpressionResponse
-import edu.uci.ics.amber.engine.common.virtualidentity.OperatorIdentity
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, EvaluatePythonExpressionRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.EvaluatePythonExpressionResponse
+import edu.uci.ics.amber.engine.common.OperatorIdentity
 
 trait EvaluatePythonExpressionHandler {
   this: ControllerAsyncRPCHandlerInitializer =>

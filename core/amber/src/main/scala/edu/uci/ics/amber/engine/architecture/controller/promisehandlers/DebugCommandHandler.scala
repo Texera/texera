@@ -2,12 +2,9 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ControllerAsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AsyncRPCContext,
-  DebugCommandRequest
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, DebugCommandRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 
 trait DebugCommandHandler {
   this: ControllerAsyncRPCHandlerInitializer =>

@@ -9,13 +9,9 @@ import edu.uci.ics.amber.engine.architecture.common.WorkflowActor.{
   RegisterActorRef
 }
 import edu.uci.ics.amber.engine.architecture.control.utils.TrivialControlTester
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands._
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{
-  IntResponse,
-  ReturnInvocation,
-  StringResponse
-}
-import edu.uci.ics.amber.engine.architecture.rpc.testerservice.RPCTesterGrpc.{
+import edu.uci.ics.amber.engine.architecture.rpc._
+import edu.uci.ics.amber.engine.architecture.rpc.{IntResponse, ReturnInvocation, StringResponse}
+import edu.uci.ics.amber.engine.architecture.rpc.RPCTesterGrpc.{
   METHOD_SEND_CHAIN,
   METHOD_SEND_COLLECT,
   METHOD_SEND_ERROR_COMMAND,
@@ -27,8 +23,8 @@ import edu.uci.ics.amber.engine.architecture.rpc.testerservice.RPCTesterGrpc.{
 import edu.uci.ics.amber.engine.common.ambermessage.WorkflowMessage.getInMemSize
 import edu.uci.ics.amber.engine.common.ambermessage.WorkflowFIFOMessage
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.ControlInvocation
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.util.CONTROLLER
 import io.grpc.MethodDescriptor
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}

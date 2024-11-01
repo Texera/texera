@@ -8,8 +8,8 @@ import edu.uci.ics.amber.engine.architecture.common.WorkflowActor.{
   RegisterActorRef
 }
 import edu.uci.ics.amber.engine.common.{AmberLogging, VirtualIdentityUtils}
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.virtualidentity.util.{CONTROLLER, SELF}
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.util.{CONTROLLER, SELF}
 
 import scala.collection.mutable
 

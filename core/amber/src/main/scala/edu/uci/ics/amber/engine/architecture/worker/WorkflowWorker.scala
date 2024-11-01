@@ -5,14 +5,14 @@ import edu.uci.ics.amber.engine.architecture.common.WorkflowActor
 import edu.uci.ics.amber.engine.architecture.common.WorkflowActor.NetworkAck
 import edu.uci.ics.amber.engine.architecture.controller.ReplayStatusUpdate
 import edu.uci.ics.amber.engine.architecture.messaginglayer.WorkerTimerService
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ControlInvocation
+import edu.uci.ics.amber.engine.architecture.rpc.ControlInvocation
 import edu.uci.ics.amber.engine.architecture.scheduling.config.WorkerConfig
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker._
 import edu.uci.ics.amber.engine.common.{CheckpointState, SerializedState}
-import edu.uci.ics.amber.engine.common.actormessage.{ActorCommand, Backpressure}
+import edu.uci.ics.amber.engine.common.{ActorCommand, Backpressure}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkflowFIFOMessage
 import edu.uci.ics.amber.engine.common.ambermessage.WorkflowMessage.getInMemSize
-import edu.uci.ics.amber.engine.common.virtualidentity.{ChannelIdentity, ChannelMarkerIdentity}
+import edu.uci.ics.amber.engine.common.{ChannelIdentity, ChannelMarkerIdentity}
 
 import java.net.URI
 import java.util.concurrent.LinkedBlockingQueue

@@ -10,12 +10,8 @@ import edu.uci.ics.amber.engine.architecture.common.WorkflowActor.{
   NetworkMessage
 }
 import edu.uci.ics.amber.engine.architecture.controller.{ClientEvent, Controller, ControllerConfig}
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, ControlRequest}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{
-  ControlError,
-  ControlReturn,
-  ReturnInvocation
-}
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, ControlRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.{ControlException, ControlReturn, ReturnInvocation}
 import edu.uci.ics.amber.engine.common.ambermessage.WorkflowMessage.getInMemSize
 import edu.uci.ics.amber.engine.common.AmberLogging
 import edu.uci.ics.amber.engine.common.ambermessage.{
@@ -32,8 +28,8 @@ import edu.uci.ics.amber.engine.common.client.ClientActor.{
 }
 import edu.uci.ics.amber.engine.common.model.{PhysicalPlan, WorkflowContext}
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
-import edu.uci.ics.amber.engine.common.virtualidentity.util.{CLIENT, CONTROLLER}
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.util.{CLIENT, CONTROLLER}
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.error.ErrorUtils.reconstructThrowable
 import edu.uci.ics.texera.workflow.common.storage.OpResultStorage
 
@@ -112,7 +108,7 @@ private[client] class ClientActor extends Actor with AmberLogging {
             case ReturnInvocation(originalCommandID, controlReturn) =>
               if (promiseMap.contains(originalCommandID)) {
                 controlReturn match {
-                  case t: ControlError =>
+                  case t: ControlException =>
                     promiseMap(originalCommandID).setException(reconstructThrowable(t))
                   case other =>
                     promiseMap(originalCommandID).setValue(other)

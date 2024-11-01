@@ -2,11 +2,8 @@ package edu.uci.ics.amber.engine.common.rpc
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.ClientEvent
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands._
-import edu.uci.ics.amber.engine.architecture.rpc.controllerservice.ControllerServiceFs2Grpc
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns._
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceFs2Grpc
-import edu.uci.ics.amber.engine.common.virtualidentity.{
+import edu.uci.ics.amber.engine.architecture.rpc._
+import edu.uci.ics.amber.engine.common.{
   ActorVirtualIdentity,
   ChannelIdentity,
   ChannelMarkerIdentity

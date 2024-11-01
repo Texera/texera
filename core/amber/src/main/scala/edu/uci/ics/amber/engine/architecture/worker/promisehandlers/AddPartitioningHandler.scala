@@ -1,13 +1,10 @@
 package edu.uci.ics.amber.engine.architecture.worker.promisehandlers
 
 import com.twitter.util.Future
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AddPartitioningRequest,
-  AsyncRPCContext
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.rpc.{AddPartitioningRequest, AsyncRPCContext}
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
 import edu.uci.ics.amber.engine.architecture.worker.DataProcessorRPCHandlerInitializer
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.{PAUSED, READY, RUNNING}
+import edu.uci.ics.amber.engine.architecture.worker.WorkerState.{PAUSED, READY, RUNNING}
 
 trait AddPartitioningHandler {
   this: DataProcessorRPCHandlerInitializer =>

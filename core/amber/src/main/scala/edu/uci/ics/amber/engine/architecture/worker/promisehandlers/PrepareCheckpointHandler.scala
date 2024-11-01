@@ -1,11 +1,8 @@
 package edu.uci.ics.amber.engine.architecture.worker.promisehandlers
 
 import com.twitter.util.Future
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AsyncRPCContext,
-  PrepareCheckpointRequest
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, PrepareCheckpointRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.EmptyReturn
 import edu.uci.ics.amber.engine.architecture.worker.{
   DataProcessorRPCHandlerInitializer,
   WorkflowWorker
@@ -13,7 +10,7 @@ import edu.uci.ics.amber.engine.architecture.worker.{
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
 import edu.uci.ics.amber.engine.common.ambermessage.WorkflowFIFOMessage
 import edu.uci.ics.amber.engine.common.{CheckpointState, CheckpointSupport, SerializedState}
-import edu.uci.ics.amber.engine.common.virtualidentity.ChannelMarkerIdentity
+import edu.uci.ics.amber.engine.common.ChannelMarkerIdentity
 
 import java.util.concurrent.CompletableFuture
 import scala.collection.mutable

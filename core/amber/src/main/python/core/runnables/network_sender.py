@@ -8,11 +8,13 @@ from core.models import DataPayload, InternalQueue, DataFrame, MarkerFrame, Stat
 from core.models.internal_queue import InternalQueueElement, DataElement, ControlElement
 from core.proxy import ProxyClient
 from core.util import StoppableQueueBlockingRunnable
+from proto.edu.uci.ics.amber.engine.architecture.python import (
+    PythonDataHeader,
+    PythonControlMessage,
+    ControlPayloadV2,
+)
 from proto.edu.uci.ics.amber.engine.common import (
     ActorVirtualIdentity,
-    ControlPayloadV2,
-    PythonControlMessage,
-    PythonDataHeader,
 )
 
 

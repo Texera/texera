@@ -9,6 +9,7 @@ from typing import Dict, TypeVar, Callable, Any, Coroutine
 from core.architecture.managers.context import Context
 from core.models.internal_queue import InternalQueue, ControlElement
 from core.util import set_one_of
+from proto.edu.uci.ics.amber.engine.architecture.python import ControlPayloadV2
 from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     AsyncRpcContext,
     ReturnInvocation,
@@ -20,7 +21,6 @@ from proto.edu.uci.ics.amber.engine.architecture.rpc import (
 )
 from proto.edu.uci.ics.amber.engine.common import (
     ActorVirtualIdentity,
-    ControlPayloadV2,
 )
 
 R = TypeVar("R")

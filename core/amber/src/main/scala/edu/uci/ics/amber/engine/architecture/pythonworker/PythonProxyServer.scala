@@ -2,9 +2,8 @@ package edu.uci.ics.amber.engine.architecture.pythonworker
 
 import com.google.common.primitives.Longs
 import edu.uci.ics.amber.engine.architecture.messaginglayer.NetworkOutputGateway
-import edu.uci.ics.amber.engine.common.AmberLogging
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, AmberLogging}
 import edu.uci.ics.amber.engine.common.ambermessage._
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
 import org.apache.arrow.flight._
 import org.apache.arrow.memory.{ArrowBuf, BufferAllocator, RootAllocator}
 import org.apache.arrow.util.AutoCloseables
@@ -15,10 +14,11 @@ import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import com.twitter.util.Promise
-import edu.uci.ics.amber.engine.common.ambermessage.ControlPayloadV2.Value.{
+import edu.uci.ics.amber.engine.architecture.python.ControlPayloadV2.Value.{
   ControlInvocation => ControlInvocationV2,
   ReturnInvocation => ReturnInvocationV2
 }
+import edu.uci.ics.amber.engine.architecture.python.{PythonControlMessage, PythonDataHeader}
 import edu.uci.ics.amber.engine.common.model.{EndOfInputChannel, StartOfInputChannel, State}
 import edu.uci.ics.amber.engine.common.model.tuple.Tuple
 

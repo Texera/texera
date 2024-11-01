@@ -8,45 +8,47 @@ option (scalapb.options) = {
   scope: FILE,
   preserve_unknown_fields: false
   no_default_values_in_constructor: true
+  flat_package: true
 };
 
-import "edu/uci/ics/amber/engine/common/virtualidentity.proto";
+import "edu/uci/ics/amber/engine/common/virtual_identity.proto";
 
-message Partitioning{
-  oneof sealed_value{
-    OneToOnePartitioning oneToOnePartitioning = 1;
-    RoundRobinPartitioning roundRobinPartitioning = 2;
-    HashBasedShufflePartitioning hashBasedShufflePartitioning = 3;
-    RangeBasedShufflePartitioning rangeBasedShufflePartitioning = 4;
-    BroadcastPartitioning broadcastPartitioning = 5;
+message Partitioning {
+  oneof sealed_value {
+    OneToOnePartitioning one_to_one_partitioning = 1;
+    RoundRobinPartitioning round_robin_partitioning = 2;
+    HashBasedShufflePartitioning hash_based_shuffle_partitioning = 3;
+    RangeBasedShufflePartitioning range_based_shuffle_partitioning = 4;
+    BroadcastPartitioning broadcast_partitioning = 5;
   }
 }
 
+
 message OneToOnePartitioning{
-  int32 batchSize = 1;
+  int32 batch_size = 1;
   repeated edu.uci.ics.amber.engine.common.ChannelIdentity channels = 2;
 }
 
 message RoundRobinPartitioning{
-  int32 batchSize = 1;
+  int32 batch_size = 1;
   repeated edu.uci.ics.amber.engine.common.ChannelIdentity channels = 2;
 }
 
 message HashBasedShufflePartitioning{
-  int32 batchSize = 1;
+  int32 batch_size = 1;
   repeated edu.uci.ics.amber.engine.common.ChannelIdentity channels = 2;
-  repeated string hashAttributeNames = 3;
+  repeated string hash_attribute_names = 3;
 }
 
 message RangeBasedShufflePartitioning {
-  int32 batchSize = 1;
+  int32 batch_size = 1;
   repeated edu.uci.ics.amber.engine.common.ChannelIdentity channels = 2;
-  repeated string rangeAttributeNames = 3;
-  int64 rangeMin = 4;
-  int64 rangeMax = 5;
+  repeated string range_attribute_names = 3;
+  int64 range_min = 4;
+  int64 range_max = 5;
 }
 
 message BroadcastPartitioning{
-  int32 batchSize = 1;
+  int32 batch_size = 1;
   repeated edu.uci.ics.amber.engine.common.ChannelIdentity channels = 2;
 }

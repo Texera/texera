@@ -2,10 +2,10 @@ package edu.uci.ics.amber.engine.architecture.controller
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers._
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.AsyncRPCContext
-import edu.uci.ics.amber.engine.architecture.rpc.controllerservice.ControllerServiceFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.AsyncRPCContext
+import edu.uci.ics.amber.engine.architecture.rpc.ControllerServiceFs2Grpc
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.AmberLogging
 
 class ControllerAsyncRPCHandlerInitializer(

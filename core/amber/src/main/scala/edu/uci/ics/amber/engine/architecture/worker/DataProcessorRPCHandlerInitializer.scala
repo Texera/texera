@@ -1,17 +1,17 @@
 package edu.uci.ics.amber.engine.architecture.worker
 
 import com.twitter.util.Future
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   AsyncRPCContext,
   DebugCommandRequest,
   EmptyRequest,
   EvaluatePythonExpressionRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{EmptyReturn, EvaluatedValue}
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.{EmptyReturn, EvaluatedValue}
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceFs2Grpc
 import edu.uci.ics.amber.engine.architecture.worker.promisehandlers._
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCHandlerInitializer
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.AmberLogging
 
 class DataProcessorRPCHandlerInitializer(val dp: DataProcessor)

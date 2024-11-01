@@ -2,10 +2,10 @@ package edu.uci.ics.amber.engine.architecture.control.utils
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.control.utils.TrivialControlTester.ControlTesterRPCClient
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.AsyncRPCContext
-import edu.uci.ics.amber.engine.architecture.rpc.testerservice.RPCTesterFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.AsyncRPCContext
+import edu.uci.ics.amber.engine.architecture.rpc.RPCTesterFs2Grpc
 import edu.uci.ics.amber.engine.common.rpc.{AsyncRPCHandlerInitializer, AsyncRPCServer}
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 
 class TesterAsyncRPCHandlerInitializer(
     val myID: ActorVirtualIdentity,

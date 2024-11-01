@@ -2,12 +2,12 @@ package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import akka.actor.Cancellable
 import edu.uci.ics.amber.engine.architecture.common.AkkaActorService
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.METHOD_FLUSH_NETWORK_BUFFER
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceGrpc.METHOD_FLUSH_NETWORK_BUFFER
 import edu.uci.ics.amber.engine.common.AmberConfig
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.ControlInvocation
-import edu.uci.ics.amber.engine.common.virtualidentity.util.SELF
+import edu.uci.ics.amber.engine.common.util.SELF
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration, MILLISECONDS}
 

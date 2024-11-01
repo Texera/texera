@@ -1,7 +1,7 @@
 package edu.uci.ics.amber.engine.architecture.scheduling.config
 
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.PortIdentity
 import edu.uci.ics.texera.workflow.common.workflow.{
   BroadcastPartition,
   HashPartition,

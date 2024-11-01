@@ -1,27 +1,27 @@
 package edu.uci.ics.amber.engine.architecture.worker
 
 import edu.uci.ics.amber.engine.architecture.messaginglayer.WorkerTimerService
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
-import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.{
+import edu.uci.ics.amber.engine.architecture.rpc.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.WorkerServiceGrpc.{
   METHOD_FLUSH_NETWORK_BUFFER,
   METHOD_OPEN_EXECUTOR
 }
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.READY
+import edu.uci.ics.amber.engine.architecture.worker.WorkerState.READY
 import edu.uci.ics.amber.engine.common.VirtualIdentityUtils
 import edu.uci.ics.amber.engine.common.ambermessage.{DataFrame, MarkerFrame, WorkflowFIFOMessage}
 import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
 import edu.uci.ics.amber.engine.common.model.EndOfInputChannel
 import edu.uci.ics.amber.engine.common.model.tuple.{AttributeType, Schema, Tuple, TupleLike}
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient.ControlInvocation
-import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
-import edu.uci.ics.amber.engine.common.virtualidentity.{
+import edu.uci.ics.amber.engine.common.util.CONTROLLER
+import edu.uci.ics.amber.engine.common.{
   ActorVirtualIdentity,
   ChannelIdentity,
   OperatorIdentity,
   PhysicalOpIdentity
 }
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.PortIdentity
 import edu.uci.ics.amber.engine.common.model.WorkflowContext.DEFAULT_WORKFLOW_ID
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.BeforeAndAfterEach

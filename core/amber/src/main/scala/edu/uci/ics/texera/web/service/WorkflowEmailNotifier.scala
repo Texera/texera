@@ -1,7 +1,7 @@
 package edu.uci.ics.texera.web.service
 
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState
-import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState._
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState
+import edu.uci.ics.amber.engine.common.WorkflowAggregatedState._
 import edu.uci.ics.texera.web.resource.dashboard.user.workflow.WorkflowResource
 import edu.uci.ics.texera.web.resource.{EmailMessage, GmailResource}
 import org.hibernate.validator.internal.constraintvalidators.hv.EmailValidator

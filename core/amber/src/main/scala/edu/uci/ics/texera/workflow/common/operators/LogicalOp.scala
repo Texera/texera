@@ -12,12 +12,8 @@ import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
 import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
 import edu.uci.ics.amber.engine.common.model.{PhysicalOp, PhysicalPlan, WorkflowContext}
 import edu.uci.ics.amber.engine.common.model.tuple.Schema
-import edu.uci.ics.amber.engine.common.virtualidentity.{
-  ExecutionIdentity,
-  OperatorIdentity,
-  WorkflowIdentity
-}
-import edu.uci.ics.amber.engine.common.workflow.PortIdentity
+import edu.uci.ics.amber.engine.common.{ExecutionIdentity, OperatorIdentity, WorkflowIdentity}
+import edu.uci.ics.amber.engine.common.PortIdentity
 import edu.uci.ics.texera.web.OPversion
 import edu.uci.ics.texera.workflow.common.metadata.{OperatorInfo, PropertyNameConstants}
 import edu.uci.ics.texera.workflow.operators.aggregate.AggregateOpDesc

@@ -9,8 +9,8 @@ import edu.uci.ics.amber.engine.common.ambermessage.{
 }
 
 import java.util.concurrent.atomic.AtomicLong
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.virtualidentity.util.SELF
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.util.SELF
 
 import scala.collection.mutable
 

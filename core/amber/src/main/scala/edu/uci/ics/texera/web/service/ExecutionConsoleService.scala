@@ -2,15 +2,15 @@ package edu.uci.ics.texera.web.service
 
 import com.google.protobuf.timestamp.Timestamp
 import com.twitter.util.{Await, Duration}
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+import edu.uci.ics.amber.engine.architecture.rpc.{
   DebugCommandRequest => AmberDebugCommandRequest,
   ConsoleMessage,
   EvaluatePythonExpressionRequest
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ConsoleMessageType.COMMAND
+import edu.uci.ics.amber.engine.architecture.rpc.ConsoleMessageType.COMMAND
 import edu.uci.ics.amber.engine.common.{AmberConfig, VirtualIdentityUtils}
 import edu.uci.ics.amber.engine.common.client.AmberClient
-import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.common.ActorVirtualIdentity
 import edu.uci.ics.texera.web.model.websocket.event.TexeraWebSocketEvent
 import edu.uci.ics.texera.web.model.websocket.event.python.ConsoleUpdateEvent
 import edu.uci.ics.texera.web.model.websocket.request.python.{
@@ -19,11 +19,7 @@ import edu.uci.ics.texera.web.model.websocket.request.python.{
 }
 import edu.uci.ics.texera.web.model.websocket.response.python.PythonExpressionEvaluateResponse
 import edu.uci.ics.texera.web.storage.ExecutionStateStore
-import edu.uci.ics.amber.engine.common.workflowruntimestate.{
-  EvaluatedValueList,
-  ExecutionConsoleStore,
-  OperatorConsole
-}
+import edu.uci.ics.amber.engine.common.{EvaluatedValueList, ExecutionConsoleStore, OperatorConsole}
 import edu.uci.ics.texera.web.model.websocket.request.RetryRequest
 import edu.uci.ics.texera.web.{SubscriptionManager, WebsocketInput}
 

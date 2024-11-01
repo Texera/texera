@@ -6,7 +6,7 @@ import edu.uci.ics.amber.engine.architecture.messaginglayer.OutputManager.{
   toPartitioner
 }
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitioners._
-import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings._
+import edu.uci.ics.amber.engine.architecture.sendsemantics._
 import edu.uci.ics.amber.engine.common.AmberLogging
 import edu.uci.ics.amber.engine.common.model.Marker
 import edu.uci.ics.amber.engine.common.model.tuple.{
@@ -16,8 +16,8 @@ import edu.uci.ics.amber.engine.common.model.tuple.{
   SchemaEnforceable,
   TupleLike
 }
-import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
-import edu.uci.ics.amber.engine.common.workflow.{PhysicalLink, PortIdentity}
+import edu.uci.ics.amber.engine.common.{ActorVirtualIdentity, ChannelIdentity}
+import edu.uci.ics.amber.engine.common.{PhysicalLink, PortIdentity}
 
 import scala.collection.mutable
 
