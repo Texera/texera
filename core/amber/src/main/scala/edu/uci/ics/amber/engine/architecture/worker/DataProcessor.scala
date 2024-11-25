@@ -3,42 +3,23 @@ package edu.uci.ics.amber.engine.architecture.worker
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.engine.architecture.common.AmberProcessor
 import edu.uci.ics.amber.engine.architecture.logreplay.ReplayLogManager
-import edu.uci.ics.amber.engine.architecture.messaginglayer.{
-  InputManager,
-  OutputManager,
-  WorkerTimerService
-}
+import edu.uci.ics.amber.engine.architecture.messaginglayer.{InputManager, OutputManager, WorkerTimerService}
 import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.ChannelMarkerType.REQUIRE_ALIGNMENT
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  ChannelMarkerPayload,
-  ConsoleMessageTriggeredRequest,
-  EmptyRequest,
-  PortCompletedRequest,
-  WorkerStateUpdatedRequest
-}
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{ChannelMarkerPayload, ConsoleMessageTriggeredRequest, EmptyRequest, IterationCompletedRequest, PortCompletedRequest, WorkerStateUpdatedRequest}
 import edu.uci.ics.amber.engine.architecture.worker.WorkflowWorker.MainThreadDelegateMessage
 import edu.uci.ics.amber.engine.architecture.worker.managers.SerializationManager
-import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.{
-  COMPLETED,
-  READY,
-  RUNNING
-}
+import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState.{COMPLETED, READY, RUNNING}
 import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerStatistics
 import edu.uci.ics.amber.engine.common.ambermessage._
 import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
-import edu.uci.ics.amber.engine.common.model.{EndOfInputChannel, StartOfInputChannel, State}
-import edu.uci.ics.amber.engine.common.model.tuple.{
-  FinalizeExecutor,
-  FinalizePort,
-  SchemaEnforceable,
-  Tuple,
-  TupleLike
-}
+import edu.uci.ics.amber.engine.common.model.{EndOfInputChannel, EndOfIteration, StartOfInputChannel, StartOfIteration, State}
+import edu.uci.ics.amber.engine.common.model.tuple.{FinalizeExecutor, FinalizePort, SchemaEnforceable, Tuple, TupleLike}
 import edu.uci.ics.amber.engine.common.statetransition.WorkerStateManager
 import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
 import edu.uci.ics.amber.engine.common.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.engine.common.workflow.PortIdentity
 import edu.uci.ics.amber.error.ErrorUtils.{mkConsoleMessage, safely}
+import edu.uci.ics.texera.workflow.operators.controlBlock.loop.{LoopEndOpExec, LoopStartOpExec}
 
 class DataProcessor(
     actorId: ActorVirtualIdentity,
@@ -56,6 +37,7 @@ class DataProcessor(
 
   // inner dependencies
   private val initializer = new DataProcessorRPCHandlerInitializer(this)
+  val workerId: ActorVirtualIdentity = actorId
   val pauseManager: PauseManager = wire[PauseManager]
   val stateManager: WorkerStateManager = new WorkerStateManager(actorId)
   val inputManager: InputManager = new InputManager(actorId)
@@ -233,6 +215,35 @@ class DataProcessor(
         processInputTuple(inputManager.getNextTuple)
       case MarkerFrame(marker) =>
         marker match {
+          case StartOfIteration() =>
+            processEndOfInputChannel(portId.id)
+
+            executor match {
+              case loopStartExecutor: LoopStartOpExec =>
+                if (loopStartExecutor.checkCondition()){
+                  outputManager.emitMarker(EndOfIteration(workerId))
+                }
+                else{
+                  outputManager.finalizeOutput()
+                }
+              case _ =>
+
+            }
+
+
+          case EndOfIteration(startWorkerId) =>
+            print("ergergerg")
+
+            if (executor.isInstanceOf[LoopEndOpExec]){
+              asyncRPCClient.controllerInterface.iterationCompleted(
+                IterationCompletedRequest(startWorkerId, workerId),
+                asyncRPCClient.mkContext(CONTROLLER)
+              )
+            }
+            else{
+              outputManager.emitMarker(EndOfIteration(startWorkerId))
+            }
+
           case state: State =>
             processInputState(state, portId.id)
           case StartOfInputChannel() =>
@@ -248,7 +259,14 @@ class DataProcessor(
             }
             if (inputManager.getAllPorts.forall(portId => inputManager.isPortCompleted(portId))) {
               // assuming all the output ports finalize after all input ports are finalized.
-              outputManager.finalizeOutput()
+              executor match {
+                case loopStartExecutor: LoopStartOpExec =>
+                  outputManager.emitMarker(EndOfIteration(workerId))
+                  //outputManager.finalizeOutput()
+                case _ =>
+                  outputManager.finalizeOutput()
+              }
+
             }
         }
     }

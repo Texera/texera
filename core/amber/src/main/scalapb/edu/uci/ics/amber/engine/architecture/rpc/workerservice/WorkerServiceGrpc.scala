@@ -117,6 +117,16 @@ object WorkerServiceGrpc {
       .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(10)))
       .build()
   
+  val METHOD_RESUME_LOOP: _root_.io.grpc.MethodDescriptor[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] =
+    _root_.io.grpc.MethodDescriptor.newBuilder()
+      .setType(_root_.io.grpc.MethodDescriptor.MethodType.UNARY)
+      .setFullMethodName(_root_.io.grpc.MethodDescriptor.generateFullMethodName("edu.uci.ics.amber.engine.architecture.rpc.WorkerService", "ResumeLoop"))
+      .setSampledToLocalTracing(true)
+      .setRequestMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest])
+      .setResponseMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn])
+      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(11)))
+      .build()
+  
   val METHOD_RETRIEVE_STATE: _root_.io.grpc.MethodDescriptor[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] =
     _root_.io.grpc.MethodDescriptor.newBuilder()
       .setType(_root_.io.grpc.MethodDescriptor.MethodType.UNARY)
@@ -124,7 +134,7 @@ object WorkerServiceGrpc {
       .setSampledToLocalTracing(true)
       .setRequestMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest])
       .setResponseMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn])
-      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(11)))
+      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(12)))
       .build()
   
   val METHOD_RETRY_CURRENT_TUPLE: _root_.io.grpc.MethodDescriptor[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] =
@@ -134,7 +144,7 @@ object WorkerServiceGrpc {
       .setSampledToLocalTracing(true)
       .setRequestMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest])
       .setResponseMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn])
-      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(12)))
+      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(13)))
       .build()
   
   val METHOD_START_WORKER: _root_.io.grpc.MethodDescriptor[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse] =
@@ -144,7 +154,7 @@ object WorkerServiceGrpc {
       .setSampledToLocalTracing(true)
       .setRequestMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest])
       .setResponseMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse])
-      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(13)))
+      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(14)))
       .build()
   
   val METHOD_DEBUG_COMMAND: _root_.io.grpc.MethodDescriptor[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.DebugCommandRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] =
@@ -154,7 +164,7 @@ object WorkerServiceGrpc {
       .setSampledToLocalTracing(true)
       .setRequestMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.DebugCommandRequest])
       .setResponseMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn])
-      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(14)))
+      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(15)))
       .build()
   
   val METHOD_EVALUATE_PYTHON_EXPRESSION: _root_.io.grpc.MethodDescriptor[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EvaluatePythonExpressionRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EvaluatedValue] =
@@ -164,7 +174,7 @@ object WorkerServiceGrpc {
       .setSampledToLocalTracing(true)
       .setRequestMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EvaluatePythonExpressionRequest])
       .setResponseMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EvaluatedValue])
-      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(15)))
+      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(16)))
       .build()
   
   val METHOD_NO_OPERATION: _root_.io.grpc.MethodDescriptor[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] =
@@ -174,7 +184,7 @@ object WorkerServiceGrpc {
       .setSampledToLocalTracing(true)
       .setRequestMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest])
       .setResponseMarshaller(_root_.scalapb.grpc.Marshaller.forMessage[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn])
-      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(16)))
+      .setSchemaDescriptor(_root_.scalapb.grpc.ConcreteProtoMethodDescriptorSupplier.fromMethodDescriptor(edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerserviceProto.javaDescriptor.getServices().get(0).getMethods().get(17)))
       .build()
   
   val SERVICE: _root_.io.grpc.ServiceDescriptor =
@@ -191,6 +201,7 @@ object WorkerServiceGrpc {
       .addMethod(METHOD_PREPARE_CHECKPOINT)
       .addMethod(METHOD_QUERY_STATISTICS)
       .addMethod(METHOD_RESUME_WORKER)
+      .addMethod(METHOD_RESUME_LOOP)
       .addMethod(METHOD_RETRIEVE_STATE)
       .addMethod(METHOD_RETRY_CURRENT_TUPLE)
       .addMethod(METHOD_START_WORKER)
@@ -214,6 +225,7 @@ object WorkerServiceGrpc {
     def prepareCheckpoint(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.PrepareCheckpointRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn]
     def queryStatistics(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerMetricsResponse]
     def resumeWorker(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse]
+    def resumeLoop(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn]
     def retrieveState(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn]
     def retryCurrentTuple(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn]
     def startWorker(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse]
@@ -306,6 +318,13 @@ object WorkerServiceGrpc {
               executionContext)
         }))
       .addMethod(
+        METHOD_RESUME_LOOP,
+        _root_.io.grpc.stub.ServerCalls.asyncUnaryCall(new _root_.io.grpc.stub.ServerCalls.UnaryMethod[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] {
+          override def invoke(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest, observer: _root_.io.grpc.stub.StreamObserver[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn]): _root_.scala.Unit =
+            serviceImpl.resumeLoop(request).onComplete(scalapb.grpc.Grpc.completeObserver(observer))(
+              executionContext)
+        }))
+      .addMethod(
         METHOD_RETRIEVE_STATE,
         _root_.io.grpc.stub.ServerCalls.asyncUnaryCall(new _root_.io.grpc.stub.ServerCalls.UnaryMethod[edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest, edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] {
           override def invoke(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest, observer: _root_.io.grpc.stub.StreamObserver[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn]): _root_.scala.Unit =
@@ -365,6 +384,7 @@ object WorkerServiceGrpc {
     def prepareCheckpoint(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.PrepareCheckpointRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
     def queryStatistics(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerMetricsResponse
     def resumeWorker(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse
+    def resumeLoop(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
     def retrieveState(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
     def retryCurrentTuple(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
     def startWorker(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse
@@ -416,6 +436,10 @@ object WorkerServiceGrpc {
     
     override def resumeWorker(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse = {
       _root_.scalapb.grpc.ClientCalls.blockingUnaryCall(channel, METHOD_RESUME_WORKER, options, request)
+    }
+    
+    override def resumeLoop(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn = {
+      _root_.scalapb.grpc.ClientCalls.blockingUnaryCall(channel, METHOD_RESUME_LOOP, options, request)
     }
     
     override def retrieveState(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn = {
@@ -488,6 +512,10 @@ object WorkerServiceGrpc {
     
     override def resumeWorker(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkerStateResponse] = {
       _root_.scalapb.grpc.ClientCalls.asyncUnaryCall(channel, METHOD_RESUME_WORKER, options, request)
+    }
+    
+    override def resumeLoop(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.IterationCompletedRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] = {
+      _root_.scalapb.grpc.ClientCalls.asyncUnaryCall(channel, METHOD_RESUME_LOOP, options, request)
     }
     
     override def retrieveState(request: edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmptyRequest): scala.concurrent.Future[edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn] = {

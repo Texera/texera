@@ -7,6 +7,7 @@ case class PortDescription(
     portID: String,
     displayName: String,
     allowMultiInputs: Boolean,
+    isStatePort: Boolean,
     isDynamicPort: Boolean,
     partitionRequirement: PartitionInfo,
     dependencies: List[Int] = List.empty

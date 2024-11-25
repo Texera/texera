@@ -1,6 +1,7 @@
 package edu.uci.ics.amber.engine.common.model
 
 import edu.uci.ics.amber.engine.common.model.tuple.{Attribute, AttributeType, Schema, Tuple}
+import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
 
 import scala.collection.mutable
 
@@ -8,6 +9,8 @@ sealed trait Marker
 
 final case class StartOfInputChannel() extends Marker
 final case class EndOfInputChannel() extends Marker
+final case class StartOfIteration() extends Marker
+final case class EndOfIteration(workerId: ActorVirtualIdentity) extends Marker
 
 final case class State(tuple: Option[Tuple] = None, passToAllDownstream: Boolean = false)
     extends Marker {
@@ -23,6 +26,8 @@ final case class State(tuple: Option[Tuple] = None, passToAllDownstream: Boolean
     data.put(key, (valueType, value))
 
   def get(key: String): Any = data(key)._2
+
+  def get(index: Int): Any = data.values.toArray.toSeq(index)._2
 
   def isPassToAllDownstream: Boolean = get("passToAllDownstream").asInstanceOf[Boolean]
 

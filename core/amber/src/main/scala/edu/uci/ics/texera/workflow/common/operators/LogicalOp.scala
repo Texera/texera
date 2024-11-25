@@ -1,29 +1,21 @@
 package edu.uci.ics.texera.workflow.common.operators
 
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type
-import com.fasterxml.jackson.annotation.{
-  JsonIgnore,
-  JsonProperty,
-  JsonPropertyDescription,
-  JsonSubTypes,
-  JsonTypeInfo
-}
+import com.fasterxml.jackson.annotation._
 import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
 import edu.uci.ics.amber.engine.common.executor.OperatorExecutor
-import edu.uci.ics.amber.engine.common.model.{PhysicalOp, PhysicalPlan, WorkflowContext}
 import edu.uci.ics.amber.engine.common.model.tuple.Schema
-import edu.uci.ics.amber.engine.common.virtualidentity.{
-  ExecutionIdentity,
-  OperatorIdentity,
-  WorkflowIdentity
-}
+import edu.uci.ics.amber.engine.common.model.{PhysicalOp, PhysicalPlan, WorkflowContext}
+import edu.uci.ics.amber.engine.common.virtualidentity.{ExecutionIdentity, OperatorIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.engine.common.workflow.PortIdentity
 import edu.uci.ics.texera.web.OPversion
 import edu.uci.ics.texera.workflow.common.metadata.{OperatorInfo, PropertyNameConstants}
 import edu.uci.ics.texera.workflow.operators.aggregate.AggregateOpDesc
 import edu.uci.ics.texera.workflow.operators.cartesianProduct.CartesianProductOpDesc
+import edu.uci.ics.texera.workflow.operators.controlBlock.SleepOpDesc
+import edu.uci.ics.texera.workflow.operators.controlBlock.loop.{LoopEndOpDesc, LoopStartOpDesc}
 import edu.uci.ics.texera.workflow.operators.controlBlock.state.DataToStateOpDesc
-import edu.uci.ics.texera.workflow.operators.controlBlock.ifStatement.IfOpDesc
+import edu.uci.ics.texera.workflow.operators.controlBlock.ifStatement.{IfOpDesc, IfStatementOpDesc}
 import edu.uci.ics.texera.workflow.operators.dictionary.DictionaryMatcherOpDesc
 import edu.uci.ics.texera.workflow.operators.difference.DifferenceOpDesc
 import edu.uci.ics.texera.workflow.operators.distinct.DistinctOpDesc
@@ -31,20 +23,13 @@ import edu.uci.ics.texera.workflow.operators.download.BulkDownloaderOpDesc
 import edu.uci.ics.texera.workflow.operators.dummy.DummyOpDesc
 import edu.uci.ics.texera.workflow.operators.filter.SpecializedFilterOpDesc
 import edu.uci.ics.texera.workflow.operators.hashJoin.HashJoinOpDesc
+import edu.uci.ics.texera.workflow.operators.huggingFace.{HuggingFaceIrisLogisticRegressionOpDesc, HuggingFaceSentimentAnalysisOpDesc, HuggingFaceSpamSMSDetectionOpDesc, HuggingFaceTextSummarizationOpDesc}
 import edu.uci.ics.texera.workflow.operators.intersect.IntersectOpDesc
 import edu.uci.ics.texera.workflow.operators.intervalJoin.IntervalJoinOpDesc
 import edu.uci.ics.texera.workflow.operators.keywordSearch.KeywordSearchOpDesc
 import edu.uci.ics.texera.workflow.operators.limit.LimitOpDesc
-import edu.uci.ics.texera.workflow.operators.huggingFace.{
-  HuggingFaceIrisLogisticRegressionOpDesc,
-  HuggingFaceSentimentAnalysisOpDesc,
-  HuggingFaceSpamSMSDetectionOpDesc,
-  HuggingFaceTextSummarizationOpDesc
-}
-import edu.uci.ics.texera.workflow.operators.machineLearning.sklearnAdvanced.KNNTrainer.{
-  SklearnAdvancedKNNClassifierTrainerOpDesc,
-  SklearnAdvancedKNNRegressorTrainerOpDesc
-}
+import edu.uci.ics.texera.workflow.operators.machineLearning.Scorer.MachineLearningScorerOpDesc
+import edu.uci.ics.texera.workflow.operators.machineLearning.sklearnAdvanced.KNNTrainer.{SklearnAdvancedKNNClassifierTrainerOpDesc, SklearnAdvancedKNNRegressorTrainerOpDesc}
 import edu.uci.ics.texera.workflow.operators.machineLearning.sklearnAdvanced.SVCTrainer.SklearnAdvancedSVCTrainerOpDesc
 import edu.uci.ics.texera.workflow.operators.machineLearning.sklearnAdvanced.SVRTrainer.SVCTrainer.SklearnAdvancedSVRTrainerOpDesc
 import edu.uci.ics.texera.workflow.operators.projection.ProjectionOpDesc
@@ -53,42 +38,11 @@ import edu.uci.ics.texera.workflow.operators.regex.RegexOpDesc
 import edu.uci.ics.texera.workflow.operators.reservoirsampling.ReservoirSamplingOpDesc
 import edu.uci.ics.texera.workflow.operators.sentiment.SentimentAnalysisOpDesc
 import edu.uci.ics.texera.workflow.operators.sink.managed.ProgressiveSinkOpDesc
-import edu.uci.ics.texera.workflow.operators.sklearn.{
-  SklearnAdaptiveBoostingOpDesc,
-  SklearnBaggingOpDesc,
-  SklearnBernoulliNaiveBayesOpDesc,
-  SklearnComplementNaiveBayesOpDesc,
-  SklearnDecisionTreeOpDesc,
-  SklearnDummyClassifierOpDesc,
-  SklearnExtraTreeOpDesc,
-  SklearnExtraTreesOpDesc,
-  SklearnGaussianNaiveBayesOpDesc,
-  SklearnGradientBoostingOpDesc,
-  SklearnKNNOpDesc,
-  SklearnLinearRegressionOpDesc,
-  SklearnLinearSVMOpDesc,
-  SklearnLogisticRegressionCVOpDesc,
-  SklearnLogisticRegressionOpDesc,
-  SklearnMultiLayerPerceptronOpDesc,
-  SklearnMultinomialNaiveBayesOpDesc,
-  SklearnNearestCentroidOpDesc,
-  SklearnPassiveAggressiveOpDesc,
-  SklearnPerceptronOpDesc,
-  SklearnPredictionOpDesc,
-  SklearnProbabilityCalibrationOpDesc,
-  SklearnRandomForestOpDesc,
-  SklearnRidgeCVOpDesc,
-  SklearnRidgeOpDesc,
-  SklearnSDGOpDesc,
-  SklearnSVMOpDesc
-}
+import edu.uci.ics.texera.workflow.operators.sklearn._
 import edu.uci.ics.texera.workflow.operators.sort.SortOpDesc
 import edu.uci.ics.texera.workflow.operators.sortPartitions.SortPartitionsOpDesc
 import edu.uci.ics.texera.workflow.operators.source.apis.reddit.RedditSearchSourceOpDesc
-import edu.uci.ics.texera.workflow.operators.source.apis.twitter.v2.{
-  TwitterFullArchiveSearchSourceOpDesc,
-  TwitterSearchSourceOpDesc
-}
+import edu.uci.ics.texera.workflow.operators.source.apis.twitter.v2.{TwitterFullArchiveSearchSourceOpDesc, TwitterSearchSourceOpDesc}
 import edu.uci.ics.texera.workflow.operators.source.fetcher.URLFetcherOpDesc
 import edu.uci.ics.texera.workflow.operators.source.scan.FileScanSourceOpDesc
 import edu.uci.ics.texera.workflow.operators.source.scan.csv.CSVScanSourceOpDesc
@@ -103,44 +57,44 @@ import edu.uci.ics.texera.workflow.operators.symmetricDifference.SymmetricDiffer
 import edu.uci.ics.texera.workflow.operators.typecasting.TypeCastingOpDesc
 import edu.uci.ics.texera.workflow.operators.udf.java.JavaUDFOpDesc
 import edu.uci.ics.texera.workflow.operators.udf.python.source.PythonUDFSourceOpDescV2
-import edu.uci.ics.texera.workflow.operators.udf.python.{
-  DualInputPortsPythonUDFOpDescV2,
-  PythonLambdaFunctionOpDesc,
-  PythonTableReducerOpDesc,
-  PythonUDFOpDescV2
-}
+import edu.uci.ics.texera.workflow.operators.udf.python.{DualInputPortsPythonUDFOpDescV2, PythonLambdaFunctionOpDesc, PythonTableReducerOpDesc, PythonUDFOpDescV2}
 import edu.uci.ics.texera.workflow.operators.udf.r.{RUDFOpDesc, RUDFSourceOpDesc}
 import edu.uci.ics.texera.workflow.operators.union.UnionOpDesc
 import edu.uci.ics.texera.workflow.operators.unneststring.UnnestStringOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.candlestickChart.CandlestickChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.boxPlot.BoxPlotOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.barChart.BarChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.htmlviz.HtmlVizOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.pieChart.PieChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.scatterplot.ScatterplotOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.ganttChart.GanttChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.urlviz.UrlVizOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.DotPlot.DotPlotOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.wordCloud.WordCloudOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.filledAreaPlot.FilledAreaPlotOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.bubbleChart.BubbleChartOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.ImageViz.ImageVisualizerOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.hierarchychart.HierarchyChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.dumbbellPlot.DumbbellPlotOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.histogram.HistogramChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.heatMap.HeatMapOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.lineChart.LineChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.waterfallChart.WaterfallChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.scatter3DChart.Scatter3dChartOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.ScatterMatrixChart.ScatterMatrixChartOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.funnelPlot.FunnelPlotOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.tablesChart.TablesPlotOpDesc
-import edu.uci.ics.texera.workflow.operators.visualization.icicleChart.IcicleChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.barChart.BarChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.boxPlot.BoxPlotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.bubbleChart.BubbleChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.candlestickChart.CandlestickChartOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.continuousErrorBands.ContinuousErrorBandsOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.contourPlot.ContourPlotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.dumbbellPlot.DumbbellPlotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.figureFactoryTable.FigureFactoryTableOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.filledAreaPlot.FilledAreaPlotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.funnelPlot.FunnelPlotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.ganttChart.GanttChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.heatMap.HeatMapOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.hierarchychart.HierarchyChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.histogram.HistogramChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.htmlviz.HtmlVizOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.icicleChart.IcicleChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.lineChart.LineChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.pieChart.PieChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.quiverPlot.QuiverPlotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.sankeyDiagram.SankeyDiagramOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.scatter3DChart.Scatter3dChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.scatterplot.ScatterplotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.tablesChart.TablesPlotOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.ternaryPlot.TernaryPlotOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.urlviz.UrlVizOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.waterfallChart.WaterfallChartOpDesc
+import edu.uci.ics.texera.workflow.operators.visualization.wordCloud.WordCloudOpDesc
 import org.apache.commons.lang3.builder.{EqualsBuilder, HashCodeBuilder, ToStringBuilder}
 import org.apache.zookeeper.KeeperException.UnimplementedException
 import edu.uci.ics.texera.workflow.operators.machineLearning.Scorer.MachineLearningScorerOpDesc
+import edu.uci.ics.texera.workflow.operators.state.StateToDataOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.quiverPlot.QuiverPlotOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.contourPlot.ContourPlotOpDesc
 import edu.uci.ics.texera.workflow.operators.visualization.figureFactoryTable.FigureFactoryTableOpDesc
@@ -161,6 +115,7 @@ trait StateTransferFunc
 )
 @JsonSubTypes(
   Array(
+    new Type(value = classOf[StateToDataOpDesc], name = "StateToData"),
     new Type(value = classOf[DataToStateOpDesc], name = "DataToState"),
     new Type(value = classOf[IfOpDesc], name = "IfStatement"),
     new Type(value = classOf[SankeyDiagramOpDesc], name = "SankeyDiagram"),
@@ -207,6 +162,7 @@ trait StateTransferFunc
     new Type(value = classOf[AsterixDBSourceOpDesc], name = "AsterixDBSource"),
     new Type(value = classOf[TypeCastingOpDesc], name = "TypeCasting"),
     new Type(value = classOf[LimitOpDesc], name = "Limit"),
+    new Type(value = classOf[SleepOpDesc], name = "Sleep"),
     new Type(value = classOf[RandomKSamplingOpDesc], name = "RandomKSampling"),
     new Type(value = classOf[ReservoirSamplingOpDesc], name = "ReservoirSampling"),
     new Type(value = classOf[HashJoinOpDesc[String]], name = "HashJoin"),
@@ -217,6 +173,10 @@ trait StateTransferFunc
     new Type(value = classOf[IntervalJoinOpDesc], name = "IntervalJoin"),
     new Type(value = classOf[UnnestStringOpDesc], name = "UnnestString"),
     new Type(value = classOf[DictionaryMatcherOpDesc], name = "DictionaryMatcher"),
+    new Type(value = classOf[IfStatementOpDesc], name = "IfStatement"),
+    new Type(value = classOf[DataToStateOpDesc], name = "DataToState"),
+    new Type(value = classOf[LoopStartOpDesc], name = "LoopStart"),
+    new Type(value = classOf[LoopEndOpDesc], name = "LoopEnd"),
     new Type(value = classOf[SortPartitionsOpDesc], name = "SortPartitions"),
     new Type(value = classOf[CSVOldScanSourceOpDesc], name = "CSVOldFileScan"),
     new Type(value = classOf[RedditSearchSourceOpDesc], name = "RedditSearch"),

@@ -1,21 +1,22 @@
-package edu.uci.ics.texera.workflow.operators.controlBlock.state
+package edu.uci.ics.texera.workflow.operators.controlBlock
 
-import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.fasterxml.jackson.annotation.{JsonProperty, JsonPropertyDescription}
 import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
 import edu.uci.ics.amber.engine.architecture.deploysemantics.layer.OpExecInitInfo
+import edu.uci.ics.amber.engine.common.model.PhysicalOp
 import edu.uci.ics.amber.engine.common.model.tuple.Schema
-import edu.uci.ics.amber.engine.common.model.{PhysicalOp, SchemaPropagationFunc}
 import edu.uci.ics.amber.engine.common.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
-import edu.uci.ics.amber.engine.common.workflow.{InputPort, OutputPort, PortIdentity}
+import edu.uci.ics.amber.engine.common.workflow.{InputPort, OutputPort}
 import edu.uci.ics.texera.workflow.common.metadata.{OperatorGroupConstants, OperatorInfo}
-import edu.uci.ics.texera.workflow.common.operators.LogicalOp
+import edu.uci.ics.texera.workflow.common.operators.{LogicalOp, StateTransferFunc}
 
-class DataToStateOpDesc extends LogicalOp {
-  @JsonProperty(defaultValue = "false")
-  @JsonSchemaTitle("Pass To All Downstream")
-  @JsonDeserialize(contentAs = classOf[java.lang.Boolean])
-  var passToAllDownstream: Option[Boolean] = Option(false)
+import scala.util.{Success, Try}
+
+class SleepOpDesc extends LogicalOp {
+
+  @JsonProperty(required = true)
+  @JsonSchemaTitle("Sleep")
+  var limit: Int = _
 
   override def getPhysicalOp(
       workflowId: WorkflowIdentity,
@@ -27,21 +28,23 @@ class DataToStateOpDesc extends LogicalOp {
         executionId,
         operatorIdentifier,
         OpExecInitInfo((_, _) => {
-          new DataToStateOpExec(passToAllDownstream.get)
+          new SleepOpExec(limit)
         })
       )
       .withInputPorts(operatorInfo.inputPorts)
       .withOutputPorts(operatorInfo.outputPorts)
+      .withParallelizable(false)
       .withSuggestedWorkerNum(1)
+
   }
 
   override def operatorInfo: OperatorInfo =
     OperatorInfo(
-      "Data To State",
-      "Convert Data to State",
+      "Sleep",
+      "Limit the number of output rows",
       OperatorGroupConstants.CONTROL_GROUP,
-      inputPorts = List(InputPort(displayName = "Data")),
-      outputPorts = List(OutputPort(displayName = "State", isStatePort = true))
+      inputPorts = List(InputPort()),
+      outputPorts = List(OutputPort()),
     )
 
   override def getOutputSchema(schemas: Array[Schema]): Schema = schemas(0)

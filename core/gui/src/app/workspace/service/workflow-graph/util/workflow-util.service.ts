@@ -166,6 +166,7 @@ export class WorkflowUtilService {
       allowMultiInputs: inputPortInfo.allowMultiLinks ?? false,
       isDynamicPort: false,
       dependencies: inputPortInfo.dependencies ?? [],
+      isStatePort: inputPortInfo.isStatePort
     };
   }
 
@@ -175,6 +176,7 @@ export class WorkflowUtilService {
       displayName: outputPortInfo.displayName ?? "",
       allowMultiInputs: false,
       isDynamicPort: false,
+      isStatePort: outputPortInfo.isStatePort
     };
   }
 

@@ -2,8 +2,9 @@ package edu.uci.ics.amber.engine.architecture.controller
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.engine.architecture.controller.promisehandlers._
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.AsyncRPCContext
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, IterationCompletedRequest}
 import edu.uci.ics.amber.engine.architecture.rpc.controllerservice.ControllerServiceFs2Grpc
+import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCHandlerInitializer
 import edu.uci.ics.amber.engine.common.virtualidentity.ActorVirtualIdentity
 import edu.uci.ics.amber.engine.common.AmberLogging
@@ -15,6 +16,7 @@ class ControllerAsyncRPCHandlerInitializer(
     with AmberLogging
     with LinkWorkersHandler
     with WorkerExecutionCompletedHandler
+    with IterationCompletedHandler
     with WorkerStateUpdatedHandler
     with PauseHandler
     with QueryWorkerStatisticsHandler
