@@ -58,12 +58,20 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
+          - macos-latest
+          - windows-latest
         java-version: [ 11 ]
     runs-on: ${{ matrix.os }}
     env:
       JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
       JVM_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
     steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.9.1
+        with:
+          ignore_sha: true
+          all_but_latest: true
+          access_token: ${{ github.token }}
       - name: Prepare ENV
         run: sudo apt-get install libncurses5
       - name: Checkout Texera
@@ -113,6 +121,8 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
+          - macos-latest
+          - windows-latest
         python-version: [ '3.9', '3.10', '3.11', '3.12' ]
 
     steps:
@@ -142,3 +152,18 @@ jobs:
       - name: Test with pytest
         run: |
           cd core/amber/src/main/python && pytest -sv
+
+
+  all:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    name: Final Results
+    needs: [gui, amber, python_udf]
+    steps:
+      - run: exit 1
+        # see https://stackoverflow.com/a/67532120/4907315
+        if: >-
+          ${{
+               contains(needs.*.result, 'failure')
+            || contains(needs.*.result, 'cancelled')
+          }}
