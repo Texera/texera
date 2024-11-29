@@ -68,7 +68,7 @@ object TestOperators {
     csvHeaderlessOp.fileName = Some(fileName)
     csvHeaderlessOp.customDelimiter = Some(",")
     csvHeaderlessOp.hasHeader = header
-    csvHeaderlessOp.setFileUri(FileResolver.resolve(fileName))
+    csvHeaderlessOp.setResolvedFileName(FileResolver.resolve(fileName))
     csvHeaderlessOp
 
   }
@@ -77,7 +77,7 @@ object TestOperators {
     val jsonlOp = new JSONLScanSourceOpDesc
     jsonlOp.fileName = Some(fileName)
     jsonlOp.flatten = flatten
-    jsonlOp.setFileUri(FileResolver.resolve(fileName))
+    jsonlOp.setResolvedFileName(FileResolver.resolve(fileName))
     jsonlOp
   }
 
