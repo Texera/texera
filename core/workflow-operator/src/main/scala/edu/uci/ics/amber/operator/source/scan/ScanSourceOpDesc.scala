@@ -49,10 +49,8 @@ abstract class ScanSourceOpDesc extends SourceOperatorDescriptor {
   @JsonDeserialize(contentAs = classOf[Int])
   var offset: Option[Int] = None
 
-  override def sourceSchema(): Schema = {
-    if (fileUri.isEmpty) return null
-    inferSchema()
-  }
+
+  override def sourceSchema(): Schema = null
 
   override def setContext(workflowContext: WorkflowContext): Unit = {
     super.setContext(workflowContext)
@@ -67,8 +65,6 @@ abstract class ScanSourceOpDesc extends SourceOperatorDescriptor {
       outputPorts = List(OutputPort())
     )
   }
-
-  def inferSchema(): Schema
 
   def setFileUri(uri: URI): Unit = {
     fileUri = Some(uri.toASCIIString)
