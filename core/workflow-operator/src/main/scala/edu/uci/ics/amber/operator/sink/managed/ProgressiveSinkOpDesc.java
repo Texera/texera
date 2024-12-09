@@ -5,6 +5,7 @@ import com.google.common.base.Preconditions;
 import edu.uci.ics.amber.core.executor.OpExecInitInfo;
 import edu.uci.ics.amber.core.executor.OperatorExecutor;
 import edu.uci.ics.amber.core.tuple.Schema;
+import edu.uci.ics.amber.core.tuple.Tuple;
 import edu.uci.ics.amber.core.workflow.PhysicalOp;
 import edu.uci.ics.amber.core.workflow.SchemaPropagationFunc;
 import edu.uci.ics.amber.operator.metadata.OperatorGroupConstants;

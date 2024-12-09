@@ -176,6 +176,7 @@ class WorkflowCompiler(
     logicalPlan.propagateWorkflowSchema(context, None)
 
     // 4. assign the sink storage using logical plan and expand the logical plan to the physical plan,
+    assignSinkStorage(logicalPlan, context, storage)
     assignSinkStorage(logicalPlan, context)
     val physicalPlan = expandLogicalPlan(logicalPlan, None)
 
