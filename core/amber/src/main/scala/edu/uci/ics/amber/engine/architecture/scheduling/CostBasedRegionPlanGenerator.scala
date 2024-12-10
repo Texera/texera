@@ -1,10 +1,12 @@
 package edu.uci.ics.amber.engine.architecture.scheduling
 
+import edu.uci.ics.amber.core.storage.StorageConfig
 import edu.uci.ics.amber.core.storage.result.OpResultStorage
 import edu.uci.ics.amber.core.workflow.{PhysicalPlan, WorkflowContext}
 import edu.uci.ics.amber.engine.common.{AmberConfig, AmberLogging}
 import edu.uci.ics.amber.virtualidentity.{ActorVirtualIdentity, PhysicalOpIdentity}
 import edu.uci.ics.amber.workflow.PhysicalLink
+import edu.uci.ics.texera.web.resource.dashboard.user.workflow.WorkflowExecutionsResource
 import org.jgrapht.alg.connectivity.BiconnectivityInspector
 import org.jgrapht.graph.{DirectedAcyclicGraph, DirectedPseudograph}
 
@@ -14,8 +16,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
 import scala.util.control.Breaks.{break, breakable}
+import scala.util.{Failure, Success, Try}
 
 class CostBasedRegionPlanGenerator(
     workflowContext: WorkflowContext,
@@ -37,8 +39,25 @@ class CostBasedRegionPlanGenerator(
       numStatesExplored: Int = 0
   )
 
-  def generate(): (RegionPlan, PhysicalPlan) = {
+  private val operatorEstimatedTimeOption = {
+    if (StorageConfig.jdbcUsername.isEmpty) {
+      None
+    } else {
+      WorkflowExecutionsResource.getOperatorExecutionTimeInSecondsForRegionPlanGenerator(
+        this.workflowContext.workflowId.id
+      )
+    }
+  }
 
+  def generate(): (RegionPlan, PhysicalPlan) = {
+    this.operatorEstimatedTimeOption match {
+      case Some(_) =>
+      case None =>
+        logger.info(
+          s"WID: ${workflowContext.workflowId.id}, EID: ${workflowContext.executionId.id}, " +
+            s"no past execution statistics available. Using number of materialized edges as the cost. "
+        )
+    }
     val startTime = System.nanoTime()
     val regionDAG = createRegionDAG()
     val totalRPGTime = System.nanoTime() - startTime
@@ -481,10 +500,26 @@ class CostBasedRegionPlanGenerator(
     * @return A cost determined by the resource allocator.
     */
   private def evaluate(regions: Set[Region], regionLinks: Set[RegionLink]): Double = {
-    // Using number of materialized ports as the cost.
-    // This is independent of the schedule / resource allocator.
-    // In the future we may need to use the ResourceAllocator to get the cost.
-    regions.flatMap(_.materializedPortIds).size
+    this.operatorEstimatedTimeOption match {
+      case Some(operatorEstimatedTime) =>
+        // Use past statistics (wall-clock runtime). We use the execution time of the longest-running
+        // operator in each region to represent the region's execution time, and use the sum of all the regions'
+        // execution time as the wall-clock runtime of the workflow.
+        // This assumes a schedule is a total-order of the regions.
+        regions.foldLeft(0.0) { (sum, region) =>
+          {
+            val times = region.getOperators.map(op => {
+              operatorEstimatedTime.getOrElse(op.id.logicalOpId.id, 1.0)
+            })
+            val maxTime = if (times.nonEmpty) times.max else 0.0
+            sum + maxTime
+          }
+        }
+      case None =>
+        // Without past statistics (e.g., first execution), we use number of materialized ports as the cost.
+        // This is independent of the schedule / resource allocator.
+        regions.flatMap(_.materializedPortIds).size
+    }
   }
 
 }
