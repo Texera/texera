@@ -5,16 +5,17 @@ import edu.uci.ics.amber.core.storage.model.BufferedItemWriter
 import edu.uci.ics.amber.core.storage.result.ResultStorage
 import edu.uci.ics.amber.core.tuple.{Tuple, TupleLike}
 import edu.uci.ics.amber.operator.sink.{IncrementalOutputMode, ProgressiveUtils}
+import edu.uci.ics.amber.util.JSONUtils.objectMapper
 import edu.uci.ics.amber.virtualidentity.{OperatorIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.workflow.PortIdentity
 
 class ProgressiveSinkOpExec(
-    outputMode: IncrementalOutputMode,
-    storageKey: String,
+    descString: String,
     workflowIdentity: WorkflowIdentity
 ) extends SinkOperatorExecutor {
+  private val desc : ProgressiveSinkOpDesc = objectMapper.readValue(descString, classOf[ProgressiveSinkOpDesc])
   val writer: BufferedItemWriter[Tuple] =
-    ResultStorage.getOpResultStorage(workflowIdentity).get(OperatorIdentity(storageKey)).writer()
+    ResultStorage.getOpResultStorage(workflowIdentity).get(OperatorIdentity(desc.getUpstreamId.get.id)).writer()
 
   override def open(): Unit = {
     writer.open()
@@ -24,7 +25,7 @@ class ProgressiveSinkOpExec(
       tuple: Tuple,
       input: Int
   ): Unit = {
-    outputMode match {
+    desc.outputMode match {
       case IncrementalOutputMode.SET_SNAPSHOT => updateSetSnapshot(tuple)
       case IncrementalOutputMode.SET_DELTA    => writer.putOne(tuple)
     }
