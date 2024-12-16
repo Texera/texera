@@ -2,7 +2,7 @@ package edu.uci.ics.amber.operator.visualization.urlviz
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.kjetland.jackson.jsonSchema.annotations.{JsonSchemaInject, JsonSchemaTitle}
-import edu.uci.ics.amber.core.executor.OpExecInitInfo
+import edu.uci.ics.amber.core.executor.{ExecFactory, OpExecInitInfo}
 import edu.uci.ics.amber.core.tuple.{Attribute, AttributeType, Schema}
 import edu.uci.ics.amber.core.workflow.{PhysicalOp, SchemaPropagationFunc}
 import edu.uci.ics.amber.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
@@ -10,6 +10,7 @@ import edu.uci.ics.amber.workflow.{InputPort, OutputPort}
 import edu.uci.ics.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo}
 import edu.uci.ics.amber.operator.metadata.annotations.AutofillAttributeName
 import edu.uci.ics.amber.operator.visualization.{VisualizationConstants, VisualizationOperator}
+import edu.uci.ics.amber.util.JSONUtils.objectMapper
 
 /**
   * URL Visualization operator to render any content in given URL link
@@ -29,7 +30,7 @@ class UrlVizOpDesc extends VisualizationOperator {
   @JsonProperty(required = true)
   @JsonSchemaTitle("URL content")
   @AutofillAttributeName
-  private val urlContentAttrName: String = ""
+  val urlContentAttrName: String = ""
 
   override def chartType: String = VisualizationConstants.HTML_VIZ
 
@@ -42,7 +43,10 @@ class UrlVizOpDesc extends VisualizationOperator {
         workflowId,
         executionId,
         operatorIdentifier,
-        OpExecInitInfo((_, _) => new UrlVizOpExec(urlContentAttrName))
+        OpExecInitInfo((_, _) => ExecFactory.newExecFromJavaClassName(
+          "edu.uci.ics.amber.operator.visualization.urlviz.UrlVizOpExec",
+          objectMapper.writeValueAsString(this)
+        ))
       )
       .withInputPorts(operatorInfo.inputPorts)
       .withOutputPorts(operatorInfo.outputPorts)
