@@ -246,7 +246,6 @@ class ExecutionResultService(
               if (
                 StorageConfig.resultStorageMode.toLowerCase == "mongodb"
                 && !opId.id.startsWith("sink")
-                && sinkOperators(opId).getStorage.isInstanceOf[MongoDocument[Tuple]]
               ) {
                 val sinkOp = sinkOperators(opId)
                 val opStorage = ResultStorage
