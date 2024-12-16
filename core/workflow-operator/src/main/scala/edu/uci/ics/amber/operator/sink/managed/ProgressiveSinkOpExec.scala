@@ -13,9 +13,13 @@ class ProgressiveSinkOpExec(
     descString: String,
     workflowIdentity: WorkflowIdentity
 ) extends SinkOperatorExecutor {
-  private val desc : ProgressiveSinkOpDesc = objectMapper.readValue(descString, classOf[ProgressiveSinkOpDesc])
+  private val desc: ProgressiveSinkOpDesc =
+    objectMapper.readValue(descString, classOf[ProgressiveSinkOpDesc])
   val writer: BufferedItemWriter[Tuple] =
-    ResultStorage.getOpResultStorage(workflowIdentity).get(OperatorIdentity(desc.getUpstreamId.get.id)).writer()
+    ResultStorage
+      .getOpResultStorage(workflowIdentity)
+      .get(OperatorIdentity(desc.getUpstreamId.get.id))
+      .writer()
 
   override def open(): Unit = {
     writer.open()

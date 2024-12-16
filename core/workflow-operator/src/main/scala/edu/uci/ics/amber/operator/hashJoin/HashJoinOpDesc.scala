@@ -9,7 +9,10 @@ import edu.uci.ics.amber.operator.LogicalOp
 import edu.uci.ics.amber.virtualidentity.{ExecutionIdentity, PhysicalOpIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.workflow.{InputPort, OutputPort, PhysicalLink, PortIdentity}
 import edu.uci.ics.amber.operator.hashJoin.HashJoinOpDesc.HASH_JOIN_INTERNAL_KEY_NAME
-import edu.uci.ics.amber.operator.metadata.annotations.{AutofillAttributeName, AutofillAttributeNameOnPort1}
+import edu.uci.ics.amber.operator.metadata.annotations.{
+  AutofillAttributeName,
+  AutofillAttributeNameOnPort1
+}
 import edu.uci.ics.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo}
 import edu.uci.ics.amber.util.JSONUtils.objectMapper
 
@@ -61,8 +64,12 @@ class HashJoinOpDesc[K] extends LogicalOp {
           PhysicalOpIdentity(operatorIdentifier, "build"),
           workflowId,
           executionId,
-          OpExecInitInfo((_, _) => ExecFactory.newExecFromJavaClassName[K](
-            "edu.uci.ics.amber.operator.hashJoin.HashJoinBuildOpExec", objectMapper.writeValueAsString(this)))
+          OpExecInitInfo((_, _) =>
+            ExecFactory.newExecFromJavaClassName[K](
+              "edu.uci.ics.amber.operator.hashJoin.HashJoinBuildOpExec",
+              objectMapper.writeValueAsString(this)
+            )
+          )
         )
         .withInputPorts(List(buildInputPort))
         .withOutputPorts(List(buildOutputPort))
