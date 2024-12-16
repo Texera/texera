@@ -2,12 +2,13 @@ package edu.uci.ics.amber.operator.visualization.htmlviz
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
-import edu.uci.ics.amber.core.executor.OpExecInitInfo
+import edu.uci.ics.amber.core.executor.{ExecFactory, OpExecInitInfo}
 import edu.uci.ics.amber.core.tuple.{Attribute, AttributeType, Schema}
 import edu.uci.ics.amber.core.workflow.{PhysicalOp, SchemaPropagationFunc}
 import edu.uci.ics.amber.operator.metadata.annotations.AutofillAttributeName
 import edu.uci.ics.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo}
 import edu.uci.ics.amber.operator.visualization.{VisualizationConstants, VisualizationOperator}
+import edu.uci.ics.amber.util.JSONUtils.objectMapper
 import edu.uci.ics.amber.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.workflow.{InputPort, OutputPort}
 
@@ -31,7 +32,10 @@ class HtmlVizOpDesc extends VisualizationOperator {
         workflowId,
         executionId,
         operatorIdentifier,
-        OpExecInitInfo((_, _) => new HtmlVizOpExec(htmlContentAttrName))
+        OpExecInitInfo((_, _) => ExecFactory.newExecFromJavaClassName(
+          "edu.uci.ics.amber.operator.visualization.htmlviz.HtmlVizOpExec",
+          objectMapper.writeValueAsString(this)
+        ))
       )
       .withInputPorts(operatorInfo.inputPorts)
       .withOutputPorts(operatorInfo.outputPorts)
