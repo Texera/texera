@@ -10,6 +10,7 @@ import { NotificationService } from "../../../../../common/service/notification/
 import { DownloadService } from "../../../../service/user/download/download.service";
 import { formatSize } from "src/app/common/util/size-formatter.util";
 import { DASHBOARD_USER_DATASET } from "../../../../../app-routing.constant";
+import { UserService } from "../../../../../common/service/user/user.service";
 
 @UntilDestroy()
 @Component({
@@ -38,14 +39,25 @@ export class UserDatasetExplorerComponent implements OnInit {
   public isCreatingVersion: boolean = false;
   public isCreatingDataset: boolean = false;
   public versionCreatorBaseVersion: DatasetVersion | undefined;
+  public isLogin: boolean = this.userService.isLogin();
+  public disableDownload: boolean = false;
+  public disablePublish: boolean = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private datasetService: DatasetService,
     private notificationService: NotificationService,
-    private downloadService: DownloadService
-  ) {}
+    private downloadService: DownloadService,
+    private userService: UserService
+  ) {
+    this.userService
+      .userChanged()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        this.isLogin = this.userService.isLogin();
+      });
+  }
 
   // item for control the resizeable sider
   MAX_SIDER_WIDTH = 600;
@@ -60,6 +72,10 @@ export class UserDatasetExplorerComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const fullPath = this.router.url;
+    if (fullPath.includes("hub")) {
+      this.applyHubRestrictions();
+    }
     this.route.params
       .pipe(
         switchMap(params => {
@@ -101,6 +117,13 @@ export class UserDatasetExplorerComponent implements OnInit {
           this.siderWidth = this.MAX_SIDER_WIDTH;
         });
     }
+  }
+
+  applyHubRestrictions() {
+    if (!this.isLogin) {
+      this.disableDownload = true;
+    }
+    this.disablePublish = true;
   }
 
   public onCreationFinished(creationID: number) {
@@ -153,7 +176,7 @@ export class UserDatasetExplorerComponent implements OnInit {
   retrieveDatasetInfo() {
     if (this.did) {
       this.datasetService
-        .getDataset(this.did)
+        .getDataset(this.did, this.isLogin)
         .pipe(untilDestroyed(this))
         .subscribe(dashboardDataset => {
           const dataset = dashboardDataset.dataset;
@@ -171,7 +194,7 @@ export class UserDatasetExplorerComponent implements OnInit {
   retrieveDatasetVersionList() {
     if (this.did) {
       this.datasetService
-        .retrieveDatasetVersionList(this.did)
+        .retrieveDatasetVersionList(this.did, this.isLogin)
         .pipe(untilDestroyed(this))
         .subscribe(versionNames => {
           this.versions = versionNames;
@@ -215,7 +238,7 @@ export class UserDatasetExplorerComponent implements OnInit {
     this.selectedVersion = version;
     if (this.did && this.selectedVersion.dvid)
       this.datasetService
-        .retrieveDatasetVersionFileTree(this.did, this.selectedVersion.dvid)
+        .retrieveDatasetVersionFileTree(this.did, this.selectedVersion.dvid, this.isLogin)
         .pipe(untilDestroyed(this))
         .subscribe(data => {
           this.fileTreeNodeList = data.fileNodes;
