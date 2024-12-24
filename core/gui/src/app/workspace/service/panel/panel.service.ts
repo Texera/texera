@@ -5,6 +5,7 @@ import { Injectable } from "@angular/core";
   providedIn: "root",
 })
 export class PanelService {
+  private openPanelSubject = new Subject<void>();
   private closePanelSubject = new Subject<void>();
   private resetPanelSubject = new Subject<void>();
 
@@ -22,5 +23,13 @@ export class PanelService {
 
   closePanels() {
     this.closePanelSubject.next();
+  }
+
+  get openPanelStream() {
+    return this.openPanelSubject.asObservable();
+  }
+
+  openPanels() {
+    this.openPanelSubject.next();
   }
 }
