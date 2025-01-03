@@ -112,6 +112,25 @@ val arrowDependencies = Seq(
 libraryDependencies ++= arrowDependencies
 
 /////////////////////////////////////////////////////////////////////////////
+// Iceberg-related Dependencies
+/////////////////////////////////////////////////////////////////////////////
+
+libraryDependencies ++= Seq(
+  "org.apache.iceberg" % "iceberg-api" % "1.7.1",
+  "org.apache.iceberg" % "iceberg-core" % "1.7.1",
+  "org.apache.iceberg" % "iceberg-parquet" % "1.7.1",
+  "org.apache.iceberg" % "iceberg-data" % "1.7.1",
+  "org.apache.hadoop" % "hadoop-common" % "3.3.1" excludeAll(
+    ExclusionRule("javax.xml.bind"),
+    ExclusionRule("org.glassfish.jersey"),
+    ExclusionRule(organization = "com.sun.jersey"),
+    ExclusionRule(organization = "org.slf4j"),
+    ExclusionRule(organization = "org.eclipse.jetty"),
+    ExclusionRule(organization = "javax.servlet.jsp"),
+  ),
+)
+
+/////////////////////////////////////////////////////////////////////////////
 // Additional Dependencies
 /////////////////////////////////////////////////////////////////////////////
 
@@ -123,5 +142,5 @@ libraryDependencies ++= Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",          // Scala Logging
   "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.0.202109080827-r",  // jgit
   "org.yaml" % "snakeyaml" % "1.30",                                  // yaml reader (downgrade to 1.30 due to dropwizard 1.3.23 required by amber)
-  "org.apache.commons" % "commons-vfs2" % "2.9.0"                     // for FileResolver throw VFS-related exceptions
+  "org.apache.commons" % "commons-vfs2" % "2.9.0",                     // for FileResolver throw VFS-related exceptions   // for Kyro serde/deserde
 )
