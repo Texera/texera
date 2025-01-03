@@ -31,6 +31,7 @@ import {
   DASHBOARD_USER_PROJECT,
   DASHBOARD_USER_WORKSPACE,
   DASHBOARD_USER_DATASET,
+  DASHBOARD_HUB_DATASET_RESULT_DETAIL,
 } from "../../../../app-routing.constant";
 
 @UntilDestroy()
@@ -91,16 +92,18 @@ export class ListItemComponent implements OnInit, OnChanges {
     if (this.entry.type === "workflow") {
       if (typeof this.entry.id === "number") {
         this.disableDelete = !this.entry.workflow.isOwner;
-        // eslint-disable-next-line rxjs-angular/prefer-takeuntil
-        this.searchService.getWorkflowOwners(this.entry.id).subscribe((data: number[]) => {
-          this.owners = data;
-          if (this.currentUid !== undefined && this.owners.includes(this.currentUid)) {
-            this.entryLink = [DASHBOARD_USER_WORKSPACE, String(this.entry.id)];
-          } else {
-            this.entryLink = [DASHBOARD_HUB_WORKFLOW_RESULT_DETAIL, String(this.entry.id)];
-          }
-          setTimeout(() => this.cdr.detectChanges(), 0);
-        });
+        this.searchService
+          .getWorkflowOwners(this.entry.id)
+          .pipe(untilDestroyed(this))
+          .subscribe((data: number[]) => {
+            this.owners = data;
+            if (this.currentUid !== undefined && this.owners.includes(this.currentUid)) {
+              this.entryLink = [DASHBOARD_USER_WORKSPACE, String(this.entry.id)];
+            } else {
+              this.entryLink = [DASHBOARD_HUB_WORKFLOW_RESULT_DETAIL, String(this.entry.id)];
+            }
+            setTimeout(() => this.cdr.detectChanges(), 0);
+          });
         this.hubWorkflowService
           .getLikeCount(this.entry.id)
           .pipe(untilDestroyed(this))
@@ -120,9 +123,22 @@ export class ListItemComponent implements OnInit, OnChanges {
       this.entryLink = [DASHBOARD_USER_PROJECT, String(this.entry.id)];
       this.iconType = "container";
     } else if (this.entry.type === "dataset") {
-      this.entryLink = [DASHBOARD_USER_DATASET, String(this.entry.id)];
-      this.iconType = "database";
-      this.disableDelete = !this.entry.dataset.isOwner;
+      if (typeof this.entry.id === "number") {
+        this.disableDelete = !this.entry.dataset.isOwner;
+        this.datasetService
+          .getDatasetOwners(this.entry.id)
+          .pipe(untilDestroyed(this))
+          .subscribe((data: number[]) => {
+            this.owners = data;
+            if (this.currentUid !== undefined && this.owners.includes(this.currentUid)) {
+              this.entryLink = [DASHBOARD_USER_DATASET, String(this.entry.id)];
+            } else {
+              this.entryLink = [DASHBOARD_HUB_DATASET_RESULT_DETAIL, String(this.entry.id)];
+            }
+            setTimeout(() => this.cdr.detectChanges(), 0);
+          });
+        this.iconType = "database";
+      }
     } else if (this.entry.type === "file") {
       // not sure where to redirect
       this.iconType = "folder-open";
