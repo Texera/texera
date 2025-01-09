@@ -47,9 +47,6 @@ class HeatMapOpDesc extends PythonOperatorDescriptor {
     )
 
   private def createHeatMap(): String = {
-    assert(x.nonEmpty)
-    assert(y.nonEmpty)
-    assert(value.nonEmpty)
     s"""
        |        heatmap = go.Heatmap(z=table["$value"],x=table["$x"],y=table["$y"])
        |        layout = go.Layout(margin=dict(l=0, r=0, b=0, t=0))
