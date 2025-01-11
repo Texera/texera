@@ -37,7 +37,7 @@ class MongoCollectionManager(collection: MongoCollection[Document]) {
   /**
     * Calculate numeric statistics (min, max, mean) for numeric fields.
     */
-  def calculateNumericStats(): Map[String, Map[String, Double]] = {
+  def calculateNumericStats(offset: Int): Map[String, Map[String, Double]] = {
     val numericFields = detectNumericFields()
 
     numericFields.flatMap { field =>
@@ -48,8 +48,10 @@ class MongoCollectionManager(collection: MongoCollection[Document]) {
         .append("minValue", new Document("$min", "$" + field))
         .append("maxValue", new Document("$max", "$" + field))
         .append("meanValue", new Document("$avg", "$" + field))
+        .append("count", new Document("$sum", 1))
 
       val pipeline = Seq(
+        new Document("$skip", offset),
         new Document("$project", projection),
         new Document("$group", groupDoc)
       )
@@ -60,7 +62,8 @@ class MongoCollectionManager(collection: MongoCollection[Document]) {
         val stats = Map(
           "min" -> doc.get("minValue").asInstanceOf[Number].doubleValue(),
           "max" -> doc.get("maxValue").asInstanceOf[Number].doubleValue(),
-          "mean" -> doc.get("meanValue").asInstanceOf[Number].doubleValue()
+          "mean" -> doc.get("meanValue").asInstanceOf[Number].doubleValue(),
+          "count" -> doc.get("count").asInstanceOf[Number].doubleValue()
         )
         Some(field -> stats)
       } else {
@@ -72,7 +75,7 @@ class MongoCollectionManager(collection: MongoCollection[Document]) {
   /**
     * Calculate date statistics (min, max) for date fields.
     */
-  def calculateDateStats(): Map[String, Map[String, Date]] = {
+  def calculateDateStats(offset: Int): Map[String, Map[String, Any]] = {
     val dateFields = detectDateFields()
 
     dateFields.flatMap { field =>
@@ -82,8 +85,10 @@ class MongoCollectionManager(collection: MongoCollection[Document]) {
       val groupDoc = new Document("_id", null)
         .append("minValue", new Document("$min", "$" + field))
         .append("maxValue", new Document("$max", "$" + field))
+        .append("count", new Document("$sum", 1))
 
       val pipeline = Seq(
+        new Document("$skip", offset),
         new Document("$project", projection),
         new Document("$group", groupDoc)
       )
@@ -93,7 +98,8 @@ class MongoCollectionManager(collection: MongoCollection[Document]) {
         val doc = result.head
         val stats = Map(
           "min" -> doc.get("minValue").asInstanceOf[Date],
-          "max" -> doc.get("maxValue").asInstanceOf[Date]
+          "max" -> doc.get("maxValue").asInstanceOf[Date],
+          "count" -> doc.get("count").asInstanceOf[Number].intValue()
         )
         Some(field -> stats)
       } else {
@@ -103,26 +109,33 @@ class MongoCollectionManager(collection: MongoCollection[Document]) {
   }
 
   /**
-    * Calculate categorical statistics (value counts) for categorical fields.
+    * Calculate categorical statistics (value percentages) for categorical fields.
     */
-  def calculateCategoricalStats(): Map[String, Map[String, Map[String, Integer]]] = {
+  def calculateCategoricalStats(offset: Int): (Map[String, Map[String, Int]], Boolean) = {
     val categoricalFields = detectCategoricalFields()
+    var reachedLimit: Boolean = false
 
-    categoricalFields.flatMap { field =>
-      val pipeline = Seq(
-        Aggregates.group("$" + field, com.mongodb.client.model.Accumulators.sum("count", 1)),
-        Aggregates.sort(Sorts.descending("count")),
-        Aggregates.limit(1000)
-      )
+    (
+      categoricalFields.flatMap { field =>
+        val pipeline = Seq(
+          new Document("$skip", offset),
+          Aggregates.group("$" + field, com.mongodb.client.model.Accumulators.sum("count", 1)),
+          Aggregates.sort(Sorts.descending("count")),
+          Aggregates.limit(1000)
+        )
 
-      val result = collection.aggregate(pipeline.asJava).iterator().asScala.toList
-      if (result.nonEmpty) {
-        val counts = result.map(doc => doc.getString("_id") -> doc.getInteger("count")).toMap
-        Some(field -> Map("counts" -> counts))
-      } else {
-        None
-      }
-    }.toMap
+        val result = collection.aggregate(pipeline.asJava).iterator().asScala.toList
+        if (result.nonEmpty) {
+          val counts =
+            result.map(doc => doc.getString("_id") -> doc.getInteger("count").toInt).toMap
+          reachedLimit = result.size >= 1000
+          Some(field -> counts)
+        } else {
+          None
+        }
+      }.toMap,
+      reachedLimit
+    )
   }
 
   /**
