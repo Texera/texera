@@ -16,7 +16,6 @@ class TablesPlotOpDesc extends PythonOperatorDescriptor {
     includedColumns.map(_.attributeName).mkString("'", "','", "'")
 
   def manipulateTable(): String = {
-    assert(includedColumns.nonEmpty)
     val attributes = getAttributes
     s"""
        |        # drops rows with missing values pertaining to relevant columns
@@ -26,7 +25,6 @@ class TablesPlotOpDesc extends PythonOperatorDescriptor {
   }
 
   def createPlotlyFigure(): String = {
-    assert(includedColumns.nonEmpty)
     val attributes = getAttributes
     s"""
        |

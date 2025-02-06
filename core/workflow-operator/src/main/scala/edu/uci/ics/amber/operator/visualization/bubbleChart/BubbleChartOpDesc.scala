@@ -62,7 +62,6 @@ class BubbleChartOpDesc extends PythonOperatorDescriptor {
     )
 
   def manipulateTable(): String = {
-    assert(xValue.nonEmpty && yValue.nonEmpty && zValue.nonEmpty)
     s"""
        |        # drops rows with missing values pertaining to relevant columns
        |        table.dropna(subset=['$xValue', '$yValue', '$zValue'], inplace = True)
@@ -71,7 +70,6 @@ class BubbleChartOpDesc extends PythonOperatorDescriptor {
   }
 
   def createPlotlyFigure(): String = {
-    assert(xValue.nonEmpty && yValue.nonEmpty && zValue.nonEmpty)
     s"""
        |        if '$enableColor' == 'true':
        |            fig = go.Figure(px.scatter(table, x='$xValue', y='$yValue', size='$zValue', size_max=100, color='$colorCategory'))

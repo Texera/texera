@@ -79,7 +79,6 @@ class ScatterplotOpDesc extends PythonOperatorDescriptor {
     )
 
   def manipulateTable(): String = {
-    assert(xColumn.nonEmpty && yColumn.nonEmpty)
     val colorColExpr = if (colorColumn.nonEmpty) {
       s"'$colorColumn'"
     } else {
@@ -93,7 +92,6 @@ class ScatterplotOpDesc extends PythonOperatorDescriptor {
   }
 
   def createPlotlyFigure(): String = {
-    assert(xColumn.nonEmpty && yColumn.nonEmpty)
     val colorColExpr = if (colorColumn.nonEmpty) {
       s"color='$colorColumn'"
     } else {
