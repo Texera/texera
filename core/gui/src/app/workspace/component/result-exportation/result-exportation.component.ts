@@ -54,18 +54,37 @@ export class ResultExportationComponent implements OnInit {
 
   updateOutputType(): void {
     const highlightedOperatorIds = this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs();
-    if (highlightedOperatorIds.length === 1) {
-      const operatorId = highlightedOperatorIds[0];
-      const outputTypes = this.workflowResultService.determineOutputTypes(operatorId);
-      this.isTableOutput = outputTypes.isTableOutput;
-      this.isVisualizationOutput = outputTypes.isVisualizationOutput;
-      this.containsBinaryData = outputTypes.containsBinaryData;
-    } else {
-      // TODO: handle multiple operators
+
+    if (highlightedOperatorIds.length === 0) {
+      // No operators highlighted
       this.isTableOutput = false;
       this.isVisualizationOutput = false;
       this.containsBinaryData = false;
+      return;
     }
+
+    // Assume they're all table or visualization
+    // until we find an operator that isn't
+    let allTable = true;
+    let allVisualization = true;
+    let anyBinaryData = false;
+
+    for (const operatorId of highlightedOperatorIds) {
+      const outputTypes = this.workflowResultService.determineOutputTypes(operatorId);
+      if (!outputTypes.isTableOutput) {
+        allTable = false;
+      }
+      if (!outputTypes.isVisualizationOutput) {
+        allVisualization = false;
+      }
+      if (outputTypes.containsBinaryData) {
+        anyBinaryData = true;
+      }
+    }
+
+    this.isTableOutput = allTable;
+    this.isVisualizationOutput = allVisualization;
+    this.containsBinaryData = anyBinaryData;
   }
 
   onUserInputDatasetName(event: Event): void {
@@ -87,14 +106,24 @@ export class ResultExportationComponent implements OnInit {
         this.rowIndex,
         this.columnIndex,
         this.inputFileName,
-        this.sourceTriggered === "menu"
+        this.sourceTriggered === "menu",
+        "dataset"
       );
       this.modalRef.close();
     }
   }
 
-  onClickExportAllResult() {
-    this.workflowResultExportService.exportOperatorsResultToLocal(this.sourceTriggered === "menu");
+  onClickSaveResultFileToLocal() {
+    this.workflowResultExportService.exportWorkflowExecutionResult(
+      this.exportType,
+      this.workflowName,
+      [],
+      this.rowIndex,
+      this.columnIndex,
+      this.inputFileName,
+      this.sourceTriggered === "menu",
+      "local"
+    );
     this.modalRef.close();
   }
 }
