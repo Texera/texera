@@ -431,6 +431,7 @@ export class MenuComponent implements OnInit, OnDestroy {
           lastModifiedTime: undefined,
           readonly: false,
           isPublished: 0,
+          size: undefined
         };
 
         this.workflowActionService.enableWorkflowModification();

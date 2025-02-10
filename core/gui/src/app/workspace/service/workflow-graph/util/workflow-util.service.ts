@@ -159,6 +159,17 @@ export class WorkflowUtilService {
     return workflow;
   }
 
+  public static calcSize(workflow: Workflow) : Workflow {
+    if (workflow != null && typeof workflow.content === "string") {
+      workflow.size = new TextEncoder().encode(workflow.content).length;
+      console.log("Calculating Size: " + workflow.size)
+    }
+    else{
+      console.log("Workflow is null")
+    }
+    return workflow
+  }
+
   private static inputPortToPortDescription(portID: string, inputPortInfo: InputPortInfo): PortDescription {
     return {
       portID,

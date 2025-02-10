@@ -53,10 +53,12 @@ export class WorkflowPersistService {
         description: workflow.description,
         content: JSON.stringify(workflow.content),
         isPublic: workflow.isPublished,
+        size: workflow.size,
       })
       .pipe(
         filter((updatedWorkflow: Workflow) => updatedWorkflow != null),
-        map(WorkflowUtilService.parseWorkflowInfo)
+        map(WorkflowUtilService.calcSize),
+        map(WorkflowUtilService.parseWorkflowInfo),
       );
   }
 
@@ -98,7 +100,7 @@ export class WorkflowPersistService {
   public retrieveWorkflow(wid: number): Observable<Workflow> {
     return this.http.get<Workflow>(`${AppSettings.getApiEndpoint()}/${WORKFLOW_BASE_URL}/${wid}`).pipe(
       filter((workflow: Workflow) => workflow != null),
-      map(WorkflowUtilService.parseWorkflowInfo)
+      map(WorkflowUtilService.parseWorkflowInfo),
     );
   }
 
@@ -238,7 +240,7 @@ export class WorkflowPersistService {
   public retrievePublicWorkflow(wid: number): Observable<Workflow> {
     return this.http.get<Workflow>(`${AppSettings.getApiEndpoint()}/${WORKFLOW_PUBLIC_WORKFLOW}/${wid}`).pipe(
       filter((workflow: Workflow) => workflow != null),
-      map(WorkflowUtilService.parseWorkflowInfo)
+      map(WorkflowUtilService.parseWorkflowInfo),
     );
   }
 

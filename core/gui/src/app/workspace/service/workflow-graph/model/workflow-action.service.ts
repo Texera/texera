@@ -36,6 +36,7 @@ export const DEFAULT_WORKFLOW = {
   lastModifiedTime: undefined,
   isPublished: 0,
   readonly: false,
+  size: undefined
 };
 export const DEFAULT_SETTINGS = {
   dataTransferBatchSize: environment.defaultDataTransferBatchSize,
