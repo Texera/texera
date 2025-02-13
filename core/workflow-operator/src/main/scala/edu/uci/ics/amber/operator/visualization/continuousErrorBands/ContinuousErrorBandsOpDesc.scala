@@ -23,7 +23,7 @@ class ContinuousErrorBandsOpDesc extends PythonOperatorDescriptor {
   var yLabel: String = ""
 
   @JsonProperty(value = "bands", required = true)
-  var bands: util.List[BandConfig] = _
+  var bands: util.List[BandConfig] = new util.ArrayList[BandConfig]()
 
   override def getOutputSchemas(
       inputSchemas: Map[PortIdentity, Schema]

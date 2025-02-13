@@ -54,8 +54,6 @@ class FunnelPlotOpDesc extends PythonOperatorDescriptor {
     )
 
   private def createPlotlyFigure(): String = {
-    assert(x.nonEmpty)
-    assert(y.nonEmpty)
     val colorArg = if (color.nonEmpty) s""", color="$color"""" else ""
     s"""
        |        fig = go.Figure(px.funnel(table, x ="$x", y = "$y"$colorArg))
