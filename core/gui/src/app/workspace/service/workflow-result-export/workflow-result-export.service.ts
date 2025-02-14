@@ -134,7 +134,10 @@ export class WorkflowResultExportService {
     rowIndex: number,
     columnIndex: number,
     filename: string,
-    exportAll: boolean = false
+    exportAll: boolean = false, // if the user click export button on the top bar (a.k.a menu),
+    // we should export all operators, otherwise, only highlighted ones
+    // which means export button is selected from context-menu
+    destination: "dataset" | "local" = "dataset" // default to dataset
   ): void {
     if (!environment.exportExecutionResultEnabled) {
       return;
@@ -145,56 +148,61 @@ export class WorkflowResultExportService {
       return;
     }
 
-    let operatorIds: string[];
-    if (!exportAll)
+    // gather operator IDs
+    let operatorIds: string[] = [];
+    if (!exportAll) {
       operatorIds = [...this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs()];
-    else
+    } else {
       operatorIds = this.workflowActionService
         .getTexeraGraph()
         .getAllOperators()
         .map(operator => operator.operatorID);
+    }
 
-    this.notificationService.loading("exporting...");
-    operatorIds.forEach(operatorId => {
-      if (!this.workflowResultService.hasAnyResult(operatorId)) {
-        console.log(`Operator ${operatorId} has no result to export`);
-        return;
-      }
-      const operator = this.workflowActionService.getTexeraGraph().getOperator(operatorId);
-      const operatorName = operator.customDisplayName ?? operator.operatorType;
+    if (operatorIds.length === 0) {
+      console.log("No operators selected to export");
+      return;
+    }
 
-      /*
-       * This function (and service) was previously used to export result
-       *  into the local file system (downloading). Currently it is used to only
-       *  export to the dataset.
-       *  TODO: refactor this service to have export namespace and download should be
-       *   an export type (export to local file system)
-       *  TODO: rowIndex and columnIndex can be used to export a specific cells in the result
-       */
-      this.downloadService
-        .exportWorkflowResult(
-          exportType,
-          workflowId,
-          workflowName,
-          operatorId,
-          operatorName,
-          [...datasetIds],
-          rowIndex,
-          columnIndex,
-          filename
-        )
-        .subscribe({
-          next: _ => {
-            this.notificationService.info("The result has been exported successfully");
-          },
-          error: (res: unknown) => {
-            const errorResponse = res as { error: { error: string } };
-            this.notificationService.error(
-              "An error happened in exporting operator results " + errorResponse.error.error
-            );
-          },
-        });
-    });
+    // show loading
+    this.notificationService.loading("Exporting...");
+
+    // Make request
+    this.downloadService
+      .exportWorkflowResult(
+        exportType,
+        workflowId,
+        workflowName,
+        operatorIds,
+        [...datasetIds],
+        rowIndex,
+        columnIndex,
+        filename,
+        destination
+      )
+      .subscribe({
+        next: response => {
+          if (destination === "local") {
+            // "local" => response is a blob
+            // We can parse the file name from header or use fallback
+            this.downloadService.saveBlobFile(response, filename);
+            this.notificationService.info("File downloaded successfully");
+          } else {
+            // "dataset" => response is JSON
+            // The server should return a JSON with {status, message}
+            const responseBody = response.body;
+            if (responseBody && responseBody.status === "success") {
+              this.notificationService.success(responseBody.message);
+            } else {
+              this.notificationService.error(responseBody?.message || "An error occurred during export");
+            }
+          }
+        },
+        error: (err: unknown) => {
+          const errorMessage = (err as any)?.error?.error || (err as any)?.error || err;
+          this.notificationService.error(`An error happened in exporting operator results: ${errorMessage}`);
+        },
+      });
   }
 
   /**
