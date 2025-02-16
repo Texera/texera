@@ -24,6 +24,7 @@ service WorkerService {
   rpc PrepareCheckpoint(PrepareCheckpointRequest) returns (EmptyReturn);
   rpc QueryStatistics(EmptyRequest) returns (WorkerMetricsResponse);
   rpc ResumeWorker(EmptyRequest) returns (WorkerStateResponse);
+  rpc ResumeLoop(IterationCompletedRequest) returns (EmptyReturn);
   rpc RetrieveState(EmptyRequest) returns (EmptyReturn);
   rpc RetryCurrentTuple(EmptyRequest) returns (EmptyReturn);
   rpc StartWorker(EmptyRequest) returns (WorkerStateResponse);
