@@ -24,7 +24,7 @@ class LineChartOpDesc extends PythonOperatorDescriptor {
   var xLabel: String = ""
 
   @JsonProperty(value = "lines", required = true)
-  var lines: util.List[LineConfig] = _
+  var lines: util.List[LineConfig] = new util.ArrayList[LineConfig]()
 
   override def getOutputSchemas(
       inputSchemas: Map[PortIdentity, Schema]

@@ -53,9 +53,6 @@ class Scatter3dChartOpDesc extends PythonOperatorDescriptor {
     )
 
   private def createPlotlyFigure(): String = {
-    assert(x.nonEmpty)
-    assert(y.nonEmpty)
-    assert(z.nonEmpty)
     s"""
        |        fig = go.Figure(data=[go.Scatter3d(
        |            x=table["$x"],

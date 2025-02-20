@@ -59,7 +59,6 @@ class HierarchyChartOpDesc extends PythonOperatorDescriptor {
     hierarchy.map(_.attributeName).mkString("'", "','", "'")
 
   def manipulateTable(): String = {
-    assert(value.nonEmpty)
     val attributes = getHierarchyAttributesInPython
     s"""
        |        table['$value'] = table[table['$value'] > 0]['$value'] # remove non-positive numbers from the data
@@ -68,7 +67,6 @@ class HierarchyChartOpDesc extends PythonOperatorDescriptor {
   }
 
   def createPlotlyFigure(): String = {
-    assert(hierarchy.nonEmpty)
     val attributes = getHierarchyAttributesInPython
     s"""
        |        fig = px.${hierarchyChartType.getPlotlyExpressApiName}(table, path=[$attributes], values='$value',

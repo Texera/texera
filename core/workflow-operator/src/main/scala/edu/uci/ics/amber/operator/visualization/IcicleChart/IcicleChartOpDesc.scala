@@ -64,7 +64,6 @@ class IcicleChartOpDesc extends PythonOperatorDescriptor {
   }
 
   def createPlotlyFigure(): String = {
-    assert(hierarchy.nonEmpty)
     val attributes = getIcicleAttributesInPython
     s"""
        |        fig = px.icicle(table, path=[$attributes], values='$value',

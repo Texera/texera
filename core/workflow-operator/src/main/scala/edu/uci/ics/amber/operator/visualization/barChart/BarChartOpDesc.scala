@@ -69,8 +69,6 @@ class BarChartOpDesc extends PythonOperatorDescriptor {
     )
 
   def manipulateTable(): String = {
-    assert(value.nonEmpty)
-    assert(fields.nonEmpty)
     s"""
        |        table = table.dropna(subset = ['$value', '$fields']) #remove missing values
        |""".stripMargin
