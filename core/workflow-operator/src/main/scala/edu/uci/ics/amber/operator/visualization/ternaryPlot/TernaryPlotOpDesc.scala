@@ -68,8 +68,6 @@ class TernaryPlotOpDesc extends PythonOperatorDescriptor {
 
   /** Returns a Python string that drops any tuples with missing values */
   def manipulateTable(): String = {
-    // Check for any empty data field names
-    assert(firstVariable.nonEmpty && secondVariable.nonEmpty && thirdVariable.nonEmpty)
     s"""
        |        # Remove any tuples that contain missing values
        |        table.dropna(subset=['$firstVariable', '$secondVariable', '$thirdVariable'], inplace = True)

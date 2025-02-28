@@ -8,7 +8,7 @@ import edu.uci.ics.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo
 class SortOpDesc extends PythonOperatorDescriptor {
   @JsonProperty(required = true)
   @JsonPropertyDescription("column to perform sorting on")
-  var attributes: List[SortCriteriaUnit] = _
+  var attributes: List[SortCriteriaUnit] = List()
 
   override def generatePythonCode(): String = {
     val attributeName = "[" + attributes

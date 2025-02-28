@@ -6,12 +6,13 @@ import edu.uci.ics.amber.operator.metadata.annotations.AutofillAttributeName;
 
 public class SortCriteriaUnit {
 
-    @JsonProperty(value = "attribute", required = true)
-    @JsonPropertyDescription("Attribute name to sort by")
-    @AutofillAttributeName
-    public String attributeName;
+	@JsonProperty(value = "attribute", required = true)
+	@JsonPropertyDescription("Attribute name to sort by")
+	@AutofillAttributeName
+	public String attributeName;
 
-    @JsonProperty(value = "sortPreference", required = true)
-    @JsonPropertyDescription("Sort preference (ASC or DESC)")
-    public edu.uci.ics.amber.operator.sort.SortPreference sortPreference;
+	@JsonProperty(value = "sortPreference", required = true, defaultValue = "ASC")
+	@JsonPropertyDescription("Sort preference (ASC or DESC)")
+	public edu.uci.ics.amber.operator.sort.SortPreference sortPreference;
+
 }

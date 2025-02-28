@@ -9,17 +9,17 @@ import edu.uci.ics.amber.core.workflow.OutputPort.OutputMode
 import edu.uci.ics.amber.core.workflow.{InputPort, OutputPort, PortIdentity}
 class FigureFactoryTableOpDesc extends PythonOperatorDescriptor {
 
-  @JsonProperty(required = false)
+  @JsonProperty(required = false, defaultValue = "12")
   @JsonSchemaTitle("Font Size")
   @JsonPropertyDescription("Font size of the Figure Factory Table")
   var fontSize: String = "12"
 
-  @JsonProperty(required = false)
+  @JsonProperty(required = false, defaultValue = "#000000")
   @JsonSchemaTitle("Font Color (Hex Code)")
   @JsonPropertyDescription("Font color of the Figure Factory Table")
   var fontColor: String = "#000000"
 
-  @JsonProperty(required = false)
+  @JsonProperty(required = false, defaultValue = "30")
   @JsonSchemaTitle("Row Height")
   @JsonPropertyDescription("Row height of the Figure Factory Table")
   var rowHeight: String = "30"
@@ -32,7 +32,6 @@ class FigureFactoryTableOpDesc extends PythonOperatorDescriptor {
     columns.map(_.attributeName).mkString("'", "','", "'")
 
   def manipulateTable(): String = {
-    assert(columns.nonEmpty)
 
     val attributes = getAttributes
     s"""
@@ -43,8 +42,6 @@ class FigureFactoryTableOpDesc extends PythonOperatorDescriptor {
   }
 
   def createFigureFactoryTablePlotlyFigure(): String = {
-    assert(columns.nonEmpty)
-
     val intFontSize: Option[Double] = fontSize.toDoubleOption
     val intRowHeight: Option[Double] = rowHeight.toDoubleOption
 

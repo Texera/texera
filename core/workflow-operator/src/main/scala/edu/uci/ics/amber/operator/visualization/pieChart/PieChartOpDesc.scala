@@ -52,14 +52,12 @@ class PieChartOpDesc extends PythonOperatorDescriptor {
     )
 
   def manipulateTable(): String = {
-    assert(value.nonEmpty)
     s"""
        |        table.dropna(subset = ['$value', '$name'], inplace = True) #remove missing values
        |""".stripMargin
   }
 
   def createPlotlyFigure(): String = {
-    assert(value.nonEmpty)
     s"""
        |        fig = px.pie(table, names='$name', values='$value')
        |        fig.update_traces(textposition='inside', textinfo='percent+label')

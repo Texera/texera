@@ -56,7 +56,6 @@ class BoxPlotOpDesc extends PythonOperatorDescriptor {
     )
 
   def manipulateTable(): String = {
-    assert(value.nonEmpty)
 
     s"""
        |        table = table.dropna(subset = ['$value']) #remove missing values

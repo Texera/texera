@@ -26,7 +26,7 @@ class ScatterMatrixChartOpDesc extends PythonOperatorDescriptor {
   @JsonSchemaTitle("Selected Attributes")
   @JsonPropertyDescription("the axes of each scatter plot in the matrix.")
   @AutofillAttributeNameList
-  var selectedAttributes: List[String] = _
+  var selectedAttributes: List[String] = List()
 
   @JsonProperty(value = "Color", required = true)
   @JsonSchemaTitle("Color Column")
@@ -53,8 +53,6 @@ class ScatterMatrixChartOpDesc extends PythonOperatorDescriptor {
     )
 
   def createPlotlyFigure(): String = {
-    assert(selectedAttributes.nonEmpty)
-
     val list_Attributes = selectedAttributes.map(attribute => s""""$attribute"""").mkString(",")
     s"""
        |        fig = px.scatter_matrix(table, dimensions=[$list_Attributes], color='$color')

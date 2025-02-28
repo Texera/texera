@@ -65,13 +65,6 @@ class FilledAreaPlotOpDesc extends PythonOperatorDescriptor {
     )
 
   def createPlotlyFigure(): String = {
-    assert(x.nonEmpty)
-    assert(y.nonEmpty)
-
-    if (facetColumn) {
-      assert(lineGroup.nonEmpty)
-    }
-
     val colorArg = if (color.nonEmpty) s""", color="$color"""" else ""
     val facetColumnArg = if (facetColumn) s""", facet_col="$lineGroup"""" else ""
     val lineGroupArg = if (lineGroup.nonEmpty) s""", line_group="$lineGroup"""" else ""

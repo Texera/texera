@@ -48,7 +48,6 @@ class HistogramChartOpDesc extends PythonOperatorDescriptor {
     )
 
   def createPlotlyFigure(): String = {
-    assert(value.nonEmpty)
     var colorParam = ""
     var categoryParam = ""
     var marginalParam = ""
