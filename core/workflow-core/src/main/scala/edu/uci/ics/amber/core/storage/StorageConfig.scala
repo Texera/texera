@@ -168,5 +168,5 @@ object StorageConfig {
 
   // File storage configurations
   val fileStorageDirectoryPath: Path =
-    corePath.resolve("amber").resolve("user-resources").resolve("workflow-results")
+    corePath.resolve("amber").resolve("workflow-results")
 }

@@ -1,7 +1,11 @@
 <div class="landing-page-container">
   <div class="section-intro">
     <div class="section-intro-text">
-      <h1>Texera Hub</h1>
+      <h1>Texera Testing</h1>
+      <h2><b>Last Deploy:</b> {{lastDeployTime}}</h2>
+      <h3><b>Merged Head Commit:</b>
+        {{ commitPrefix }}<a *ngIf="issueNumber" [href]="'https://github.com/Texera/texera/pull/' + issueNumber.slice(1)" target="_blank">{{ issueNumber }}</a>{{ commitSuffix }}
+      </h3>
       <p>
         Join our community to explore public workflows, collaborate with others, and enhance your data analytics
         capabilities. Access

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.workflowComputingUnit.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Release.Name }}-{{ .Values.workflowComputingUnit.name }}
+spec:
+  replicas: {{ .Values.workflowComputingUnit.numOfPods | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-{{ .Values.workflowComputingUnit.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-{{ .Values.workflowComputingUnit.name }}
+    spec:
+      containers:
+        - name: {{ .Values.workflowComputingUnit.name }}
+          image: {{ .Values.workflowComputingUnit.imageName }}
+          imagePullPolicy: {{ .Values.workflowComputingUnit.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.workflowComputingUnitPool.service.port }}
+          env:
+            - name: JDBC_URL
+              value: "jdbc:mysql://{{ .Release.Name }}-mysql.{{ .Values.namespace }}.svc.cluster.local:3306/{{ .Values.mysql.auth.database }}"
+            - name: JDBC_USERNAME
+              value: {{ .Values.mysql.auth.username }}
+            - name: JDBC_PASSWORD
+              value: {{ .Values.mysql.auth.password }}
+{{/*            - name: MONGODB_URL*/}}
+{{/*              value: "mongodb://{{ .Release.Name }}-mongodb.{{ .Release.Namespace }}.svc.cluster.local:27017/{{ index .Values.mongodb.auth.databases 0 }}"*/}}

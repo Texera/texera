@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.webserver.name }}-pv
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Release.Name }}-{{ .Values.webserver.name }}
+spec:
+  capacity:
+    storage: {{ .Values.webserver.volume.size }}
+  accessModes: {{ toYaml .Values.webserver.volume.accessModes | nindent 2 }}
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: {{ .Values.webserver.volume.storageClassName }}
+  volumeMode: Filesystem

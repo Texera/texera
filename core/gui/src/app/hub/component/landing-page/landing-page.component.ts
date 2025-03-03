@@ -19,6 +19,11 @@ import { UserService } from "../../../common/service/user/user.service";
   styleUrls: ["./landing-page.component.scss"],
 })
 export class LandingPageComponent implements OnInit {
+  public deploymentCommit: string = 'Commit unavailable';
+  public commitPrefix: string = '';
+  public issueNumber: string = '';
+  public commitSuffix: string = '';
+  public lastDeployTime: string = "";
   public isLogin = this.userService.isLogin();
   public currentUid = this.userService.getCurrentUser()?.uid;
   public workflowCount: number = 0;
@@ -55,6 +60,20 @@ export class LandingPageComponent implements OnInit {
     } catch (error) {
       console.error("Failed to load top loved workflows:", error);
     }
+    this.hubService.getGitCommit().subscribe(commit =>{
+      // Split the text into parts
+      this.deploymentCommit = commit
+      const match = this.deploymentCommit.match(/(.*)(#\d+)(.*)/);
+      if (match) {
+        this.commitPrefix = match[1];
+        this.issueNumber = match[2];
+        this.commitSuffix = match[3];
+      } else {
+        this.commitPrefix = this.deploymentCommit;
+      }
+
+    })
+    this.hubService.getLastDeploy().subscribe(deployTime => this.lastDeployTime = deployTime)
   }
 
   getWorkflowCount(): void {

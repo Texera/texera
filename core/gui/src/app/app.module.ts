@@ -142,6 +142,8 @@ import { SocialLoginModule, SocialAuthServiceConfig, GoogleSigninButtonModule } 
 import { GoogleLoginProvider } from "@abacritt/angularx-social-login";
 import { lastValueFrom } from "rxjs";
 import { HubSearchResultComponent } from "./hub/component/hub-search-result/hub-search-result.component";
+import { ComputingUnitSelectionComponent } from "./workspace/component/power-button/computing-unit-selection.component";
+import { NzDividerModule } from "ng-zorro-antd/divider";
 
 registerLocaleData(en);
 
@@ -230,6 +232,7 @@ registerLocaleData(en);
     BreakpointConditionInputComponent,
     CodeDebuggerComponent,
     HubSearchResultComponent,
+    ComputingUnitSelectionComponent,
   ],
   imports: [
     BrowserModule,
@@ -291,6 +294,7 @@ registerLocaleData(en);
     TreeModule,
     SocialLoginModule,
     GoogleSigninButtonModule,
+    NzDividerModule,
   ],
   providers: [
     provideNzI18n(en_US),

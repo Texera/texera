@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.webserver.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Release.Name }}-{{ .Values.webserver.name }}
+spec:
+  replicas: {{ .Values.webserver.numOfPods }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-{{ .Values.webserver.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-{{ .Values.webserver.name }}
+    spec:
+      volumes:
+        - name: {{ .Values.webserver.name }}-pv
+          persistentVolumeClaim:
+            claimName: {{ .Values.webserver.name }}-pvc
+      containers:
+        - name: {{ .Values.webserver.name }}
+          image: {{ .Values.webserver.imageName }}
+          imagePullPolicy: {{ .Values.webserver.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.webserver.service.port }}
+          env:
+            - name: JDBC_URL
+              value: "jdbc:postgresql://{{ .Release.Name }}-postgresql.{{ .Values.namespace }}.svc.cluster.local:5432/{{ .Values.global.postgresql.auth.database }}"
+            - name: JDBC_USERNAME
+              value: {{ .Values.global.postgresql.auth.user }}
+            - name: JDBC_PASSWORD
+              value: {{ .Values.global.postgresql.auth.password }}
+          volumeMounts:
+            - name: {{ .Values.webserver.name }}-pv
+              mountPath: {{ .Values.webserver.volume.mountPath }} # Specify the mount path in the container

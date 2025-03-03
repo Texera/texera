@@ -13,6 +13,11 @@ export const defaultEnvironment = {
   apiUrl: "api",
 
   /**
+   * root API of the envoy proxy
+   */
+  envoyUrl: "wsapi/workflow-websocket",
+
+  /**
    * whether export execution result is supported
    */
   exportExecutionResultEnabled: false,
@@ -26,7 +31,12 @@ export const defaultEnvironment = {
   /**
    * whether user system is enabled
    */
-  userSystemEnabled: false,
+  userSystemEnabled: true,
+
+  /**
+   * whether workflow computing unit system is enabled
+   */
+  computingUnitSystemEnabled: true,
 
   /**
    * whether local login is enabled
@@ -50,7 +60,7 @@ export const defaultEnvironment = {
   /**
    * whether workflow executions tracking feature is enabled
    */
-  workflowExecutionsTrackingEnabled: false,
+  workflowExecutionsTrackingEnabled: true,
 
   /**
    * whether linkBreakpoint is supported

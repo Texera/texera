@@ -109,3 +109,34 @@ Composer-Setup.exe
 .bloop/
 .ammonite/
 metals.sbt
+
+
+# Ignore Helm-specific artifacts in texera-helmchart
+core/scripts/texera-helmchart/*.tgz
+core/scripts/texera-helmchart/charts/
+core/scripts/texera-helmchart/tmpcharts/
+core/scripts/texera-helmchart/*.lock
+core/scripts/texera-helmchart/test-output/
+core/scripts/texera-helmchart/tests/test-*.yaml
+core/scripts/texera-helmchart/*.helmignore
+
+# Ignore general OS-specific files and editor files in texera-helmchart
+core/scripts/texera-helmchart/.DS_Store
+core/scripts/texera-helmchart/Thumbs.db
+core/scripts/texera-helmchart/*.swp
+core/scripts/texera-helmchart/*.swo
+core/scripts/texera-helmchart/*.bak
+core/scripts/texera-helmchart/*~
+core/scripts/texera-helmchart/.idea/
+core/scripts/texera-helmchart/.vscode/
+core/scripts/texera-helmchart/*.log
+
+# Temporary files in texera-helmchart
+core/scripts/texera-helmchart/*.tmp
+core/scripts/texera-helmchart/*.out
+core/scripts/texera-helmchart/*.cache
+core/scripts/texera-helmchart/*.pyc
+core/scripts/texera-helmchart/__pycache__/
+
+# Build artifacts in texera-helmchart
+core/scripts/texera-helmchart/dist/

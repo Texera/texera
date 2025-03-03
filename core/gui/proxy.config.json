@@ -1,24 +1,25 @@
 {
-  "/api/compile": {
+  "/api/computing-unit": {
     "target": "http://localhost:9090",
-    "secure": false,
+    "secure":  false,
     "changeOrigin": true
   },
+
   "/api": {
     "target": "http://localhost:8080",
     "secure": false,
-    "changeOrigin": false
+    "changeOrigin": true
   },
   "/wsapi": {
     "target": "http://localhost:8085",
     "secure": false,
-    "changeOrigin": false,
+    "changeOrigin": true,
     "ws": true
   },
   "/rtc": {
     "target": "http://localhost:1234",
     "ws": true,
     "secure": false,
-    "changeOrigin": false
+    "changeOrigin": true
   }
 }
