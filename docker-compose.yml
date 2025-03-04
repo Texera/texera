@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: texera_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: texera_db
+      MYSQL_USER: texera
+      MYSQL_PASSWORD: texera
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql  # Named volume for MySQL data, you may modify this if you want to persist the data volumes outside the containers
+      - ./core/scripts/sql/texera_ddl.sql:/docker-entrypoint-initdb.d/init.sql
+
+  mongodb:
+    image: mongo:5.0
+    container_name: texera_mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: texera_storage
+    command: mongod --storageEngine=wiredTiger
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db  # Named volume for MongoDB data, you may modify this if you want to persist the data volumes outside the containers
+
+  texera_service:
+    image: texera/texera:usersys
+    container_name: texera_service
+    restart: always
+    depends_on:
+      - mysql
+      - mongodb
+    ports:
+      - "8080:8080"
+    volumes:
+      - texera_user_resources:/core/amber/user-resources  # Named volume for texera user resources, you may modify this if you want to persist the data volumes outside the containers
+    healthcheck:
+      test: "curl --fail http://localhost:8080 || exit 1"
+      interval: 10s
+      retries: 10
+
+volumes:
+  mysql_data:
+  mongodb_data:
+  texera_user_resources:
