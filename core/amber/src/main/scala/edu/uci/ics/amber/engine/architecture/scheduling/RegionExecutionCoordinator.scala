@@ -1,7 +1,7 @@
 package edu.uci.ics.amber.engine.architecture.scheduling
 
 import com.twitter.util.Future
-import edu.uci.ics.amber.core.workflow.PhysicalOp
+import edu.uci.ics.amber.core.workflow.{GlobalPortIdentity, PhysicalLink, PhysicalOp}
 import edu.uci.ics.amber.engine.architecture.common.{AkkaActorService, ExecutorDeployment}
 import edu.uci.ics.amber.engine.architecture.controller.execution.{
   OperatorExecution,
@@ -25,7 +25,6 @@ import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.{
 import edu.uci.ics.amber.engine.architecture.scheduling.config.{OperatorConfig, ResourceConfig}
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
 import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
-import edu.uci.ics.amber.core.workflow.PhysicalLink
 
 class RegionExecutionCoordinator(
     region: Region,
@@ -150,23 +149,40 @@ class RegionExecutionCoordinator(
           val inputPortMapping = physicalOp.inputPorts
             .flatMap {
               case (inputPortId, (_, _, Right(schema))) =>
-                Some(GlobalPortIdentity(physicalOp.id, inputPortId, input = true) -> schema)
+                Some(GlobalPortIdentity(physicalOp.id, inputPortId, input = true) -> ("", schema))
               case _ => None
             }
           val outputPortMapping = physicalOp.outputPorts
             .flatMap {
-              case (outputPortId, (_, _, Right(schema))) =>
-                Some(GlobalPortIdentity(physicalOp.id, outputPortId, input = false) -> schema)
+              case (outputPortId, (outputPort, _, Right(schema))) =>
+                val storageUri = region.outputPortResultURIs.get(
+                  GlobalPortIdentity(opId = physicalOp.id, portId = outputPortId)
+                ) match {
+                  case Some(uri) => uri.toString
+                  case None      => ""
+                }
+                Some(
+                  GlobalPortIdentity(
+                    physicalOp.id,
+                    outputPortId,
+                    input = false
+                  ) -> (storageUri, schema)
+                )
               case _ => None
             }
           inputPortMapping ++ outputPortMapping
         }
         .flatMap {
-          case (globalPortId, schema) =>
+          case (globalPortId, (storageUri, schema)) =>
             resourceConfig.operatorConfigs(globalPortId.opId).workerConfigs.map(_.workerId).map {
               workerId =>
                 asyncRPCClient.workerInterface.assignPort(
-                  AssignPortRequest(globalPortId.portId, globalPortId.input, schema.toRawSchema),
+                  AssignPortRequest(
+                    globalPortId.portId,
+                    globalPortId.input,
+                    schema.toRawSchema,
+                    storageUri
+                  ),
                   asyncRPCClient.mkContext(workerId)
                 )
             }

@@ -1,11 +1,14 @@
 package edu.uci.ics.amber.engine.architecture.messaginglayer
 
 import edu.uci.ics.amber.core.marker.Marker
+import edu.uci.ics.amber.core.storage.DocumentFactory
+import edu.uci.ics.amber.core.storage.model.BufferedItemWriter
 import edu.uci.ics.amber.core.tuple.{
   FinalizeExecutor,
   FinalizePort,
   Schema,
   SchemaEnforceable,
+  Tuple,
   TupleLike
 }
 import edu.uci.ics.amber.engine.architecture.messaginglayer.OutputManager.{
@@ -18,7 +21,10 @@ import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings._
 import edu.uci.ics.amber.engine.common.AmberLogging
 import edu.uci.ics.amber.core.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.core.workflow.{PhysicalLink, PortIdentity}
+import edu.uci.ics.amber.engine.architecture.worker.managers.OutputPortResultWriterThread
+import edu.uci.ics.amber.util.VirtualIdentityUtils
 
+import java.net.URI
 import scala.collection.mutable
 
 object OutputManager {
@@ -99,6 +105,10 @@ class OutputManager(
   private val networkOutputBuffers =
     mutable.HashMap[(PhysicalLink, ActorVirtualIdentity), NetworkOutputBuffer]()
 
+  private val outputPortResultWriterThreads
+      : mutable.HashMap[PortIdentity, OutputPortResultWriterThread] =
+    mutable.HashMap()
+
   /**
     * Add down stream operator and its corresponding Partitioner.
     *
@@ -142,6 +152,25 @@ class OutputManager(
     }
   }
 
+  def saveTupleToStorageIfNeeded(
+      tupleLike: SchemaEnforceable,
+      outputPortId: Option[PortIdentity] = None
+  ): Unit = {
+    (outputPortId match {
+      case Some(portId) =>
+        this.outputPortResultWriterThreads.get(portId) match {
+          case Some(_) => this.outputPortResultWriterThreads.filter(_._1 == portId)
+          case None    => Map.empty
+        }
+      case None => this.outputPortResultWriterThreads
+    }).foreach({
+      case (portId, writerThread) =>
+        val tuple = tupleLike.enforceSchema(this.getPort(portId).schema)
+        // write to storage in a separate thread
+        writerThread.putTuple(tuple)
+    })
+  }
+
   /**
     * Flushes the network output buffers based on the specified set of physical links.
     *
@@ -170,13 +199,26 @@ class OutputManager(
     networkOutputBuffers.foreach(kv => kv._2.sendMarker(marker))
   }
 
-  def addPort(portId: PortIdentity, schema: Schema): Unit = {
+  def addPort(portId: PortIdentity, schema: Schema, storageUriOptional: Option[URI]): Unit = {
     // each port can only be added and initialized once.
     if (this.ports.contains(portId)) {
       return
     }
     this.ports(portId) = WorkerPort(schema)
 
+    // set up result storage writer
+    storageUriOptional match {
+      case Some(storageUri) =>
+        val writer = DocumentFactory
+          .openDocument(storageUri)
+          ._1
+          .writer(VirtualIdentityUtils.getWorkerIndex(actorId).toString)
+          .asInstanceOf[BufferedItemWriter[Tuple]]
+        val writerThread = new OutputPortResultWriterThread(writer)
+        this.outputPortResultWriterThreads(portId) = writerThread
+        writerThread.start()
+      case None => // No need to add a writer
+    }
   }
 
   def getPort(portId: PortIdentity): WorkerPort = ports(portId)
@@ -189,6 +231,10 @@ class OutputManager(
         outputIterator.appendSpecialTupleToEnd(FinalizePort(outputPortId, input = false))
       )
     outputIterator.appendSpecialTupleToEnd(FinalizeExecutor())
+  }
+
+  def closeOutputStorageWriters(): Unit = {
+    this.outputPortResultWriterThreads.values.foreach(writer => writer.terminate())
   }
 
   def getSingleOutputPortIdentity: PortIdentity = {

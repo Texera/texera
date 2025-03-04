@@ -165,6 +165,7 @@ class DataProcessor(
 
     outputTuple match {
       case FinalizeExecutor() =>
+        outputManager.closeOutputStorageWriters()
         outputManager.emitMarker(EndOfInputChannel())
         // Send Completed signal to worker actor.
         executor.close()
@@ -189,6 +190,7 @@ class DataProcessor(
         val tuple = schemaEnforceable.enforceSchema(outputManager.getPort(portIdentity).schema)
         statisticsManager.increaseOutputStatistics(portIdentity, tuple.inMemSize)
         outputManager.passTupleToDownstream(schemaEnforceable, outputPortOpt)
+        outputManager.saveTupleToStorageIfNeeded(schemaEnforceable, outputPortOpt)
 
       case other => // skip for now
     }
