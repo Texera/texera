@@ -7,6 +7,8 @@ import { AdminUserService } from "../../../service/admin/user/admin-user.service
 import { Role, User } from "../../../../common/type/user";
 import { UserService } from "../../../../common/service/user/user.service";
 import { UserQuotaComponent } from "../../user/user-quota/user-quota.component";
+import { Subject } from "rxjs";
+import { debounceTime } from "rxjs/operators";
 
 @UntilDestroy()
 @Component({
@@ -16,13 +18,17 @@ import { UserQuotaComponent } from "../../user/user-quota/user-quota.component";
 export class AdminUserComponent implements OnInit {
   userList: ReadonlyArray<User> = [];
   editUid: number = 0;
+  editAttribute: string = "";
   editName: string = "";
   editEmail: string = "";
   editRole: Role = Role.REGULAR;
+  editComment: string = "";
   nameSearchValue: string = "";
   emailSearchValue: string = "";
+  commentSearchValue: string = "";
   nameSearchVisible = false;
   emailSearchVisible = false;
+  commentSearchVisible = false;
   listOfDisplayUser = [...this.userList];
   currentUid: number | undefined = 0;
 
@@ -46,7 +52,7 @@ export class AdminUserComponent implements OnInit {
   }
 
   public updateRole(user: User, role: Role): void {
-    this.startEdit(user);
+    this.startEdit(user, "role");
     this.editRole = role;
     this.saveEdit();
   }
@@ -58,18 +64,20 @@ export class AdminUserComponent implements OnInit {
       .subscribe(() => this.ngOnInit());
   }
 
-  startEdit(user: User): void {
+  startEdit(user: User, attribute: string): void {
     this.editUid = user.uid;
+    this.editAttribute = attribute;
     this.editName = user.name;
     this.editEmail = user.email;
     this.editRole = user.role;
+    this.editComment = user.comment;
   }
 
   saveEdit(): void {
     const currentUid = this.editUid;
     this.stopEdit();
     this.adminUserService
-      .updateUser(currentUid, this.editName, this.editEmail, this.editRole)
+      .updateUser(currentUid, this.editName, this.editEmail, this.editRole, this.editComment)
       .pipe(untilDestroyed(this))
       .subscribe({
         next: () => this.ngOnInit(),
@@ -82,18 +90,22 @@ export class AdminUserComponent implements OnInit {
 
   stopEdit(): void {
     this.editUid = 0;
+    this.editAttribute = "";
   }
 
   public sortByID: NzTableSortFn<User> = (a: User, b: User) => b.uid - a.uid;
   public sortByName: NzTableSortFn<User> = (a: User, b: User) => (b.name || "").localeCompare(a.name);
   public sortByEmail: NzTableSortFn<User> = (a: User, b: User) => (b.email || "").localeCompare(a.email);
+  public sortByComment: NzTableSortFn<User> = (a: User, b: User) => (b.comment || "").localeCompare(a.comment);
   public sortByRole: NzTableSortFn<User> = (a: User, b: User) => b.role.localeCompare(a.role);
 
   reset(): void {
     this.nameSearchValue = "";
     this.emailSearchValue = "";
+    this.commentSearchValue = "";
     this.nameSearchVisible = false;
     this.emailSearchVisible = false;
+    this.commentSearchVisible = false;
     this.listOfDisplayUser = [...this.userList];
   }
 
@@ -105,6 +117,11 @@ export class AdminUserComponent implements OnInit {
   searchByEmail(): void {
     this.emailSearchVisible = false;
     this.listOfDisplayUser = this.userList.filter(user => (user.email || "").indexOf(this.emailSearchValue) !== -1);
+  }
+
+  searchByComment(): void {
+    this.commentSearchVisible = false;
+    this.listOfDisplayUser = this.userList.filter(user => (user.comment || "").indexOf(this.commentSearchValue) !== -1);
   }
 
   clickToViewQuota(uid: number) {
