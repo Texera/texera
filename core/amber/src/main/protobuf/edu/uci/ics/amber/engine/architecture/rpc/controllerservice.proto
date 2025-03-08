@@ -20,6 +20,7 @@ service ControllerService {
   rpc EvaluatePythonExpression(EvaluatePythonExpressionRequest) returns (EvaluatePythonExpressionResponse);
   rpc ConsoleMessageTriggered(ConsoleMessageTriggeredRequest) returns (EmptyReturn);
   rpc PortCompleted(PortCompletedRequest) returns (EmptyReturn);
+  rpc IterationCompleted(IterationCompletedRequest) returns (EmptyReturn);
   rpc StartWorkflow(EmptyRequest) returns (StartWorkflowResponse);
   rpc ResumeWorkflow(EmptyRequest) returns (EmptyReturn);
   rpc PauseWorkflow(EmptyRequest) returns (EmptyReturn);
