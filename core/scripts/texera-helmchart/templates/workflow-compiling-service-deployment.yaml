@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.workflowCompilingService.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Release.Name }}-{{ .Values.workflowCompilingService.name }}
+spec:
+  replicas: {{ .Values.workflowCompilingService.numOfPods }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-{{ .Values.workflowCompilingService.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-{{ .Values.workflowCompilingService.name }}
+    spec:
+      containers:
+        - name: {{ .Values.workflowCompilingService.name }}
+          image: {{ .Values.workflowCompilingService.imageName }}
+          imagePullPolicy: {{ .Values.workflowCompilingService.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.workflowCompilingService.service.port }}
+          env:
+            - name: JDBC_URL
+              value: "jdbc:postgresql://{{ .Release.Name }}-postgresql.{{ .Values.namespace }}.svc.cluster.local:5432/{{ .Values.global.postgresql.auth.database }}"
+            - name: JDBC_USERNAME
+              value: {{ .Values.global.postgresql.auth.user }}
+            - name: JDBC_PASSWORD
+              value: {{ .Values.global.postgresql.auth.password }}
+{{/*            - name: MONGODB_URL*/}}
+{{/*              value: "mongodb://{{ .Release.Name }}-mongodb.{{ .Release.Namespace }}.svc.cluster.local:27017/{{ index .Values.mongodb.auth.databases 0 }}"*/}}

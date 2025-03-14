@@ -3,15 +3,7 @@ package edu.uci.ics.texera.web.resource.dashboard.hub
 import edu.uci.ics.texera.dao.SqlServer
 import edu.uci.ics.texera.dao.jooq.generated.Tables._
 import HubResource.{
-  fetchDashboardDatasetsByDids,
-  fetchDashboardWorkflowsByWids,
-  getUserLCCount,
-  isLikedHelper,
-  recordLikeActivity,
-  recordUserActivity,
-  userRequest,
-  validateEntityType
-}
+  fetchDashboardDatasetsByDids,fetchDashboardWorkflowsByWids, getUserLCCount, isLikedHelper, recordLikeActivity, recordUserActivity, userRequest, validateEntityType}
 import edu.uci.ics.texera.web.resource.dashboard.user.workflow.WorkflowResource.{
   DashboardWorkflow,
   baseWorkflowSelect,
@@ -32,6 +24,12 @@ import edu.uci.ics.texera.dao.jooq.generated.tables.DatasetUserAccess.DATASET_US
 import edu.uci.ics.texera.dao.jooq.generated.tables.User.USER
 import edu.uci.ics.texera.dao.jooq.generated.tables.pojos.{Dataset, DatasetUserAccess}
 import edu.uci.ics.texera.web.resource.dashboard.DashboardResource.DashboardClickableFileEntry
+import edu.uci.ics.texera.web.resource.dashboard.user.dataset.DatasetResource.{
+  DashboardDataset,
+  baseDatasetSelect,
+  mapDashboardDataset
+}
+import edu.uci.ics.amber.engine.common.AmberConfig
 import edu.uci.ics.texera.web.resource.dashboard.user.dataset.DatasetResource.DashboardDataset
 
 object HubResource {
@@ -306,6 +304,20 @@ class HubResource {
   final private lazy val context = SqlServer
     .getInstance()
     .createDSLContext()
+
+  @GET
+  @Path("/git-describe")
+  @Produces(Array(MediaType.TEXT_PLAIN))
+  def getGitHead: String = {
+    AmberConfig.latestCommitFromMaster
+  }
+
+  @GET
+  @Path("/last-deploy")
+  @Produces(Array(MediaType.TEXT_PLAIN))
+  def getLastDeploy: String = {
+    AmberConfig.lastDeployTimestamp
+  }
 
   @GET
   @Path("/count")

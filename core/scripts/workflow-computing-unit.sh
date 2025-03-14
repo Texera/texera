@@ -1,3 +1,4 @@
+#!/bin/bash
 cd amber
 if [ ! -z $1 ]
 then

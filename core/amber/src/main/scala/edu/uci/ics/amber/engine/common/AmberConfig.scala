@@ -2,9 +2,14 @@ package edu.uci.ics.amber.engine.common
 
 import akka.actor.Address
 import com.typesafe.config.{Config, ConfigFactory}
+import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.revwalk.RevWalk
+import org.eclipse.jgit.revwalk.filter.RevFilter
 
 import java.io.File
 import java.net.URI
+import scala.io.Source
+import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 object AmberConfig {
 
@@ -15,6 +20,35 @@ object AmberConfig {
   private var conf: Config = _
 
   var masterNodeAddr: Address = Address("akka", "Amber", "localhost", 2552)
+  val lastDeployTimestamp:String = try {
+    // Read the timestamp string from the file
+    val source = Source.fromFile(Utils.amberHomePath.resolve("timestamp.txt").toString)
+    val timestamp = source.getLines().mkString
+    source.close()
+    // Print the timestamp
+    println(s"Timestamp read from file: $timestamp")
+    timestamp
+  } catch {
+    case e: Exception =>
+      println(s"An error occurred: ${e.getMessage}")
+      "Timestamp unavailable"
+  }
+
+
+
+  val latestCommitFromMaster = try {
+    // Read the timestamp string from the file
+    val source = Source.fromFile(Utils.amberHomePath.resolve("commit_title_before_merge.txt").toString)
+    val commitMsg = source.getLines().mkString
+    source.close()
+    // Print the timestamp
+    println(s"Commit message from file: $commitMsg")
+    commitMsg
+  } catch {
+    case e: Exception =>
+      println(s"An error occurred: ${e.getMessage}")
+      "Commit message unavailable"
+  }
 
   // perform lazy reload
   private def getConfSource: Config = {
