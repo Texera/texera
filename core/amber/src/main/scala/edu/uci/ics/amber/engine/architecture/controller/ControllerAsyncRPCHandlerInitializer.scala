@@ -15,6 +15,7 @@ class ControllerAsyncRPCHandlerInitializer(
     with AmberLogging
     with LinkWorkersHandler
     with WorkerExecutionCompletedHandler
+    with IterationCompletedHandler
     with WorkerStateUpdatedHandler
     with PauseHandler
     with QueryWorkerStatisticsHandler
