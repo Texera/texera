@@ -53,6 +53,7 @@ export class ListItemComponent implements OnInit, OnChanges {
   likeCount: number = 0;
   viewCount = 0;
   entryLink: string[] = [];
+  size: number | undefined = 0;
   public iconType: string = "";
   isLiked: boolean = false;
   @Input() isPrivateSearch = false;
@@ -103,6 +104,24 @@ export class ListItemComponent implements OnInit, OnChanges {
             }
             setTimeout(() => this.cdr.detectChanges(), 0);
           });
+        this.hubService
+          .getLikeCount(this.entry.id, this.entry.type)
+          .pipe(untilDestroyed(this))
+          .subscribe(count => {
+            this.likeCount = count;
+          });
+        this.hubService
+          .getViewCount(this.entry.id, this.entry.type)
+          .pipe(untilDestroyed(this))
+          .subscribe(count => {
+            this.viewCount = count;
+          });
+        this.workflowPersistService
+          .getSize(this.entry.id)
+          .pipe(untilDestroyed(this))
+          .subscribe(size => {
+            this.size = size;
+          });
       }
       this.iconType = "project";
     } else if (this.entry.type === "project") {
@@ -124,6 +143,7 @@ export class ListItemComponent implements OnInit, OnChanges {
             setTimeout(() => this.cdr.detectChanges(), 0);
           });
         this.iconType = "database";
+        this.size = this.entry.size;
       }
     } else if (this.entry.type === "file") {
       // not sure where to redirect
