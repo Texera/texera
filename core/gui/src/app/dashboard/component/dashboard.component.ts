@@ -20,6 +20,7 @@ import {
 } from "../../app-routing.constant";
 import { environment } from "../../../environments/environment";
 import { Version } from "../../../environments/version";
+import { types } from "sass";
 
 @Component({
   selector: "texera-dashboard",
@@ -146,4 +147,6 @@ export class DashboardComponent implements OnInit {
   }
 
   protected readonly DASHBOARD_ABOUT = DASHBOARD_ABOUT;
+  protected readonly types = types;
+  protected readonly String = String;
 }
