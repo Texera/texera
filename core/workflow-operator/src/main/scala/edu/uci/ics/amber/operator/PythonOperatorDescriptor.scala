@@ -5,7 +5,7 @@ import edu.uci.ics.amber.core.tuple.Schema
 import edu.uci.ics.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.core.workflow.{PhysicalOp, PortIdentity, SchemaPropagationFunc}
 
-trait PythonOperatorDescriptor extends LogicalOp {
+trait PythonOperatorDescriptor extends LogicalOp with ManualLocationConfiguration {
   private def generatePythonCodeForRaisingException(ex: Throwable): String = {
     s"#EXCEPTION DURING CODE GENERATION: ${ex.getMessage}"
   }
@@ -39,11 +39,13 @@ trait PythonOperatorDescriptor extends LogicalOp {
       )
     }
 
-    physicalOp
+    val baseOp = physicalOp
       .withInputPorts(operatorInfo.inputPorts)
       .withOutputPorts(operatorInfo.outputPorts)
       .withParallelizable(parallelizable())
       .withPropagateSchema(SchemaPropagationFunc(inputSchemas => getOutputSchemas(inputSchemas)))
+
+    applyManualLocation(baseOp)
   }
 
   def parallelizable(): Boolean = false
