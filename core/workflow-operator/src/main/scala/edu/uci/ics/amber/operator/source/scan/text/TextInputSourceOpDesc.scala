@@ -11,8 +11,12 @@ import edu.uci.ics.amber.operator.source.SourceOperatorDescriptor
 import edu.uci.ics.amber.util.JSONUtils.objectMapper
 import edu.uci.ics.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.core.workflow.OutputPort
+import edu.uci.ics.amber.operator.ManualLocationConfiguration
 
-class TextInputSourceOpDesc extends SourceOperatorDescriptor with TextSourceOpDesc {
+class TextInputSourceOpDesc
+    extends SourceOperatorDescriptor
+    with TextSourceOpDesc
+    with ManualLocationConfiguration {
   @JsonProperty(required = true)
   @JsonSchemaTitle("Text")
   @JsonSchemaInject(json = UIWidget.UIWidgetTextArea)
@@ -21,8 +25,8 @@ class TextInputSourceOpDesc extends SourceOperatorDescriptor with TextSourceOpDe
   override def getPhysicalOp(
       workflowId: WorkflowIdentity,
       executionId: ExecutionIdentity
-  ): PhysicalOp =
-    PhysicalOp
+  ): PhysicalOp = {
+    val baseOp = PhysicalOp
       .sourcePhysicalOp(
         workflowId,
         executionId,
@@ -37,6 +41,8 @@ class TextInputSourceOpDesc extends SourceOperatorDescriptor with TextSourceOpDe
       .withPropagateSchema(
         SchemaPropagationFunc(_ => Map(operatorInfo.outputPorts.head.id -> sourceSchema()))
       )
+    applyManualLocation(baseOp)
+  }
 
   override def sourceSchema(): Schema =
     Schema().add(attributeName, attributeType.getType)

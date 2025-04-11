@@ -9,13 +9,14 @@ import edu.uci.ics.amber.core.tuple.AttributeTypeUtils.inferSchemaFromRows
 import edu.uci.ics.amber.core.tuple.{Attribute, AttributeType, Schema}
 import edu.uci.ics.amber.core.workflow.{PhysicalOp, SchemaPropagationFunc}
 import edu.uci.ics.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
+import edu.uci.ics.amber.operator.ManualLocationConfiguration
 import edu.uci.ics.amber.operator.source.scan.ScanSourceOpDesc
 import edu.uci.ics.amber.util.JSONUtils.objectMapper
 
 import java.io.IOException
 import java.net.URI
 
-class CSVOldScanSourceOpDesc extends ScanSourceOpDesc {
+class CSVOldScanSourceOpDesc extends ScanSourceOpDesc with ManualLocationConfiguration {
 
   @JsonProperty(defaultValue = ",")
   @JsonSchemaTitle("Delimiter")
@@ -38,7 +39,7 @@ class CSVOldScanSourceOpDesc extends ScanSourceOpDesc {
     if (customDelimiter.get.isEmpty) {
       customDelimiter = Option(",")
     }
-    PhysicalOp
+    val baseOp = PhysicalOp
       .sourcePhysicalOp(
         workflowId,
         executionId,
@@ -53,6 +54,7 @@ class CSVOldScanSourceOpDesc extends ScanSourceOpDesc {
       .withPropagateSchema(
         SchemaPropagationFunc(_ => Map(operatorInfo.outputPorts.head.id -> sourceSchema()))
       )
+    applyManualLocation(baseOp)
   }
 
   override def sourceSchema(): Schema = {

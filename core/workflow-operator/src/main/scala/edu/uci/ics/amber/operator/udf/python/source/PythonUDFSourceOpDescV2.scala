@@ -9,8 +9,9 @@ import edu.uci.ics.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo
 import edu.uci.ics.amber.operator.source.SourceOperatorDescriptor
 import edu.uci.ics.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.core.workflow.OutputPort
+import edu.uci.ics.amber.operator.ManualLocationConfiguration
 
-class PythonUDFSourceOpDescV2 extends SourceOperatorDescriptor {
+class PythonUDFSourceOpDescV2 extends SourceOperatorDescriptor with ManualLocationConfiguration {
 
   @JsonProperty(
     required = true,
@@ -51,13 +52,14 @@ class PythonUDFSourceOpDescV2 extends SourceOperatorDescriptor {
       )
       .withLocationPreference(Option.empty)
 
-    if (workers > 1) {
+    val baseOp = if (workers > 1) {
       physicalOp
         .withParallelizable(true)
         .withSuggestedWorkerNum(workers)
     } else {
       physicalOp.withParallelizable(false)
     }
+    applyManualLocation(baseOp)
   }
 
   override def operatorInfo: OperatorInfo = {

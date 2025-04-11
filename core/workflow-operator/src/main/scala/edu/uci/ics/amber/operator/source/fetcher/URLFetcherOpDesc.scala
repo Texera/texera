@@ -10,8 +10,9 @@ import edu.uci.ics.amber.operator.source.SourceOperatorDescriptor
 import edu.uci.ics.amber.util.JSONUtils.objectMapper
 import edu.uci.ics.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.core.workflow.OutputPort
+import edu.uci.ics.amber.operator.ManualLocationConfiguration
 
-class URLFetcherOpDesc extends SourceOperatorDescriptor {
+class URLFetcherOpDesc extends SourceOperatorDescriptor with ManualLocationConfiguration {
 
   @JsonProperty(required = true)
   @JsonSchemaTitle("URL")
@@ -39,7 +40,7 @@ class URLFetcherOpDesc extends SourceOperatorDescriptor {
       workflowId: WorkflowIdentity,
       executionId: ExecutionIdentity
   ): PhysicalOp = {
-    PhysicalOp
+    val baseOp = PhysicalOp
       .sourcePhysicalOp(
         workflowId,
         executionId,
@@ -54,6 +55,7 @@ class URLFetcherOpDesc extends SourceOperatorDescriptor {
       .withPropagateSchema(
         SchemaPropagationFunc(_ => Map(operatorInfo.outputPorts.head.id -> sourceSchema()))
       )
+    applyManualLocation(baseOp)
   }
 
   override def operatorInfo: OperatorInfo =

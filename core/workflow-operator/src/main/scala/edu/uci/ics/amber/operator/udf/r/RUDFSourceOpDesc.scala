@@ -9,8 +9,9 @@ import edu.uci.ics.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo
 import edu.uci.ics.amber.operator.source.SourceOperatorDescriptor
 import edu.uci.ics.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import edu.uci.ics.amber.core.workflow.OutputPort
+import edu.uci.ics.amber.operator.ManualLocationConfiguration
 
-class RUDFSourceOpDesc extends SourceOperatorDescriptor {
+class RUDFSourceOpDesc extends SourceOperatorDescriptor with ManualLocationConfiguration {
 
   @JsonProperty(
     required = true,
@@ -66,13 +67,14 @@ class RUDFSourceOpDesc extends SourceOperatorDescriptor {
       )
       .withLocationPreference(None)
 
-    if (workers > 1) {
-      physicalOp
-        .withParallelizable(true)
-        .withSuggestedWorkerNum(workers)
-    } else {
-      physicalOp.withParallelizable(false)
-    }
+    val baseOp = (if (workers > 1) {
+                    physicalOp
+                      .withParallelizable(true)
+                      .withSuggestedWorkerNum(workers)
+                  } else {
+                    physicalOp.withParallelizable(false)
+                  })
+    applyManualLocation(baseOp)
   }
 
   override def operatorInfo: OperatorInfo = {
