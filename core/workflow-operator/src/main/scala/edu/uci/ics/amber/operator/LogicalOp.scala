@@ -62,6 +62,7 @@ import edu.uci.ics.amber.operator.source.sql.asterixdb.AsterixDBSourceOpDesc
 import edu.uci.ics.amber.operator.source.sql.mysql.MySQLSourceOpDesc
 import edu.uci.ics.amber.operator.source.sql.postgresql.PostgreSQLSourceOpDesc
 import edu.uci.ics.amber.operator.split.SplitOpDesc
+import edu.uci.ics.amber.operator.state.DataToStateOpDesc
 import edu.uci.ics.amber.operator.symmetricDifference.SymmetricDifferenceOpDesc
 import edu.uci.ics.amber.operator.typecasting.TypeCastingOpDesc
 import edu.uci.ics.amber.operator.udf.java.JavaUDFOpDesc
@@ -118,6 +119,7 @@ trait StateTransferFunc
 )
 @JsonSubTypes(
   Array(
+    new Type(value = classOf[DataToStateOpDesc], name = "DataToState"),
     new Type(value = classOf[IfOpDesc], name = "If"),
     new Type(value = classOf[SankeyDiagramOpDesc], name = "SankeyDiagram"),
     new Type(value = classOf[IcicleChartOpDesc], name = "IcicleChart"),
