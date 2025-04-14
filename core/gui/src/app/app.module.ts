@@ -47,6 +47,7 @@ import { MiniMapComponent } from "./workspace/component/workflow-editor/mini-map
 import { MenuComponent } from "./workspace/component/menu/menu.component";
 import { OperatorLabelComponent } from "./workspace/component/left-panel/operator-menu/operator-label/operator-label.component";
 import { OperatorMenuComponent } from "./workspace/component/left-panel/operator-menu/operator-menu.component";
+import { WorkflowSuggestionComponent } from "./workspace/component/left-panel/workflow-suggestion/workflow-suggestion.component";
 import { SettingsComponent } from "./workspace/component/left-panel/settings/settings.component";
 import { PropertyEditorComponent } from "./workspace/component/property-editor/property-editor.component";
 import { TypeCastingDisplayComponent } from "./workspace/component/property-editor/typecasting-display/type-casting-display.component";
@@ -159,6 +160,7 @@ registerLocaleData(en);
     WorkspaceComponent,
     MenuComponent,
     OperatorMenuComponent,
+    WorkflowSuggestionComponent,
     SettingsComponent,
     PropertyEditorComponent,
     VersionsListComponent,
