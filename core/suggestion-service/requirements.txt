@@ -1,0 +1,11 @@
+# Core dependencies
+networkx==3.1.0  # Used for DAG operations
+pyparsing==3.1.1  # Required by pyiceberg
+
+# API dependencies (for future REST API implementation)
+fastapi==0.101.1
+uvicorn==0.23.2
+pydantic==2.1.1
+
+# Utility libraries
+typing-extensions==4.8.0  # Enhanced typing support 
