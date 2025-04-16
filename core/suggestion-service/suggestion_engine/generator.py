@@ -43,6 +43,7 @@ class SuggestionGenerator:
         if execution_state:
             print(f"Execution state: {execution_state['state']}")
         print(f"Result tables available for {len(result_tables)} operators")
+        print("Result tables: ", result_tables)
         
         # Extract operators from the workflow
         operators = workflow_json.get("content", {}).get("operators", [])
