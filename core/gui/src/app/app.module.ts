@@ -149,9 +149,7 @@ import { NzProgressModule } from "ng-zorro-antd/progress";
 import { ComputingUnitSelectionComponent } from "./workspace/component/power-button/computing-unit-selection.component";
 import { NzSliderModule } from "ng-zorro-antd/slider";
 import { SuggestionFrameComponent } from "./workspace/component/result-panel/suggestion-frame/suggestion-frame.component";
-// Import providers for circular dependency resolution
-import { WORKFLOW_SUGGESTION_PROVIDER } from "./workspace/service/workflow-suggestion/workflow-suggestion.provider";
-import { WORKFLOW_COMPILING_PROVIDER } from "./workspace/service/compile-workflow/workflow-compiling.provider";
+
 
 registerLocaleData(en);
 

@@ -11,7 +11,6 @@ import { ExecutionState, ExecutionStateInfo } from "../../types/execute-workflow
 // Import the WorkflowCompilingService type for better type checking
 import { WorkflowCompilingService } from "../compile-workflow/workflow-compiling.service";
 import { CompilationState } from "../../types/workflow-compiling.interface";
-import { WORKFLOW_COMPILING_SERVICE } from "../compile-workflow/workflow-compiling.provider";
 
 // Define the WorkflowSuggestion interface - this should match the interface in the component
 export interface WorkflowSuggestion {
@@ -73,7 +72,7 @@ export class WorkflowSuggestionService {
     private workflowResultService: WorkflowResultService,
     private executeWorkflowService: ExecuteWorkflowService,
     private injector: Injector,
-    @Optional() @Inject(WORKFLOW_COMPILING_SERVICE) private workflowCompilingServiceRef: WorkflowCompilingService
+    private workflowCompilingServiceRef: WorkflowCompilingService
   ) {
     console.log("WorkflowSuggestionService initialized");
 
