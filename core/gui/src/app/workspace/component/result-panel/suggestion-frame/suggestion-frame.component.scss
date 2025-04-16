@@ -1,4 +1,4 @@
-#suggestion-container {
+.suggestion-container {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -25,6 +25,13 @@
   flex: 1;
   overflow-y: auto;
   padding: 10px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
 }
 
 .suggestion-item {
@@ -63,16 +70,28 @@
   display: flex;
   padding: 5px 10px 10px;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 8px;
+  justify-content: space-between;
 
   button {
     flex: 1;
     min-width: 80px;
+    margin: 0;
+    z-index: 100; /* Ensure buttons are on top */
+
+    /* Fix for specificity */
+    &[nz-button] {
+      margin: 0;
+      padding: 0 8px;
+      height: 32px;
+      line-height: 30px;
+    }
 
     &:nth-child(1) {
       // Apply button
       background-color: #52c41a;
       border-color: #52c41a;
+      color: white;
 
       &:hover {
         background-color: #73d13d;
@@ -107,4 +126,24 @@
   text-align: center;
   color: #999;
   padding: 20px;
+}
+
+// Style for bottom refresh button
+.suggestion-container > .suggestion-actions {
+  border-top: 1px solid #ddd;
+  padding: 10px;
+  justify-content: center;
+}
+
+// Style for the container when preview is active
+#suggestion-frame-container {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+
+  &.preview-active {
+    // Make sure the suggestion tab takes priority
+    z-index: 1000;
+  }
 }

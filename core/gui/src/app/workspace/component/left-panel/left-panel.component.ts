@@ -10,7 +10,6 @@ import { TimeTravelComponent } from "./time-travel/time-travel.component";
 import { SettingsComponent } from "./settings/settings.component";
 import { calculateTotalTranslate3d } from "../../../common/util/panel-dock";
 import { PanelService } from "../../service/panel/panel.service";
-import { WorkflowSuggestionComponent } from "./workflow-suggestion/workflow-suggestion.component";
 
 @UntilDestroy()
 @Component({
@@ -32,7 +31,6 @@ export class LeftPanelComponent implements OnDestroy, OnInit, AfterViewInit {
   items = [
     { component: null, title: "", icon: "", enabled: true },
     { component: OperatorMenuComponent, title: "Operators", icon: "appstore", enabled: true },
-    { component: WorkflowSuggestionComponent, title: "Suggestions", icon: "experiment", enabled: true },
     { component: VersionsListComponent, title: "Versions", icon: "schedule", enabled: environment.userSystemEnabled },
     {
       component: SettingsComponent,

@@ -47,7 +47,6 @@ import { MiniMapComponent } from "./workspace/component/workflow-editor/mini-map
 import { MenuComponent } from "./workspace/component/menu/menu.component";
 import { OperatorLabelComponent } from "./workspace/component/left-panel/operator-menu/operator-label/operator-label.component";
 import { OperatorMenuComponent } from "./workspace/component/left-panel/operator-menu/operator-menu.component";
-import { WorkflowSuggestionComponent } from "./workspace/component/left-panel/workflow-suggestion/workflow-suggestion.component";
 import { SettingsComponent } from "./workspace/component/left-panel/settings/settings.component";
 import { PropertyEditorComponent } from "./workspace/component/property-editor/property-editor.component";
 import { TypeCastingDisplayComponent } from "./workspace/component/property-editor/typecasting-display/type-casting-display.component";
@@ -149,6 +148,10 @@ import { NzDividerModule } from "ng-zorro-antd/divider";
 import { NzProgressModule } from "ng-zorro-antd/progress";
 import { ComputingUnitSelectionComponent } from "./workspace/component/power-button/computing-unit-selection.component";
 import { NzSliderModule } from "ng-zorro-antd/slider";
+import { SuggestionFrameComponent } from "./workspace/component/result-panel/suggestion-frame/suggestion-frame.component";
+// Import providers for circular dependency resolution
+import { WORKFLOW_SUGGESTION_PROVIDER } from "./workspace/service/workflow-suggestion/workflow-suggestion.provider";
+import { WORKFLOW_COMPILING_PROVIDER } from "./workspace/service/compile-workflow/workflow-compiling.provider";
 
 registerLocaleData(en);
 
@@ -160,7 +163,6 @@ registerLocaleData(en);
     WorkspaceComponent,
     MenuComponent,
     OperatorMenuComponent,
-    WorkflowSuggestionComponent,
     SettingsComponent,
     PropertyEditorComponent,
     VersionsListComponent,
@@ -240,6 +242,7 @@ registerLocaleData(en);
     CodeDebuggerComponent,
     HubSearchResultComponent,
     ComputingUnitSelectionComponent,
+    SuggestionFrameComponent,
   ],
   imports: [
     BrowserModule,
