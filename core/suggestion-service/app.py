@@ -63,6 +63,11 @@ class CompilationStateInfo(BaseModel):
     operatorInputSchemaMap: Optional[Dict[str, List[Optional[List[SchemaAttribute]]]]] = None
     operatorErrors: Optional[Dict[str, Any]] = None
 
+class ExecutionStateInfo(BaseModel):
+    state: str
+    currentTuples: Optional[Dict[str, Any]] = None
+    errorMessages: Optional[List[Dict[str, Any]]] = None
+
 class ResultTable(BaseModel):
     rows: List[Dict[str, Any]]
     columnNames: List[str]
@@ -70,36 +75,42 @@ class ResultTable(BaseModel):
 class SuggestionRequest(BaseModel):
     workflow: str = Field(..., description="JSON string of the workflow")
     compilationState: CompilationStateInfo
+    executionState: Optional[ExecutionStateInfo] = None
     resultTables: Dict[str, ResultTable]
 
 @app.get("/")
 async def root():
     return {"message": "Texera Workflow Suggestion Service is running"}
 
-@app.post("/api/suggest", response_model=List[WorkflowSuggestion])
+@app.post("/api/workflow-suggestion", response_model=List[WorkflowSuggestion])
 async def generate_suggestions(request: SuggestionRequest):
     """
     Generate workflow suggestions based on the current workflow, compilation state, and result tables.
     
     Args:
-        request: Contains workflow as JSON string, compilation state info, and result tables by operator ID
+        request: Contains workflow as JSON string, compilation state info, execution state info, and result tables by operator ID
         
     Returns:
         A list of workflow suggestions
     """
     try:
         # Parse the workflow JSON
+        print("received request", request)
         workflow_json = json.loads(request.workflow)
         
         # Convert Pydantic models to dictionaries for the suggestion generator
-        compilation_state_dict = request.compilationState.dict()
-        result_tables_dict = {op_id: table.dict() for op_id, table in request.resultTables.items()}
+        compilation_state_dict = request.compilationState.model_dump()
+        result_tables_dict = {op_id: table.model_dump() for op_id, table in request.resultTables.items()}
+        
+        # Include execution state if available
+        execution_state_dict = request.executionState.model_dump() if request.executionState else None
         
         # Generate suggestions using the suggestion engine
         suggestions = suggestion_generator.generate_suggestions(
             workflow_json,
             compilation_state_dict,
-            result_tables_dict
+            result_tables_dict,
+            execution_state_dict
         )
         
         # Convert the dictionaries to WorkflowSuggestion objects
@@ -116,4 +127,4 @@ async def generate_suggestions(request: SuggestionRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=9094)
