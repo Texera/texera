@@ -98,10 +98,9 @@ class WorkflowInterpreter:
         Returns:
             A description of the workflow organized by execution paths
         """
-        # Parse the workflow into a TexeraWorkflow object
         try:
-            texera_workflow = TexeraWorkflow()
-            texera_workflow.initialize_from_dict(workflow)
+            # Create a TexeraWorkflow with the dictionary input
+            texera_workflow = TexeraWorkflow(workflow_dict=workflow)
             
             # Extract all paths from source to sink
             paths = self._extract_paths(texera_workflow)

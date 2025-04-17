@@ -1,0 +1,166 @@
+Here are the existing paths in this workflow and related schemas:
+
+Path 1:
+  1. CSVFileScan with properties:
+     - fileEncoding: UTF_8
+     - customDelimiter: ,
+     - hasHeader: True
+     - fileName: /workflow_migrator@texera/ds4all-lecture-example/v1/clean_tweets.csv
+     Schema:
+     []
+     → Connected to Projection-operator-b6799195-ecc4-426a-8e29-57e9248aa71f via ports output-0 → input-0
+  2. Projection with properties:
+     - isDrop: False
+     - attributes: [{'alias': '', 'originalAttribute': 'tweet_id'}, {'alias': '', 'originalAttribute': 'create_at_month'}, {'alias': '', 'originalAttribute': 'favorite_count'}, {'alias': '', 'originalAttribute': 'retweet_count'}]
+     Schema:
+     [
+      [
+            {
+                  "attributeName": "tweet_id",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "create_at_month",
+                  "attributeType": "timestamp"
+            },
+            {
+                  "attributeName": "favorite_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "retweet_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "is_retweet",
+                  "attributeType": "boolean"
+            },
+            {
+                  "attributeName": "lang",
+                  "attributeType": "string"
+            },
+            {
+                  "attributeName": "text",
+                  "attributeType": "string"
+            },
+            {
+                  "attributeName": "user_id",
+                  "attributeType": "integer"
+            }
+      ]
+]
+     → Connected to Sort-operator-82fa7c7a-d1e1-45a6-8510-1f57c223e260 via ports output-0 → input-0
+  3. Sort with properties:
+     - attributes: [{'attribute': 'favorite_count', 'sortPreference': 'DESC'}]
+     Schema:
+     [
+      [
+            {
+                  "attributeName": "tweet_id",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "create_at_month",
+                  "attributeType": "timestamp"
+            },
+            {
+                  "attributeName": "favorite_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "retweet_count",
+                  "attributeType": "integer"
+            }
+      ]
+]
+
+
+Path 2:
+  1. CSVFileScan with properties:
+     - fileEncoding: UTF_8
+     - customDelimiter: ,
+     - hasHeader: True
+     - fileName: /workflow_migrator@texera/ds4all-lecture-example/v1/clean_tweets.csv
+     Schema:
+     []
+     → Connected to Projection-operator-5c723ccd-5f1a-4a60-8e0b-bc3cb7cbc8ac via ports output-0 → input-0
+  2. Projection with properties:
+     - isDrop: False
+     - attributes: [{'alias': '', 'originalAttribute': 'text'}]
+     Schema:
+     [
+      [
+            {
+                  "attributeName": "tweet_id",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "create_at_month",
+                  "attributeType": "timestamp"
+            },
+            {
+                  "attributeName": "favorite_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "retweet_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "is_retweet",
+                  "attributeType": "boolean"
+            },
+            {
+                  "attributeName": "lang",
+                  "attributeType": "string"
+            },
+            {
+                  "attributeName": "text",
+                  "attributeType": "string"
+            },
+            {
+                  "attributeName": "user_id",
+                  "attributeType": "integer"
+            }
+      ]
+]
+     → Connected to PythonUDFV2-operator-29189f24-4d27-413f-9b67-1c8b37529289 via ports output-0 → input-0
+  3. PythonUDFV2 with properties:
+     - code: # Choose from the following templates:
+# 
+from pytexera import *
+
+class ProcessTupleOperator(UDFOperatorV2):
+    
+    @overrides
+    def process_tuple(self, tuple_: Tuple, port: int) -> Iterator[Optional[TupleLike]]:
+        tuple_['text_length'] = len(tuple_['text'])
+        yield tuple_
+
+# class ProcessBatchOperator(UDFBatchOperator):
+#     BATCH_SIZE = 10 # must be a positive integer
+# 
+#     @overrides
+#     def process_batch(self, batch: Batch, port: int) -> Iterator[Optional[BatchLike]]:
+#         yield batch
+# 
+# class ProcessTableOperator(UDFTableOperator):
+# 
+#     @overrides
+#     def process_table(self, table: Table, port: int) -> Iterator[Optional[TableLike]]:
+#         yield table
+
+     - workers: 1
+     - retainInputColumns: True
+     - outputColumns: [{'attributeName': 'text_length', 'attributeType': 'integer'}]
+     Schema:
+     [
+      [
+            {
+                  "attributeName": "text",
+                  "attributeType": "string"
+            }
+      ]
+]
+
+
