@@ -92,3 +92,13 @@ class TexeraOperator(Operator):
             f"  Error={self.error}\n"
             f")"
         )
+
+    @property
+    def properties(self) -> Dict:
+        """
+        Get the operator properties.
+        
+        Returns:
+            The operator properties dictionary
+        """
+        return self.operator_properties

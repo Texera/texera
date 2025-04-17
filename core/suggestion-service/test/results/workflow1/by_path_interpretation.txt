@@ -1,0 +1,77 @@
+Here are the existing paths in this workflow and related schemas:
+
+Path 1:
+  1. CSVFileScan with properties:
+     - fileEncoding: UTF_8
+     - customDelimiter: ,
+     - hasHeader: True
+     - fileName: /workflow_migrator@texera/ds4all-lecture-example/v1/clean_tweets.csv
+     Schema:
+     []
+     → Connected to Projection-operator-9d955369-5e4d-44f9-a6f3-ec66b1192894 via ports output-0 → input-0
+  2. Projection with properties:
+     - isDrop: False
+     - attributes: [{'alias': '', 'originalAttribute': 'tweet_id'}, {'alias': '', 'originalAttribute': 'create_at_month'}, {'alias': '', 'originalAttribute': 'favorite_count'}, {'alias': '', 'originalAttribute': 'retweet_count'}]
+     Schema:
+     [
+      [
+            {
+                  "attributeName": "tweet_id",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "create_at_month",
+                  "attributeType": "timestamp"
+            },
+            {
+                  "attributeName": "favorite_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "retweet_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "is_retweet",
+                  "attributeType": "boolean"
+            },
+            {
+                  "attributeName": "lang",
+                  "attributeType": "string"
+            },
+            {
+                  "attributeName": "text",
+                  "attributeType": "string"
+            },
+            {
+                  "attributeName": "user_id",
+                  "attributeType": "integer"
+            }
+      ]
+]
+     → Connected to Sort-operator-860e9211-556a-4789-ab06-fa79bc0b36c3 via ports output-0 → input-0
+  3. Sort with properties:
+     - attributes: [{'attribute': 'favorite_count', 'sortPreference': 'DESC'}]
+     Schema:
+     [
+      [
+            {
+                  "attributeName": "tweet_id",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "create_at_month",
+                  "attributeType": "timestamp"
+            },
+            {
+                  "attributeName": "favorite_count",
+                  "attributeType": "integer"
+            },
+            {
+                  "attributeName": "retweet_count",
+                  "attributeType": "integer"
+            }
+      ]
+]
+
+
