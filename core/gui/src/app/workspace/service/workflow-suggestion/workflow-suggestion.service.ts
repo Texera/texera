@@ -64,22 +64,14 @@ export class WorkflowSuggestionService {
   private lastResultUpdateTime = 0;
   private resultUpdateDebounceMs = 2000; // 2 seconds debounce time for result updates
 
-  private workflowCompilingService: WorkflowCompilingService | undefined;
-
   constructor(
     private httpClient: HttpClient,
     private workflowActionService: WorkflowActionService,
     private workflowResultService: WorkflowResultService,
     private executeWorkflowService: ExecuteWorkflowService,
     private injector: Injector,
-    private workflowCompilingServiceRef: WorkflowCompilingService
+    private workflowCompilingService: WorkflowCompilingService
   ) {
-    console.log("WorkflowSuggestionService initialized");
-
-    // If the workflow compiling service was injected, use it directly
-    if (workflowCompilingServiceRef) {
-      this.workflowCompilingService = workflowCompilingServiceRef;
-    }
 
     // Listen for workflow changes and refresh suggestions
     // This follows the same pattern as WorkflowCompilingService
@@ -176,23 +168,6 @@ export class WorkflowSuggestionService {
       });
   }
 
-  private getWorkflowCompilingService(): WorkflowCompilingService | undefined {
-    if (!this.workflowCompilingService) {
-      try {
-        // First try to use the injected service
-        if (this.workflowCompilingServiceRef) {
-          this.workflowCompilingService = this.workflowCompilingServiceRef;
-        } else {
-          // Otherwise, try to get it from the injector
-          this.workflowCompilingService = this.injector.get(WorkflowCompilingService);
-        }
-      } catch (e) {
-        console.warn("WorkflowCompilingService not available yet:", e);
-      }
-    }
-    return this.workflowCompilingService;
-  }
-
   /**
    * Requests workflow suggestions from the backend service.
    * This method gathers the current workflow state, compilation information,
@@ -210,13 +185,12 @@ export class WorkflowSuggestionService {
     // Get the current workflow
     const workflow: Workflow = this.workflowActionService.getWorkflow();
 
-    // Get compilation state info
-    const workflowCompilingService = this.getWorkflowCompilingService();
+    
     let compilationState = {
-      state: workflowCompilingService ? workflowCompilingService.getWorkflowCompilationState() : undefined,
+      state: this.workflowCompilingService.getWorkflowCompilationState(),
       physicalPlan: undefined,
-      operatorInputSchemaMap: {},
-      operatorErrors: workflowCompilingService ? workflowCompilingService.getWorkflowCompilationErrors() : {},
+      operatorInputSchemaMap: this.workflowCompilingService.getOperatorInputSchemaMap(),
+      operatorErrors: this.workflowCompilingService.getWorkflowCompilationErrors()
     };
 
     // Get execution state info
@@ -335,12 +309,7 @@ export class WorkflowSuggestionService {
   public setPreviewActive(isActive: boolean): void {
     console.log(`WorkflowSuggestionService: Setting preview active to ${isActive}`);
     this.previewActiveStream.next(isActive);
-
-    // Also update the compilation service if available
-    const workflowCompilingService = this.getWorkflowCompilingService();
-    if (workflowCompilingService && workflowCompilingService.setPreviewActive) {
-      workflowCompilingService.setPreviewActive(isActive);
-    }
+    this.workflowCompilingService.setPreviewActive(isActive);
   }
 
   /**
