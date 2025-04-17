@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List, Any, Optional
 
 from fastapi import FastAPI, HTTPException
@@ -104,6 +105,23 @@ async def generate_suggestions(request: SuggestionRequest):
         
         # Include execution state if available
         execution_state_dict = request.executionState.model_dump() if request.executionState else None
+        
+        # Create a data directory if it doesn't exist
+        os.makedirs("test/data", exist_ok=True)
+        
+        # Save the workflow data as JSON files
+        with open("test/data/workflow.json", "w") as f:
+            json.dump(workflow_json, f, indent=2)
+            
+        with open("test/data/workflow_compilation_state.json", "w") as f:
+            json.dump(compilation_state_dict, f, indent=2)
+            
+        with open("test/data/result_tables.json", "w") as f:
+            json.dump(result_tables_dict, f, indent=2)
+            
+        if execution_state_dict:
+            with open("test/data/execution_state.json", "w") as f:
+                json.dump(execution_state_dict, f, indent=2)
         
         # Generate suggestions using the suggestion engine
         suggestions = suggestion_generator.generate_suggestions(
