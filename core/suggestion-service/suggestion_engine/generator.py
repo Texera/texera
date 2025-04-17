@@ -2,6 +2,7 @@ from typing import Dict, List, Any, Optional
 import json
 import uuid
 
+from workflow_interpretation.interpreter import WorkflowInterpreter, InterpretationMethod
 from model.Tuple import Tuple
 from model.DataSchema import DataSchema, Attribute, AttributeType
 
@@ -16,7 +17,7 @@ class SuggestionGenerator:
         """
         Initialize the suggestion generator.
         """
-        pass
+        self.workflow_interpreter = WorkflowInterpreter()
         
     def generate_suggestions(
         self,
@@ -43,7 +44,16 @@ class SuggestionGenerator:
         if execution_state:
             print(f"Execution state: {execution_state['state']}")
         print(f"Result tables available for {len(result_tables)} operators")
-        print("Result tables: ", result_tables)
+        
+        # Generate natural language description of the workflow
+        workflow_description = self._generate_workflow_prompt(
+            workflow_json, 
+            compilation_state.get("operatorInputSchemaMap"), 
+            compilation_state.get("operatorErrors")
+        )
+        
+        print("Generated workflow description:")
+        print(workflow_description)
         
         # Extract operators from the workflow
         operators = workflow_json.get("content", {}).get("operators", [])
@@ -193,3 +203,37 @@ class SuggestionGenerator:
             suggestions.append(suggestion2)
         
         return suggestions 
+
+    def _generate_workflow_prompt(
+        self,
+        workflow_json: Dict[str, Any],
+        input_schema: Optional[Dict[str, Any]] = None,
+        operator_errors: Optional[Dict[str, Any]] = None,
+        method: InterpretationMethod = InterpretationMethod.BY_PATH
+    ) -> str:
+        """
+        Generate a natural language description of the workflow for use in prompts.
+        
+        Args:
+            workflow_json: The workflow dictionary
+            input_schema: The input schema dictionary for each operator
+            operator_errors: Dictionary of static errors for each operator
+            method: The interpretation method to use
+            
+        Returns:
+            A natural language description of the workflow
+        """
+        try:
+            # Use the workflow interpreter to generate a description
+            description = self.workflow_interpreter.interpret_workflow(
+                workflow_json,
+                input_schema,
+                operator_errors,
+                method
+            )
+            
+            return description
+        except Exception as e:
+            print(f"Error generating workflow prompt: {str(e)}")
+            # Fallback to a simple description if interpretation fails
+            return f"Workflow with {len(workflow_json.get('content', {}).get('operators', []))} operators" 
