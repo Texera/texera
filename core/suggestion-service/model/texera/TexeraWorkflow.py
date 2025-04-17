@@ -1,6 +1,6 @@
 import json
 
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 import networkx as nx
 
 from model.Operator import Operator
@@ -14,7 +14,8 @@ from model.texera.TexeraOperator import TexeraOperator
 class TexeraWorkflow(Workflow):
     def __init__(
             self,
-            workflow_content: str,
+            workflow_content: str = "",
+            workflow_dict: Dict[str, Any] = None,
             operator_id_to_port_indexed_input_schemas_mapping: Dict[str, List['DataSchema']]=None,
             operator_id_to_error_mapping: Dict[str, str]=None,
             wid: int = 0,
@@ -25,53 +26,67 @@ class TexeraWorkflow(Workflow):
             operator_id_to_port_indexed_input_schemas_mapping = {}
         if operator_id_to_error_mapping is None:
             operator_id_to_error_mapping = {}
-
-        self.workflow_content = workflow_content
-        self.workflow_dict = json.loads(workflow_content)
-        operators_dict = self.workflow_dict.get("operators", {})
-        links_dict = self.workflow_dict.get("links", {})
-
-        self.DAG = nx.DiGraph()
-        self.workflow_title = workflow_title
-        self.operators: Dict[str, 'TexeraOperator'] = {
-            op_dict['operatorID']:
-                TexeraOperator(
-                    operator_dict = op_dict,
-                    port_indexed_input_schemas=operator_id_to_port_indexed_input_schemas_mapping.get(op_dict['operatorID'], []),
-                    error=operator_id_to_error_mapping.get(op_dict['operatorID'], "")
-                ) for op_dict in operators_dict
-        }
-        # self.links = [TexeraLink(link_dict, self.operators) for link_dict in links_dict]
+            
         self.wid = wid
+        self.workflow_title = workflow_title
+        self.DAG = nx.DiGraph()
+        self.operators = {}
+        self.links = []
 
-        # start to build the DAG
-        for operator in self.GetOperators():
-            self.DAG.add_node(operator.GetId(),
-                              type=operator.GetType(),
-                              inputPorts=[port.GetId() for port in operator.GetInputPorts()],
-                              outputPorts=[port.GetId() for port in operator.GetOutputPorts()],
-                              error=operator.GetError()
-                              )
+        # Handle both string content and direct dict input
+        if workflow_dict is not None:
+            self.workflow_dict = workflow_dict
+            self.workflow_content = json.dumps(workflow_dict)
+            self.initialize_from_dict(workflow_dict)
+        elif workflow_content:
+            self.workflow_content = workflow_content
+            self.workflow_dict = json.loads(workflow_content)
+            operators_dict = self.workflow_dict.get("operators", {})
+            links_dict = self.workflow_dict.get("links", {})
 
-        # then start to add link
-        for link in links_dict:
-            source_op_id = link.get('source').get('operatorID')
-            src_port_id = link.get('source').get('portID')
-            target_op_id = link.get('target').get('operatorID')
-            target_port_id = link.get('target').get('portID')
+            self.operators: Dict[str, 'TexeraOperator'] = {
+                op_dict['operatorID']:
+                    TexeraOperator(
+                        operator_dict = op_dict,
+                        port_indexed_input_schemas=operator_id_to_port_indexed_input_schemas_mapping.get(op_dict['operatorID'], []),
+                        error=operator_id_to_error_mapping.get(op_dict['operatorID'], "")
+                    ) for op_dict in operators_dict
+            }
+            
+            # Build the DAG
+            self._build_dag()
 
-            op = self.operators.get(target_op_id)
-            if op is not None:
-                schema = op.GetInputSchemaByPortID(target_port_id)
-            else:
-                schema = None
-            self.DAG.add_edge(source_op_id,
-                              target_op_id,
-                              srcPort=src_port_id,
-                              targetPort=target_port_id,
-                              schema=schema
-                              )
-
+    def initialize_from_dict(self, workflow_dict: Dict[str, Any]) -> None:
+        """
+        Initialize the workflow from a dictionary (needed by the interpreter).
+        
+        Args:
+            workflow_dict: Dictionary representation of the workflow
+        """
+        # Convert the dictionary to a string for internal storage
+        self.workflow_content = json.dumps(workflow_dict)
+        self.workflow_dict = workflow_dict
+        
+        # Extract operators and links
+        content = workflow_dict.get("content", {})
+        operators_dict = content.get("operators", [])
+        
+        # Reset internal state
+        self.operators = {}
+        self.links = []
+        
+        # Initialize operators
+        for op_dict in operators_dict:
+            op_id = op_dict.get("operatorID")
+            if op_id:
+                self.operators[op_id] = TexeraOperator(
+                    operator_dict=op_dict,
+                    port_indexed_input_schemas=[],
+                    error=""
+                )
+        
+        # Build the DAG structure (adds links and completes initialization)
+        self._build_dag()
 
     def GetWorkflowContent(self) -> str:
         return self.workflow_content
@@ -163,3 +178,76 @@ class TexeraWorkflow(Workflow):
             f"  DAG Edges=[\n    {edges_str}\n  ]\n"
             f")"
         )
+
+    def VisualizeDAG(self) -> str:
+        """
+        Generate a visualization of the workflow DAG.
+        This is a placeholder implementation required for the abstract class.
+        
+        Returns:
+            A string representation of the workflow DAG visualization.
+        """
+        # Create a simple text-based visualization of the DAG
+        visualization = "Workflow DAG Visualization:\n"
+        
+        # Add operator nodes
+        visualization += "\nOperators:\n"
+        for op_id, operator in self.operators.items():
+            visualization += f"  - {op_id} ({operator.GetType()})\n"
+        
+        # Add links (edges)
+        visualization += "\nLinks:\n"
+        for link in self.links:
+            source_op = link.source.operator_id
+            source_port = link.source.port_id
+            target_op = link.target.operator_id
+            target_port = link.target.port_id
+            visualization += f"  - {source_op}:{source_port} → {target_op}:{target_port}\n"
+        
+        return visualization
+
+    def _build_dag(self) -> None:
+        """Build the DAG from the workflow dictionary's operators and links."""
+        # Clear existing DAG
+        self.DAG = nx.DiGraph()
+        
+        # Extract operators and links
+        operators_dict = self.workflow_dict.get("content", {}).get("operators", [])
+        links_dict = self.workflow_dict.get("content", {}).get("links", [])
+        
+        # Add nodes to DAG
+        for operator in self.GetOperators():
+            self.DAG.add_node(operator.GetId(),
+                            type=operator.GetType(),
+                            inputPorts=[port.GetId() for port in operator.GetInputPorts()],
+                            outputPorts=[port.GetId() for port in operator.GetOutputPorts()],
+                            error=operator.GetError()
+                            )
+        
+        # Add links to DAG
+        for link in links_dict:
+            source_op_id = link.get('source', {}).get('operatorID')
+            src_port_id = link.get('source', {}).get('portID')
+            target_op_id = link.get('target', {}).get('operatorID')
+            target_port_id = link.get('target', {}).get('portID')
+            
+            if source_op_id and target_op_id:
+                # Add link to links list
+                class Link:
+                    def __init__(self, src_id, src_port, target_id, target_port):
+                        self.source = type('obj', (object,), {'operator_id': src_id, 'port_id': src_port})
+                        self.target = type('obj', (object,), {'operator_id': target_id, 'port_id': target_port})
+                
+                self.links.append(Link(source_op_id, src_port_id, target_op_id, target_port_id))
+                
+                # Add edge to DAG
+                op = self.operators.get(target_op_id)
+                schema = None
+                if op is not None:
+                    schema = op.GetInputSchemaByPortID(target_port_id)
+                
+                self.DAG.add_edge(source_op_id,
+                                target_op_id,
+                                srcPort=src_port_id,
+                                targetPort=target_port_id,
+                                schema=schema)
