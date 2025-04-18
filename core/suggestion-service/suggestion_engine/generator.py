@@ -1,10 +1,17 @@
 from typing import Dict, List, Any, Optional
 import json
 import uuid
+import os
+from dotenv import load_dotenv
 
 from workflow_interpretation.interpreter import WorkflowInterpreter, InterpretationMethod
 from model.Tuple import Tuple
 from model.DataSchema import DataSchema, Attribute, AttributeType
+from llm_agent.base import LLMAgentFactory
+
+
+# Load environment variables from .env file if present
+load_dotenv()
 
 
 class SuggestionGenerator:
@@ -13,18 +20,54 @@ class SuggestionGenerator:
     based on the current workflow state, compilation information, and result data.
     """
     
-    def __init__(self):
+    def __init__(self, 
+                llm_provider: str = None, 
+                llm_model: str = None,
+                llm_api_key: str = None):
         """
         Initialize the suggestion generator.
+        
+        Args:
+            llm_provider: The LLM provider to use (defaults to environment variable LLM_PROVIDER)
+            llm_model: The LLM model to use (defaults to environment variable LLM_MODEL)
+            llm_api_key: The API key for the LLM provider (defaults to environment variable based on provider)
         """
         self.workflow_interpreter = WorkflowInterpreter()
+        
+        # Set default LLM provider and model from environment variables
+        default_provider = os.environ.get("LLM_PROVIDER", "openai")
+        self.llm_provider = llm_provider or default_provider
+        
+        # Set default model based on provider
+        if self.llm_provider == "openai":
+            default_model = os.environ.get("OPENAI_MODEL", "gpt-4-turbo-preview")
+        elif self.llm_provider == "anthropic":
+            default_model = os.environ.get("ANTHROPIC_MODEL", "claude-3-opus-20240229")
+        else:
+            default_model = ""
+        
+        self.llm_model = llm_model or default_model
+        self.llm_api_key = llm_api_key
+        
+        # Create the LLM agent
+        try:
+            self.llm_agent = LLMAgentFactory.create(
+                self.llm_provider,
+                model=self.llm_model,
+                api_key=self.llm_api_key
+            )
+        except ValueError as e:
+            print(f"Error creating LLM agent: {str(e)}")
+            # Fall back to mock suggestions if agent creation fails
+            self.llm_agent = None
         
     def generate_suggestions(
         self,
         workflow_json: Dict[str, Any],
         compilation_state: Dict[str, Any],
         result_tables: Dict[str, Dict[str, Any]],
-        execution_state: Optional[Dict[str, Any]] = None
+        execution_state: Optional[Dict[str, Any]] = None,
+        max_suggestions: int = 3
     ) -> List[Dict[str, Any]]:
         """
         Generate workflow suggestions based on the current workflow, compilation state, execution state, and result tables.
@@ -34,6 +77,7 @@ class SuggestionGenerator:
             compilation_state: Compilation information and errors
             result_tables: Result data for each operator
             execution_state: Current execution state of the workflow
+            max_suggestions: Maximum number of suggestions to generate
             
         Returns:
             A list of workflow suggestions
@@ -55,6 +99,195 @@ class SuggestionGenerator:
         print("Generated workflow description:")
         print(workflow_description)
         
+        # If we have a valid LLM agent, use it to generate suggestions
+        if self.llm_agent:
+            try:
+                # Add context to the workflow description about compilation and execution state
+                enriched_prompt = self._enhance_prompt_with_state_info(
+                    workflow_description,
+                    compilation_state,
+                    execution_state
+                )
+                
+                # Get suggestions from the LLM agent
+                suggestions = self.llm_agent.generate_suggestions(
+                    prompt=enriched_prompt,
+                    max_suggestions=max_suggestions,
+                    temperature=0.7  # Lower temperature for more focused suggestions
+                )
+                
+                # Convert suggestions to the expected format for the frontend
+                formatted_suggestions = self._convert_to_frontend_format(suggestions)
+                
+                # Return generated suggestions (if any were generated)
+                if formatted_suggestions:
+                    return formatted_suggestions
+            except Exception as e:
+                print(f"Error generating suggestions with LLM: {str(e)}")
+                # Fall back to mock suggestions on error
+        
+        # If LLM generation failed or agent is not available, return mock suggestions
+        return self._generate_mock_suggestions(workflow_json, compilation_state, execution_state)
+        
+    def _generate_workflow_prompt(
+        self,
+        workflow_json: Dict[str, Any],
+        input_schema: Optional[Dict[str, Any]] = None,
+        operator_errors: Optional[Dict[str, Any]] = None,
+        method: InterpretationMethod = InterpretationMethod.BY_PATH
+    ) -> str:
+        """
+        Generate a natural language description of the workflow for use in prompts.
+        
+        Args:
+            workflow_json: The workflow dictionary
+            input_schema: The input schema dictionary for each operator
+            operator_errors: Dictionary of static errors for each operator
+            method: The interpretation method to use
+            
+        Returns:
+            A natural language description of the workflow
+        """
+        try:
+            # Use the workflow interpreter to generate a description
+            description = self.workflow_interpreter.interpret_workflow(
+                workflow_json,
+                input_schema,
+                operator_errors,
+                method
+            )
+            
+            return description
+        except Exception as e:
+            print(f"Error generating workflow prompt: {str(e)}")
+            # Fallback to a simple description if interpretation fails
+            return f"Workflow with {len(workflow_json.get('content', {}).get('operators', []))} operators"
+    
+    def _enhance_prompt_with_state_info(
+        self,
+        workflow_description: str,
+        compilation_state: Dict[str, Any],
+        execution_state: Optional[Dict[str, Any]]
+    ) -> str:
+        """
+        Enhance the workflow description with compilation and execution state information.
+        
+        Args:
+            workflow_description: Natural language description of the workflow
+            compilation_state: Compilation information and errors
+            execution_state: Current execution state of the workflow
+            
+        Returns:
+            Enhanced workflow description
+        """
+        prompt = workflow_description + "\n\n"
+        
+        # Add compilation state info
+        prompt += f"Compilation State: {compilation_state['state']}\n"
+        
+        # Add compilation errors if any
+        if compilation_state['state'] == "Failed" and compilation_state.get('operatorErrors'):
+            prompt += "Compilation Errors:\n"
+            for op_id, error in compilation_state['operatorErrors'].items():
+                if error:
+                    prompt += f"- Operator {op_id}: {error}\n"
+        
+        # Add execution state info if available
+        if execution_state:
+            prompt += f"\nExecution State: {execution_state['state']}\n"
+            
+            # Add execution errors if any
+            if execution_state['state'] == "Failed" and execution_state.get('errorMessages'):
+                prompt += "Execution Errors:\n"
+                for error in execution_state['errorMessages']:
+                    prompt += f"- {error}\n"
+        
+        # Add final instruction
+        prompt += "\nBased on this workflow description and state information, suggest improvements or fixes."
+        
+        return prompt
+    
+    def _convert_to_frontend_format(self, suggestions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Convert LLM-generated suggestions to the format expected by the frontend.
+        
+        Args:
+            suggestions: List of suggestions from the LLM agent
+            
+        Returns:
+            List of suggestions formatted for the frontend
+        """
+        formatted_suggestions = []
+        
+        for suggestion in suggestions:
+            # Create a new suggestion with the required format
+            formatted = {
+                "id": f"suggestion-{uuid.uuid4()}",
+                "description": suggestion["suggestion"],
+                "operatorsToAdd": [],
+                "operatorPropertiesToChange": [],
+                "operatorsToDelete": suggestion["changes"].get("operatorsToDelete", []),
+                "linksToAdd": [],
+                "isPreviewActive": False
+            }
+            
+            # Format operators to add
+            for operator in suggestion["changes"].get("operatorsToAdd", []):
+                formatted_operator = {
+                    "operatorType": operator["operatorType"],
+                    "position": {"x": 400, "y": 300},  # Default position
+                    "properties": operator.get("operatorProperties", {})
+                }
+                
+                # Add custom display name if provided
+                if operator.get("customDisplayName"):
+                    formatted_operator["customDisplayName"] = operator["customDisplayName"]
+                
+                formatted["operatorsToAdd"].append(formatted_operator)
+            
+            # Format operator properties to change
+            for prop_change in suggestion["changes"].get("operatorPropertiesToChange", []):
+                formatted_prop_change = {
+                    "operatorId": prop_change["operatorID"],
+                    "properties": prop_change["properties"]
+                }
+                formatted["operatorPropertiesToChange"].append(formatted_prop_change)
+            
+            # Format links to add
+            for link in suggestion["changes"].get("linksToAdd", []):
+                formatted_link = {
+                    "source": {
+                        "operatorId": link["source"]["operatorID"],
+                        "portId": link["source"]["portID"]
+                    },
+                    "target": {
+                        "operatorId": link["target"]["operatorID"],
+                        "portId": link["target"]["portID"]
+                    }
+                }
+                formatted["linksToAdd"].append(formatted_link)
+            
+            formatted_suggestions.append(formatted)
+        
+        return formatted_suggestions
+    
+    def _generate_mock_suggestions(
+        self, 
+        workflow_json: Dict[str, Any],
+        compilation_state: Dict[str, Any],
+        execution_state: Optional[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate mock suggestions for testing or when LLM generation fails.
+        
+        Args:
+            workflow_json: The current workflow configuration
+            compilation_state: Compilation information and errors
+            execution_state: Current execution state of the workflow
+            
+        Returns:
+            A list of mock workflow suggestions
+        """
         # Extract operators from the workflow
         operators = workflow_json.get("content", {}).get("operators", [])
         
@@ -203,37 +436,3 @@ class SuggestionGenerator:
             suggestions.append(suggestion2)
         
         return suggestions 
-
-    def _generate_workflow_prompt(
-        self,
-        workflow_json: Dict[str, Any],
-        input_schema: Optional[Dict[str, Any]] = None,
-        operator_errors: Optional[Dict[str, Any]] = None,
-        method: InterpretationMethod = InterpretationMethod.BY_PATH
-    ) -> str:
-        """
-        Generate a natural language description of the workflow for use in prompts.
-        
-        Args:
-            workflow_json: The workflow dictionary
-            input_schema: The input schema dictionary for each operator
-            operator_errors: Dictionary of static errors for each operator
-            method: The interpretation method to use
-            
-        Returns:
-            A natural language description of the workflow
-        """
-        try:
-            # Use the workflow interpreter to generate a description
-            description = self.workflow_interpreter.interpret_workflow(
-                workflow_json,
-                input_schema,
-                operator_errors,
-                method
-            )
-            
-            return description
-        except Exception as e:
-            print(f"Error generating workflow prompt: {str(e)}")
-            # Fallback to a simple description if interpretation fails
-            return f"Workflow with {len(workflow_json.get('content', {}).get('operators', []))} operators" 

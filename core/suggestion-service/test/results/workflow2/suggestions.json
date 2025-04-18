@@ -1,6 +1,6 @@
 [
   {
-    "id": "suggestion-eb0a5d8f-505b-4e5c-86c5-172bd68415c2",
+    "id": "suggestion-7b079311-f23c-4066-b3ce-961bbe53b33c",
     "description": "Add a KeywordSearch operator with sentiment analysis",
     "operatorsToAdd": [
       {
@@ -74,7 +74,7 @@
     "isPreviewActive": false
   },
   {
-    "id": "suggestion-c6293a99-27fa-44cf-8726-fb90ca13cc82",
+    "id": "suggestion-aeb12d91-6463-430c-8464-358334422bfc",
     "description": "Replace ScanSource with CSVFileScan for better performance",
     "operatorsToAdd": [
       {
