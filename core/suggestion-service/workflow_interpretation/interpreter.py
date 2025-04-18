@@ -3,7 +3,9 @@ Workflow Interpreter module for generating descriptions of workflows.
 """
 from typing import Dict, List, Any, Optional, Tuple
 import json
+import traceback
 from enum import Enum
+from collections import defaultdict
 
 from model.texera.TexeraWorkflow import TexeraWorkflow
 
@@ -44,12 +46,16 @@ class WorkflowInterpreter:
         Returns:
             A natural language description of the workflow
         """
-        if method == InterpretationMethod.RAW:
-            return self._interpret_raw(workflow, input_schema, operator_errors)
-        elif method == InterpretationMethod.BY_PATH:
-            return self._interpret_by_path(workflow, input_schema, operator_errors)
-        else:
-            raise ValueError(f"Unsupported interpretation method: {method}")
+        try:
+            if method == InterpretationMethod.RAW:
+                return self._interpret_raw(workflow, input_schema, operator_errors)
+            elif method == InterpretationMethod.BY_PATH:
+                return self._interpret_by_path(workflow, input_schema, operator_errors)
+            else:
+                raise ValueError(f"Unsupported interpretation method: {method}")
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            return f"Error interpreting workflow: {str(e)}\n\nStacktrace:\n{stack_trace}"
     
     def _interpret_raw(
         self,
@@ -88,181 +94,211 @@ class WorkflowInterpreter:
         operator_errors: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Generate a description of the workflow by extracting and describing paths from source to sink.
+        Interprets a workflow by analyzing execution paths.
         
         Args:
-            workflow: The workflow dictionary
-            input_schema: The input schema dictionary for each operator
-            operator_errors: Dictionary of static errors for each operator
-            
+            workflow: JSON representation of the workflow
+            input_schema: Optional dictionary mapping operator IDs to their input schemas
+            operator_errors: Optional dictionary mapping operator IDs to their errors
+        
         Returns:
-            A description of the workflow organized by execution paths
+            A natural language interpretation of the workflow
         """
         try:
-            # Create a TexeraWorkflow with the dictionary input
-            texera_workflow = TexeraWorkflow(workflow_dict=workflow)
+            # Create a TexeraWorkflow object from the workflow dictionary
+            texera_workflow = TexeraWorkflow(
+                workflow_dict=workflow, 
+                input_schema=input_schema or {}, 
+                operator_errors=operator_errors or {}
+            )
             
-            # Extract all paths from source to sink
-            paths = self._extract_paths(texera_workflow)
+            # Get all paths through the workflow
+            paths = texera_workflow.get_all_paths()
             
-            # Generate description from paths
-            description = "Here are the existing paths in this workflow and related schemas:\n\n"
+            if not paths:
+                return "This workflow doesn't contain any complete execution paths."
             
-            for i, path in enumerate(paths, 1):
-                description += f"Path {i}:\n"
-                description += self._describe_path(
-                    path, texera_workflow, input_schema, operator_errors)
-                description += "\n\n"
+            interpretation = "This workflow contains the following execution paths:\n\n"
             
-            return description
+            # Generate descriptions for each path
+            for i, path in enumerate(paths):
+                try:
+                    interpretation += f"Path {i+1}:\n"
+                    
+                    # Extract the subworkflow for this path
+                    path_workflow = texera_workflow.extract_path_workflow(path)
+                    
+                    # Generate description for this path workflow
+                    path_description = self._describe_path_workflow(path_workflow)
+                    interpretation += path_description + "\n"
+                except Exception as e:
+                    interpretation += f"Error processing path {i+1}: {str(e)}\n\n"
+            
+            return interpretation
+        
         except Exception as e:
-            # If path extraction fails, fall back to raw interpretation
-            print(f"Error in path interpretation: {str(e)}. Falling back to raw interpretation.")
-            return self._interpret_raw(workflow, input_schema, operator_errors)
+            stack_trace = traceback.format_exc()
+            return f"Error interpreting workflow by path: {str(e)}\n\nStacktrace:\n{stack_trace}"
     
-    def _extract_paths(self, workflow: TexeraWorkflow) -> List[List[str]]:
+    def _describe_path_workflow(self, path_workflow: TexeraWorkflow) -> str:
         """
-        Extract all paths from source operators to sink operators.
+        Generate a description for a path workflow.
         
         Args:
-            workflow: The TexeraWorkflow object
-            
-        Returns:
-            A list of paths, where each path is a list of operator IDs
-        """
-        # Find source operators (operators with no inputs)
-        source_operators = []
-        for op_id, operator in workflow.operators.items():
-            has_input = False
-            for link in workflow.links:
-                if link.target.operator_id == op_id:
-                    has_input = True
-                    break
-            if not has_input:
-                source_operators.append(op_id)
-        
-        # Find sink operators (operators with no outputs)
-        sink_operators = []
-        for op_id, operator in workflow.operators.items():
-            has_output = False
-            for link in workflow.links:
-                if link.source.operator_id == op_id:
-                    has_output = True
-                    break
-            if not has_output:
-                sink_operators.append(op_id)
-        
-        # For each source, find all paths to sinks
-        all_paths = []
-        for source in source_operators:
-            paths = self._find_paths(source, sink_operators, workflow)
-            all_paths.extend(paths)
-        
-        return all_paths
-    
-    def _find_paths(
-        self, 
-        current: str, 
-        sinks: List[str], 
-        workflow: TexeraWorkflow, 
-        path: Optional[List[str]] = None, 
-        visited: Optional[set] = None
-    ) -> List[List[str]]:
-        """
-        Recursively find all paths from the current operator to any sink operator.
-        
-        Args:
-            current: The current operator ID
-            sinks: List of sink operator IDs
-            workflow: The TexeraWorkflow object
-            path: The current path being built
-            visited: Set of visited operator IDs to avoid cycles
-            
-        Returns:
-            A list of paths, where each path is a list of operator IDs
-        """
-        if path is None:
-            path = []
-        if visited is None:
-            visited = set()
-        
-        # Add current operator to path and visited
-        path = path + [current]
-        visited = visited.union({current})
-        
-        # If current is a sink, we've found a path
-        if current in sinks:
-            return [path]
-        
-        # Find all next operators
-        next_operators = []
-        for link in workflow.links:
-            if link.source.operator_id == current:
-                next_operators.append(link.target.operator_id)
-        
-        # Recursively find paths for each next operator
-        all_paths = []
-        for next_op in next_operators:
-            # Avoid cycles
-            if next_op not in visited:
-                new_paths = self._find_paths(next_op, sinks, workflow, path, visited)
-                all_paths.extend(new_paths)
-        
-        return all_paths
-    
-    def _describe_path(
-        self,
-        path: List[str],
-        workflow: TexeraWorkflow,
-        input_schema: Optional[Dict[str, Any]] = None,
-        operator_errors: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        Generate a description of a specific path in the workflow.
-        
-        Args:
-            path: List of operator IDs representing a path
-            workflow: The TexeraWorkflow object
-            input_schema: The input schema dictionary for each operator
-            operator_errors: Dictionary of static errors for each operator
+            path_workflow: A TexeraWorkflow object representing a path
             
         Returns:
             A description of the path
         """
-        description = ""
+        try:
+            description = ""
+            
+            # Get operator dictionaries directly from the workflow content
+            operators = path_workflow.workflow_dict.get("content", {}).get("operators", [])
+            links = path_workflow.workflow_dict.get("content", {}).get("links", [])
+            
+            # Sort operators based on their position in the path
+            ordered_operators = self._sort_operators_by_links(operators, links)
+            
+            # Describe each operator and its connections
+            for i, operator in enumerate(ordered_operators):
+                try:
+                    operator_id = operator["operatorID"]  # This should exist in every operator
+                    operator_type = operator.get("operatorType", "Unknown")
+                    # Use customDisplayName if available, otherwise operatorType as fallback
+                    operator_name = operator.get("customDisplayName", operator_type)
+                    
+                    # Get input schema for this operator if available
+                    input_schema_list = path_workflow._get_input_schemas_for_operator(operator_id)
+                    
+                    description += f"- {operator_name} ({operator_type})"
+                    
+                    # Add operator properties if available
+                    if "operatorProperties" in operator:
+                        props = operator["operatorProperties"]
+                        description += "\n  Properties:"
+                        for prop_name, prop_value in props.items():
+                            # Display full property values without truncation
+                            description += f"\n    - {prop_name}: {prop_value}"
+                    
+                    # Add any static errors if they exist
+                    if path_workflow.operator_errors and operator_id in path_workflow.operator_errors:
+                        operator_error = path_workflow.operator_errors[operator_id]
+                        if operator_error:  # Only add if there's an actual error
+                            description += f"\n  ERROR: {operator_error}"
+                    
+                    # Add schema information if available
+                    if input_schema_list and len(input_schema_list) > 0:
+                        description += "\n  Input Schema:"
+                        for schema_item in input_schema_list:
+                            # Check if schema_item is a dictionary
+                            if isinstance(schema_item, dict):
+                                port = schema_item.get('port', 'unknown')
+                                attributes = schema_item.get('attributes', [])
+                                description += f"\n    - Port: {port}"
+                                description += f"\n      Attributes: {attributes}"
+                            # For list schema items or other types, display differently
+                            elif isinstance(schema_item, list):
+                                description += f"\n    - Schema items: {len(schema_item)}"
+                                # Show all items without truncation
+                                for idx, attr in enumerate(schema_item):
+                                    description += f"\n      Item {idx}: {attr}"
+                            else:
+                                description += f"\n    - Schema: {str(schema_item)}"
+                    
+                    # For operators other than the last one, show where it connects to
+                    if i < len(ordered_operators) - 1:
+                        next_operator = ordered_operators[i + 1]
+                        next_op_id = next_operator["operatorID"]
+                        connection = self._find_connection(operator_id, next_op_id, links)
+                        
+                        if connection:
+                            source_port = connection["source"]["portID"]
+                            target_port = connection["target"]["portID"]
+                            next_op_name = next_operator.get("customDisplayName", next_operator.get("operatorType", "Unknown"))
+                            description += f"\n  Connects from port '{source_port}' to '{next_op_name}' port '{target_port}'"
+                    
+                    description += "\n"
+                except Exception as e:
+                    description += f"Error describing operator: {str(e)}\n"
+            
+            return description
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            return f"Error describing path workflow: {str(e)}\n\nStacktrace:\n{stack_trace}"
         
-        # Describe each operator in the path
-        for i, op_id in enumerate(path):
-            operator = workflow.operators[op_id]
-            description += f"  {i+1}. {operator.operator_type}"
-            
-            # Add operator properties if available
-            if operator.properties:
-                description += " with properties:\n"
-                for prop_key, prop_value in operator.properties.items():
-                    description += f"     - {prop_key}: {prop_value}\n"
-            else:
-                description += "\n"
-            
-            # Add schema information if available
-            if input_schema and op_id in input_schema:
-                schema_info = input_schema[op_id]
-                description += "     Schema:\n"
-                description += f"     {json.dumps(schema_info, indent=6)}\n"
-            
-            # Add error information if available
-            if operator_errors and op_id in operator_errors:
-                error_info = operator_errors[op_id]
-                description += "     Errors:\n"
-                description += f"     {json.dumps(error_info, indent=6)}\n"
-            
-            # Add connector information if not the last operator
-            if i < len(path) - 1:
-                # Find the link between this operator and the next
-                next_op_id = path[i + 1]
-                for link in workflow.links:
-                    if link.source.operator_id == op_id and link.target.operator_id == next_op_id:
-                        description += f"     → Connected to {next_op_id} via ports {link.source.port_id} → {link.target.port_id}\n"
-                        break
+    def _sort_operators_by_links(self, operators: List[Dict[str, Any]], links: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Sort operators based on their connections in the links.
         
-        return description 
+        Args:
+            operators: List of operator dictionaries
+            links: List of link dictionaries
+            
+        Returns:
+            List of sorted operator dictionaries
+        """
+        try:
+            # Create a map of operator IDs to operators
+            operator_map = {op["operatorID"]: op for op in operators}
+            
+            # Create a directed graph representing operator connections
+            graph = defaultdict(list)
+            for link in links:
+                source_id = link["source"]["operatorID"]
+                target_id = link["target"]["operatorID"]
+                graph[source_id].append(target_id)
+            
+            # Find source operators (operators with no incoming links)
+            incoming_links = defaultdict(int)
+            for link in links:
+                target_id = link["target"]["operatorID"]
+                incoming_links[target_id] += 1
+            
+            source_operators = [op for op in operators if incoming_links.get(op["operatorID"], 0) == 0]
+            
+            # Perform topological sort
+            visited = set()
+            ordered_operators = []
+            
+            def dfs(op_id):
+                if op_id in visited:
+                    return
+                visited.add(op_id)
+                for neighbor in graph.get(op_id, []):
+                    dfs(neighbor)
+                if op_id in operator_map:
+                    ordered_operators.append(operator_map[op_id])
+            
+            for op in source_operators:
+                dfs(op["operatorID"])
+            
+            # Reverse to get correct order from source to sink
+            return ordered_operators[::-1]
+        
+        except Exception as e:
+            print(f"Error in _sort_operators_by_links: {str(e)}")
+            # If sorting fails, return operators as is
+            return operators
+    
+    def _find_connection(self, source_id: str, target_id: str, links: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Find the link connecting two operators.
+        
+        Args:
+            source_id: ID of the source operator
+            target_id: ID of the target operator
+            links: List of link dictionaries
+            
+        Returns:
+            The link dictionary if found, None otherwise
+        """
+        try:
+            for link in links:
+                if (link["source"]["operatorID"] == source_id and 
+                    link["target"]["operatorID"] == target_id):
+                    return link
+            return None
+        except Exception as e:
+            print(f"Error in _find_connection: {str(e)}")
+            return None 
