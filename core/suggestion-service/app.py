@@ -1,17 +1,18 @@
 import json
 import os
 from typing import Dict, List, Any, Optional
+from dotenv import load_dotenv
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from suggestion_engine.generator import SuggestionGenerator
 
-app = FastAPI(title="Texera Workflow Suggestion Service")
+# Load environment variables
+load_dotenv()
 
-# Initialize the suggestion generator
-suggestion_generator = SuggestionGenerator()
+app = FastAPI(title="Texera Workflow Suggestion Service")
 
 # Enable CORS
 app.add_middleware(
@@ -20,6 +21,17 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Get LLM configuration from environment variables
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openai")
+LLM_MODEL = os.environ.get("OPENAI_MODEL" if LLM_PROVIDER == "openai" else "ANTHROPIC_MODEL", None)
+MAX_SUGGESTIONS = int(os.environ.get("MAX_SUGGESTIONS", "3"))
+
+# Initialize the suggestion generator with LLM support
+suggestion_generator = SuggestionGenerator(
+    llm_provider=LLM_PROVIDER,
+    llm_model=LLM_MODEL
 )
 
 # Input models
@@ -35,6 +47,7 @@ class OperatorToAdd(BaseModel):
     operatorType: str
     position: Position
     properties: Optional[Dict[str, Any]] = None
+    customDisplayName: Optional[str] = None
 
 class OperatorPropertyChange(BaseModel):
     operatorId: str
@@ -78,10 +91,29 @@ class SuggestionRequest(BaseModel):
     compilationState: CompilationStateInfo
     executionState: Optional[ExecutionStateInfo] = None
     resultTables: Dict[str, ResultTable]
+    maxSuggestions: Optional[int] = MAX_SUGGESTIONS
+
+class LLMConfig(BaseModel):
+    provider: str = LLM_PROVIDER
+    model: Optional[str] = LLM_MODEL
+
 
 @app.get("/")
 async def root():
     return {"message": "Texera Workflow Suggestion Service is running"}
+
+
+@app.get("/api/config")
+async def get_config():
+    """Get the current configuration."""
+    return {
+        "llm": {
+            "provider": LLM_PROVIDER,
+            "model": LLM_MODEL
+        },
+        "maxSuggestions": MAX_SUGGESTIONS
+    }
+
 
 @app.post("/api/workflow-suggestion", response_model=List[WorkflowSuggestion])
 async def generate_suggestions(request: SuggestionRequest):
@@ -96,7 +128,7 @@ async def generate_suggestions(request: SuggestionRequest):
     """
     try:
         # Parse the workflow JSON
-        print("received request", request)
+        print("Received suggestion request")
         workflow_json = json.loads(request.workflow)
         
         # Convert Pydantic models to dictionaries for the suggestion generator
@@ -128,7 +160,8 @@ async def generate_suggestions(request: SuggestionRequest):
             workflow_json,
             compilation_state_dict,
             result_tables_dict,
-            execution_state_dict
+            execution_state_dict,
+            max_suggestions=request.maxSuggestions or MAX_SUGGESTIONS
         )
         
         # Convert the dictionaries to WorkflowSuggestion objects
@@ -142,6 +175,7 @@ async def generate_suggestions(request: SuggestionRequest):
         raise HTTPException(status_code=400, detail="Invalid workflow JSON format")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating suggestions: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

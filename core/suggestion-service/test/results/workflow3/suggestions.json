@@ -1,6 +1,6 @@
 [
   {
-    "id": "suggestion-0bf71358-cd0a-474b-b5df-92abf6a28413",
+    "id": "suggestion-0acd0c27-dbff-47fc-bf1d-74d69c641e56",
     "description": "Replace ScanSource with CSVFileScan for better performance",
     "operatorsToAdd": [
       {
