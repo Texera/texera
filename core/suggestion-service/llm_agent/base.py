@@ -1,6 +1,7 @@
 """Base LLM agent interface"""
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Type
+import os
 
 
 class LLMAgent(ABC):
@@ -8,6 +9,17 @@ class LLMAgent(ABC):
     Abstract base class for LLM agents that generate workflow suggestions.
     All LLM providers (OpenAI, Anthropic, etc.) should implement this interface.
     """
+
+    def __init__(self, model: str = None, api_key: str = None):
+        """
+        Initialize the LLM agent.
+        
+        Args:
+            model: The model to use for generation
+            api_key: The API key for the LLM service
+        """
+        self.model = model
+        self.api_key = api_key
 
     @abstractmethod
     def generate_suggestions(self, 
@@ -44,32 +56,59 @@ class LLMAgent(ABC):
 class LLMAgentFactory:
     """Factory for creating LLM agents based on provider name."""
     
-    _registry = {}
+    _agent_registry: Dict[str, Type[LLMAgent]] = {}
     
     @classmethod
-    def register(cls, provider_name: str):
-        """Register an LLM agent class with the factory."""
-        def inner_wrapper(wrapped_class):
-            cls._registry[provider_name] = wrapped_class
-            return wrapped_class
-        return inner_wrapper
-    
-    @classmethod
-    def create(cls, provider_name: str, **kwargs) -> LLMAgent:
+    def register(cls, name: str):
         """
-        Create an instance of the requested LLM agent.
+        Decorator to register an LLM agent class with the factory.
         
         Args:
-            provider_name: Name of the LLM provider
-            **kwargs: Parameters to pass to the LLM agent constructor
-        
+            name: The name to register the agent under
+            
         Returns:
-            An instance of the requested LLM agent
-        
-        Raises:
-            ValueError: If the provider is not registered
+            A decorator function
         """
-        if provider_name not in cls._registry:
-            raise ValueError(f"Unknown LLM provider: {provider_name}")
+        def decorator(agent_class):
+            cls._agent_registry[name.lower()] = agent_class
+            return agent_class
+        return decorator
+    
+    @classmethod
+    def create(cls, provider: str, model: str = None, api_key: str = None, **kwargs) -> LLMAgent:
+        """
+        Create an LLM agent instance based on the provider.
         
-        return cls._registry[provider_name](**kwargs) 
+        Args:
+            provider: The LLM provider to use (e.g., 'openai', 'anthropic')
+            model: The model to use (if None, will use default for the provider)
+            api_key: The API key (if None, will use environment variable)
+            **kwargs: Additional parameters to pass to the agent constructor
+            
+        Returns:
+            An instance of the appropriate LLM agent
+            
+        Raises:
+            ValueError: If the provider is not registered or if required configuration is missing
+        """
+        provider = provider.lower()
+        
+        if provider not in cls._agent_registry:
+            raise ValueError(f"LLM provider '{provider}' is not supported. Available providers: {list(cls._agent_registry.keys())}")
+        
+        # Get the agent class from the registry
+        agent_class = cls._agent_registry[provider]
+        
+        # Determine API key from environment if not provided
+        if api_key is None:
+            if provider == "openai":
+                api_key = os.environ.get("OPENAI_API_KEY")
+            elif provider == "anthropic":
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
+            
+            # Check if API key is available
+            if not api_key:
+                raise ValueError(f"API key for {provider} not provided and not found in environment variables")
+        
+        # Create and return the agent instance
+        return agent_class(model=model, api_key=api_key, **kwargs) 
