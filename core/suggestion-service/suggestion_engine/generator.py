@@ -40,7 +40,7 @@ class SuggestionGenerator:
         
         # Set default model based on provider
         if self.llm_provider == "openai":
-            default_model = os.environ.get("OPENAI_MODEL", "gpt-4-turbo-preview")
+            default_model = os.environ.get("OPENAI_MODEL", "gpt-4o")
         elif self.llm_provider == "anthropic":
             default_model = os.environ.get("ANTHROPIC_MODEL", "claude-3-opus-20240229")
         else:
@@ -51,10 +51,20 @@ class SuggestionGenerator:
         
         # Create the LLM agent
         try:
+            # Additional parameters based on provider
+            extra_params = {}
+            
+            if self.llm_provider == "openai":
+                # Add assistant_id if specified
+                assistant_id = os.environ.get("OPENAI_ASSISTANT_ID")
+                if assistant_id and assistant_id.strip():
+                    extra_params["assistant_id"] = assistant_id
+            
             self.llm_agent = LLMAgentFactory.create(
                 self.llm_provider,
                 model=self.llm_model,
-                api_key=self.llm_api_key
+                api_key=self.llm_api_key,
+                **extra_params
             )
         except ValueError as e:
             print(f"Error creating LLM agent: {str(e)}")
