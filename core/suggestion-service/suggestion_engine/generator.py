@@ -19,47 +19,50 @@ class SuggestionGenerator:
     SuggestionGenerator is responsible for generating workflow suggestions
     based on the current workflow state, compilation information, and result data.
     """
-    
-    def __init__(self, 
-                llm_provider: str = None, 
-                llm_model: str = None,
-                llm_api_key: str = None):
+
+    def __init__(self,
+                 llm_provider: str = None,
+                 llm_model: str = None,
+                 llm_api_key: str = None):
         """
         Initialize the suggestion generator.
-        
+
         Args:
             llm_provider: The LLM provider to use (defaults to environment variable LLM_PROVIDER)
             llm_model: The LLM model to use (defaults to environment variable LLM_MODEL)
             llm_api_key: The API key for the LLM provider (defaults to environment variable based on provider)
         """
         self.workflow_interpreter = WorkflowInterpreter()
-        
-        # Set default LLM provider and model from environment variables
+
+        # Determine provider and model
         default_provider = os.environ.get("LLM_PROVIDER", "openai")
         self.llm_provider = llm_provider or default_provider
-        
-        # Set default model based on provider
+
         if self.llm_provider == "openai":
             default_model = os.environ.get("OPENAI_MODEL", "gpt-4o")
         elif self.llm_provider == "anthropic":
             default_model = os.environ.get("ANTHROPIC_MODEL", "claude-3-opus-20240229")
         else:
             default_model = ""
-        
+
         self.llm_model = llm_model or default_model
         self.llm_api_key = llm_api_key
-        
+
         # Create the LLM agent
         try:
-            # Additional parameters based on provider
             extra_params = {}
-            
+
             if self.llm_provider == "openai":
-                # Add assistant_id if specified
-                assistant_id = os.environ.get("OPENAI_ASSISTANT_ID")
-                if assistant_id and assistant_id.strip():
-                    extra_params["assistant_id"] = assistant_id
-            
+                tools = []
+                vector_store_ids_raw = os.environ.get("OPENAI_VECTOR_STORE_IDS", "")
+                vector_store_ids = [v.strip() for v in vector_store_ids_raw.split(",") if v.strip()]
+                if vector_store_ids:
+                    tools.append({
+                        "type": "file_search",
+                        "vector_store_ids": vector_store_ids
+                    })
+                extra_params["tools"] = tools
+
             self.llm_agent = LLMAgentFactory.create(
                 self.llm_provider,
                 model=self.llm_model,
@@ -68,8 +71,8 @@ class SuggestionGenerator:
             )
         except ValueError as e:
             print(f"Error creating LLM agent: {str(e)}")
-            # Fall back to mock suggestions if agent creation fails
             self.llm_agent = None
+
         
     def generate_suggestions(
         self,
