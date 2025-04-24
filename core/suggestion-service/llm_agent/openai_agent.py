@@ -15,8 +15,10 @@ class OpenAIAgent(LLMAgent):
 
     def __init__(self,
                  model: str = "gpt-4o-2024-08-06",
+                 tools: list = [],
                  api_key: Optional[str] = None,
-                 project: Optional[str] = None):
+                 project: Optional[str] = None,
+                 ):
         """
         Initialize the OpenAI agent.
 
@@ -26,12 +28,17 @@ class OpenAIAgent(LLMAgent):
             project: Project ID for usage (optional)
         """
         self.model = model
+        self.tools = tools
         self.client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"),
                              project=project or os.environ.get("OPENAI_PROJECT_ID"))
 
         # Load JSON Schema from file
         with open("output_format.json", "r") as f:
             self.schema = json.load(f)
+
+        # Load instruction from file
+        with open("instruction.md", "r") as f:
+            self.instruction = f.read()
 
     def generate_suggestions(self,
                              prompt: str,
@@ -55,17 +62,9 @@ class OpenAIAgent(LLMAgent):
         try:
             response = self.client.responses.create(
                 model=self.model,
-                input=[
-                    {
-                        "role": "system",
-                        "content": "You are an AI assistant that helps users improve their Texera workflows. "
-                                   "Analyze the input and generate a list of suggestions in valid JSON format."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+                instructions=self.instruction,
+                input=prompt,
+                tools=self.tools,
                 text={
                     "format": {
                         "type": "json_schema",

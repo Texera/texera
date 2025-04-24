@@ -80,4 +80,5 @@ instance/
 *.mp4
 *.mov
 *.wav
-*.mp3 
+*.mp3
+.env
