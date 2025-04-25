@@ -17,6 +17,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
+
 class Operator(ABC):
     @abstractmethod
     def GetName(self) -> str:
@@ -48,18 +49,18 @@ class Operator(ABC):
         pass
 
     @abstractmethod
-    def GetInputSchemaByPortID(self, portID: str) -> 'DataSchema':
+    def GetInputSchemaByPortID(self, portID: str) -> "DataSchema":
         pass
 
     @abstractmethod
-    def GetInputPorts(self) -> List['Port']:
+    def GetInputPorts(self) -> List["Port"]:
         """
         Return a list of input ports for the operator.
         """
         pass
 
     @abstractmethod
-    def GetOutputPorts(self) -> List['Port']:
+    def GetOutputPorts(self) -> List["Port"]:
         """
         Return a list of output ports for the operator.
         """

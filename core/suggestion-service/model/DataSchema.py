@@ -41,6 +41,7 @@ class AttributeType(Enum):
     BINARY = "binary"
     TIMESTAMP = "timestamp"
 
+
 # Define the Attribute class
 class Attribute:
     def __init__(self, name: str, attr_type: AttributeType):
@@ -69,6 +70,7 @@ class Attribute:
     def __hash__(self) -> int:
         return hash((self._name, self._type))
 
+
 # Define the DataSchema class
 class DataSchema:
     def __init__(self, attributes: List[Attribute]):
@@ -79,11 +81,11 @@ class DataSchema:
         return self._attributes
 
     def __str__(self) -> str:
-        attributes_str = ', '.join(str(attr) for attr in self.attributes)
+        attributes_str = ", ".join(str(attr) for attr in self.attributes)
         return f"DataSchema(attributes=[{attributes_str}])"
 
     def __repr__(self) -> str:
-        attributes_repr = ', '.join(repr(attr) for attr in self.attributes)
+        attributes_repr = ", ".join(repr(attr) for attr in self.attributes)
         return f"DataSchema(attributes=[{attributes_repr}])"
 
     def __eq__(self, other) -> bool:
