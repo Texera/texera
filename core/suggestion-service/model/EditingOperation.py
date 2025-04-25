@@ -18,15 +18,20 @@ class EditingOperationType:
     Unchanged = "unchanged"
     Void = "void"
 
+
 class EditingOperation(ABC):
     @abstractmethod
     def GetBaseWorkflow(self) -> Workflow:
         pass
 
     @abstractmethod
-    def GetBase(self) -> (None
-                          | List[Operator]
-                          | List[Tuple[Tuple[Operator, Port], Tuple[Operator, Port]]]):
+    def GetBase(
+        self,
+    ) -> (
+        None
+        | List[Operator]
+        | List[Tuple[Tuple[Operator, Port], Tuple[Operator, Port]]]
+    ):
         """
         Return the base of this operation
         add operator(s) -> None
@@ -40,9 +45,13 @@ class EditingOperation(ABC):
         pass
 
     @abstractmethod
-    def GetModification(self) -> (None
-                          | List[Operator]
-                          | List[Tuple[Tuple[Operator, Port], Tuple[Operator, Port]]]):
+    def GetModification(
+        self,
+    ) -> (
+        None
+        | List[Operator]
+        | List[Tuple[Tuple[Operator, Port], Tuple[Operator, Port]]]
+    ):
         """
         Return "what's new" brought by this patch.
 

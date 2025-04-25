@@ -64,14 +64,14 @@ class TexeraOperatorTypes:
         RUDF = "RUDF"
         RUDFSource = "RUDFSource"
 
+
 def get_flat_list(cls):
     result = []
     for attr_name in dir(cls):
         attr_value = getattr(cls, attr_name)
-        if not attr_name.startswith('__') and not callable(attr_value):
+        if not attr_name.startswith("__") and not callable(attr_value):
             if isinstance(attr_value, type):
                 result.extend(get_flat_list(attr_value))
             else:
                 result.append(attr_value)
     return result
-

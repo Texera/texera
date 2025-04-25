@@ -29,8 +29,9 @@ class Workflow(ABC):
         :return:
         """
         pass
+
     @abstractmethod
-    def GetOperators(self, types: List[str] = None) -> List['Operator']:
+    def GetOperators(self, types: List[str] = None) -> List["Operator"]:
         """
         Return a list of operators. If the given list of types is non-empty,
         filter and only keep those operators of those types.
@@ -38,7 +39,7 @@ class Workflow(ABC):
         pass
 
     @abstractmethod
-    def TopologicalSort(self) -> List['Operator']:
+    def TopologicalSort(self) -> List["Operator"]:
         """
         Perform a topological sort on the operators in the workflow.
         """
@@ -53,13 +54,19 @@ class Workflow(ABC):
         pass
 
     @abstractmethod
-    def GetSchemaToNextOperatorDistributionMapping(self) -> Dict['DataSchema', Dict[str, int]]:
+    def GetSchemaToNextOperatorDistributionMapping(
+        self,
+    ) -> Dict["DataSchema", Dict[str, int]]:
         pass
 
     @abstractmethod
-    def GetOperatorTypeToNextOperatorDistributionMapping(self) -> Dict[str, Dict[str, int]]:
+    def GetOperatorTypeToNextOperatorDistributionMapping(
+        self,
+    ) -> Dict[str, Dict[str, int]]:
         pass
 
     @abstractmethod
-    def GetAdditionPairs(self) -> List[Tuple[Tuple[Operator, Port], Tuple[Operator, Port]]]:
+    def GetAdditionPairs(
+        self,
+    ) -> List[Tuple[Tuple[Operator, Port], Tuple[Operator, Port]]]:
         pass

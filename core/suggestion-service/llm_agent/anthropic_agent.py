@@ -1,4 +1,5 @@
 """Anthropic Claude LLM agent."""
+
 import os
 import json
 from typing import Dict, Any, List, Optional
@@ -14,7 +15,7 @@ from output_formatter.formatter import format_raw_suggestions
 class AnthropicAgent(LLMAgent):
     """
     Implementation of the LLM agent interface using Anthropic's Claude API.
-    
+
     This agent supports different Claude models, such as:
     - claude-3-opus-20240229
     - claude-3-sonnet-20240229
@@ -22,66 +23,66 @@ class AnthropicAgent(LLMAgent):
     - claude-2.1
     - claude-2.0
     """
-    
-    def __init__(self, 
-                 model: str = "claude-3-opus-20240229",
-                 api_key: Optional[str] = None):
+
+    def __init__(
+        self, model: str = "claude-3-opus-20240229", api_key: Optional[str] = None
+    ):
         """
         Initialize the Anthropic Claude agent.
-        
+
         Args:
             model: The Claude model to use
             api_key: The Anthropic API key (if None, uses ANTHROPIC_API_KEY environment variable)
         """
         self.model = model
         self.client = Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
-        
-    def generate_suggestions(self, 
-                            prompt: str, 
-                            max_suggestions: int = 3,
-                            temperature: float = 0.7,
-                            max_tokens: Optional[int] = None,
-                            **kwargs) -> List[Dict[str, Any]]:
+
+    def generate_suggestions(
+        self,
+        prompt: str,
+        max_suggestions: int = 3,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
         """
         Generate workflow suggestions using Anthropic's Claude API.
-        
+
         Args:
             prompt: The natural language prompt describing the workflow
             max_suggestions: Maximum number of suggestions to generate
             temperature: Sampling temperature (0.0-1.0) where lower is more deterministic
             max_tokens: Maximum number of tokens to generate (if None, defaults to 4096)
             **kwargs: Additional Claude-specific parameters
-            
+
         Returns:
             A list of suggestion dictionaries formatted according to the interface
         """
         # Enhance the prompt with instruction about the output format
         system_prompt = self._create_system_prompt(max_suggestions)
-        
+
         try:
             response = self.client.messages.create(
                 model=self.model,
                 system=system_prompt,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 temperature=temperature,
                 max_tokens=max_tokens or 4096,
-                **kwargs
+                **kwargs,
             )
-            
+
             # Extract content from the response
             raw_content = response.content[0].text
-            
+
             # Parse and format the suggestions
             suggestions = format_raw_suggestions(raw_content)
-            
+
             return suggestions[:max_suggestions]
-            
+
         except Exception as e:
             print(f"Error generating suggestions with Anthropic Claude: {str(e)}")
             return []
-            
+
     def _create_system_prompt(self, max_suggestions: int) -> str:
         """Create the system prompt for the Claude model."""
         return f"""You are an AI assistant that helps users improve their Texera workflows by suggesting useful modifications.
@@ -134,4 +135,4 @@ Structure each suggestion as a valid JSON object with the following format:
 }}
 
 Output all suggestions as a valid JSON array and ensure each suggestion follows the exact format above.
-Be sure to only generate valid JSON in your response.""" 
+Be sure to only generate valid JSON in your response."""
