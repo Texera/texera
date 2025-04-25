@@ -12,5 +12,5 @@ typing-extensions==4.8.0  # Enhanced typing support
 python-dotenv==1.0.0     # For loading environment variables
 
 # LLM API clients
-openai==1.5.0            # OpenAI API client
-anthropic==0.6.0         # Anthropic API client 
+openai==1.76.0            # OpenAI API client
+anthropic==0.50.0         # Anthropic API client

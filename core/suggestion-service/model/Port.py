@@ -12,6 +12,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
+
 class Port(ABC):
     @abstractmethod
     def IsInputPort(self) -> bool:
@@ -56,7 +57,7 @@ class Port(ABC):
         pass
 
     @abstractmethod
-    def GetDataSchema(self) -> 'DataSchema':
+    def GetDataSchema(self) -> "DataSchema":
         """
         return the data schema annotated to this port
         """
@@ -70,19 +71,19 @@ class Port(ABC):
         pass
 
     @abstractmethod
-    def GetAffiliateOperator(self) -> 'Operator':
+    def GetAffiliateOperator(self) -> "Operator":
         """
         Return the operator that this port is affiliated to
         """
         pass
 
-    def GetTargetPorts(self) -> List['Port']:
+    def GetTargetPorts(self) -> List["Port"]:
         """
         Return the list of ports that this port(must be an output port) is sourcing
         """
         pass
 
-    def GetSourcePorts(self) -> List['Port']:
+    def GetSourcePorts(self) -> List["Port"]:
         """
         Return the list of ports that this port(must be an input port) is being targeting
         """

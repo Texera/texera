@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional
 from openai import OpenAI
 
 from llm_agent.base import LLMAgent, LLMAgentFactory
+from llm_agent.model import SuggestionList
 
 
 @LLMAgentFactory.register("openai")
@@ -13,12 +14,7 @@ class OpenAIAgent(LLMAgent):
     Implementation of the LLM agent using OpenAI's `responses.create` API with JSON Schema validation.
     """
 
-    def __init__(self,
-                 model: str = "gpt-4o-2024-08-06",
-                 tools: list = [],
-                 api_key: Optional[str] = None,
-                 project: Optional[str] = None,
-                 ):
+    def __init__(self, model, tools, api_key, project, organization):
         """
         Initialize the OpenAI agent.
 
@@ -29,23 +25,25 @@ class OpenAIAgent(LLMAgent):
         """
         self.model = model
         self.tools = tools
-        self.client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"),
-                             project=project or os.environ.get("OPENAI_PROJECT_ID"))
+        self.client = OpenAI(
+            api_key=api_key, project=project, organization=organization
+        )
 
         # Load JSON Schema from file
-        with open("output_format.json", "r") as f:
+        with open("files/output_format.json", "r") as f:
             self.schema = json.load(f)
 
         # Load instruction from file
-        with open("instruction.md", "r") as f:
+        with open("files/instruction.md", "r") as f:
             self.instruction = f.read()
 
-    def generate_suggestions(self,
-                             prompt: str,
-                             max_suggestions: int = 3,
-                             temperature: float = 0.7,
-                             max_tokens: Optional[int] = None,
-                             **kwargs) -> List[Dict[str, Any]]:
+    def generate_suggestions(
+        self,
+        prompt: str,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
         """
         Generate workflow suggestions using OpenAI's `responses.create` endpoint with schema enforcement.
 
@@ -69,14 +67,14 @@ class OpenAIAgent(LLMAgent):
                     "format": {
                         "type": "json_schema",
                         "name": "workflow_suggestions",
-                        "schema": self.schema,
-                        "strict": True
+                        "schema": SuggestionList.model_json_schema(),  # from Pydantic
+                        "strict": False,
                     }
-                }
+                },
             )
-
+            event = response.output_text
             suggestions = json.loads(response.output_text)
-            return suggestions[:max_suggestions]
+            return suggestions["suggestions"]
 
         except Exception as e:
             print(f"Error generating suggestions: {e}")

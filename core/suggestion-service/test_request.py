@@ -10,36 +10,29 @@ workflow_json = {
         "Source-Scan-1": {
             "operatorID": "Source-Scan-1",
             "operatorType": "SourceScan",
-            "operatorProperties": {
-                "tableName": "users",
-                "limit": 100
-            },
+            "operatorProperties": {"tableName": "users", "limit": 100},
             "inputPorts": [],
-            "outputPorts": [
-                {"portID": "output-0", "displayName": "output"}
-            ]
+            "outputPorts": [{"portID": "output-0", "displayName": "output"}],
         },
         "View-Results-1": {
             "operatorID": "View-Results-1",
             "operatorType": "ViewResults",
             "operatorProperties": {},
-            "inputPorts": [
-                {"portID": "input-0", "displayName": "input"}
-            ],
-            "outputPorts": []
-        }
+            "inputPorts": [{"portID": "input-0", "displayName": "input"}],
+            "outputPorts": [],
+        },
     },
     "links": [
         {
             "linkID": "link-1",
             "source": {"operatorID": "Source-Scan-1", "portID": "output-0"},
-            "target": {"operatorID": "View-Results-1", "portID": "input-0"}
+            "target": {"operatorID": "View-Results-1", "portID": "input-0"},
         }
     ],
     "operatorPositions": {
         "Source-Scan-1": {"x": 100, "y": 100},
-        "View-Results-1": {"x": 400, "y": 100}
-    }
+        "View-Results-1": {"x": 400, "y": 100},
+    },
 }
 
 # Sample compilation state
@@ -49,21 +42,21 @@ compilation_state = {
         "operators": {
             "Source-Scan-1": {
                 "operatorID": "Source-Scan-1",
-                "operatorType": "SourceScan"
+                "operatorType": "SourceScan",
             },
             "View-Results-1": {
                 "operatorID": "View-Results-1",
-                "operatorType": "ViewResults"
-            }
+                "operatorType": "ViewResults",
+            },
         },
         "links": [
             {
                 "fromOpID": "Source-Scan-1",
                 "fromPortID": "output-0",
                 "toOpID": "View-Results-1",
-                "toPortID": "input-0"
+                "toPortID": "input-0",
             }
-        ]
+        ],
     },
     "operatorInputSchemaMap": {
         "View-Results-1": [
@@ -71,10 +64,10 @@ compilation_state = {
                 {"attributeName": "id", "attributeType": "long"},
                 {"attributeName": "name", "attributeType": "string"},
                 {"attributeName": "email", "attributeType": "string"},
-                {"attributeName": "age", "attributeType": "integer"}
+                {"attributeName": "age", "attributeType": "integer"},
             ]
         ]
-    }
+    },
 }
 
 # Sample result tables
@@ -83,9 +76,9 @@ result_tables = {
         "rows": [
             {"id": 1, "name": "John Doe", "email": "john@example.com", "age": 30},
             {"id": 2, "name": "Jane Smith", "email": "jane@example.com", "age": 25},
-            {"id": 3, "name": "Bob Johnson", "email": "bob@example.com", "age": 40}
+            {"id": 3, "name": "Bob Johnson", "email": "bob@example.com", "age": 40},
         ],
-        "columnNames": ["id", "name", "email", "age"]
+        "columnNames": ["id", "name", "email", "age"],
     }
 }
 
@@ -93,13 +86,13 @@ result_tables = {
 request_data = {
     "workflow": json.dumps(workflow_json),
     "compilationState": compilation_state,
-    "resultTables": result_tables
+    "resultTables": result_tables,
 }
 
 # Send the request
 try:
     response = requests.post(API_URL, json=request_data)
-    
+
     # Print the response
     if response.status_code == 200:
         print("Suggestions received:")
@@ -107,7 +100,9 @@ try:
         for i, suggestion in enumerate(suggestions, 1):
             print(f"\nSuggestion {i}: {suggestion['description']}")
             print(f"  Operators to add: {len(suggestion['operatorsToAdd'])}")
-            print(f"  Properties to change: {len(suggestion['operatorPropertiesToChange'])}")
+            print(
+                f"  Properties to change: {len(suggestion['operatorPropertiesToChange'])}"
+            )
             print(f"  Operators to delete: {len(suggestion['operatorsToDelete'])}")
             print(f"  Links to add: {len(suggestion['linksToAdd'])}")
     else:
@@ -120,4 +115,4 @@ except Exception as e:
 To run this test:
 1. Start the suggestion service: python app.py
 2. In another terminal, run this script: python test_request.py
-""" 
+"""
