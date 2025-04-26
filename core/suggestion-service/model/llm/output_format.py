@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 
 
-class OperatorPropertyChange(BaseModel):
+class Operator(BaseModel):
     operatorType: str
     operatorID: str
     operatorProperties: dict
@@ -32,7 +32,7 @@ class Link(BaseModel):
 
 
 class Changes(BaseModel):
-    operatorsToAdd: List[OperatorPropertyChange]
+    operatorsToAdd: List[Operator]
     linksToAdd: List[Link]
     operatorsToDelete: List[str]
 

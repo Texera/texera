@@ -1,1 +1,114 @@
-[]
+[
+  {
+    "suggestion": "Fix the Line Chart configuration to prevent compilation errors.",
+    "suggestionType": "fix",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorType": "LineChart",
+          "operatorID": "LineChart-operator-e3009841-32e4-4080-a6e4-f659762b3865",
+          "operatorProperties": {
+            "yLabel": "Favorites Count",
+            "xLabel": "Creation Month",
+            "lines": [
+              {
+                "line": {
+                  "xColumn": "create_at_month",
+                  "yColumn": "favorite_count"
+                }
+              }
+            ]
+          },
+          "customDisplayName": "Line Chart"
+        }
+      ],
+      "linksToAdd": [],
+      "operatorsToDelete": []
+    }
+  },
+  {
+    "suggestion": "Add a Filter operator to remove tweets with zero favorites or retweets for more meaningful analysis.",
+    "suggestionType": "improve",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorID": "Filter-operator-new",
+          "operatorType": "Filter",
+          "operatorProperties": {
+            "predicates": [
+              {
+                "attributeName": "favorite_count",
+                "predicateType": "GREATER_THAN",
+                "value": 0
+              },
+              {
+                "attributeName": "retweet_count",
+                "predicateType": "GREATER_THAN",
+                "value": 0
+              }
+            ]
+          },
+          "customDisplayName": "Filter"
+        }
+      ],
+      "linksToAdd": [
+        {
+          "linkID": "link-new-1",
+          "source": {
+            "operatorID": "Projection-operator-fa6c76fa-3208-4f20-9b44-f920b91e898c",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "Filter-operator-new",
+            "portID": "input-0"
+          }
+        },
+        {
+          "linkID": "link-new-2",
+          "source": {
+            "operatorID": "Filter-operator-new",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "Sort-operator-3985eaf1-5af2-4f4a-bd0f-1c4b3f7e78c2",
+            "portID": "input-0"
+          }
+        }
+      ],
+      "operatorsToDelete": []
+    }
+  },
+  {
+    "suggestion": "Add a Bar Chart operator to visualize the top 10 tweets by favorite count for better insights.",
+    "suggestionType": "improve",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorID": "BarChart-operator-new",
+          "operatorType": "BarChart",
+          "operatorProperties": {
+            "groupBy": "tweet_id",
+            "barValue": "favorite_count",
+            "xLabel": "Tweet ID",
+            "yLabel": "Favorite Count"
+          },
+          "customDisplayName": "Bar Chart"
+        }
+      ],
+      "linksToAdd": [
+        {
+          "linkID": "link-new-3",
+          "source": {
+            "operatorID": "Sort-operator-3985eaf1-5af2-4f4a-bd0f-1c4b3f7e78c2",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "BarChart-operator-new",
+            "portID": "input-0"
+          }
+        }
+      ],
+      "operatorsToDelete": []
+    }
+  }
+]

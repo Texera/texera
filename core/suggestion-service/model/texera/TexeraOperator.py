@@ -2,6 +2,7 @@ from typing import Dict, List, Tuple
 
 from model.DataSchema import DataSchema
 from model.Operator import Operator
+from model.llm.interpretation import PortInterpretation, OperatorInterpretation
 from model.texera.TexeraPort import TexeraPort
 
 
@@ -10,7 +11,7 @@ class TexeraOperator(Operator):
         self,
         operator_dict: dict,
         port_indexed_input_schemas: List["DataSchema"] = [],
-        error: str = "",
+        error: dict = {},
     ):
         self.operator_id = operator_dict.get("operatorID", "")
         self.operator_type = operator_dict.get("operatorType", "")
@@ -48,7 +49,14 @@ class TexeraOperator(Operator):
         self.dynamic_output_ports = operator_dict.get("dynamicOutputPorts", False)
         self.view_result = operator_dict.get("viewResult", False)
         self.input_schema = port_indexed_input_schemas
-        self.error = error
+        if error != {}:
+            self.error = {
+                "type": error.get("type").get("name"),
+                "message": error.get("message"),
+                "details": error.get("details"),
+            }
+        else:
+            self.error = None
 
     def GetName(self) -> str:
         return self.custom_display_name
@@ -88,6 +96,21 @@ class TexeraOperator(Operator):
 
     def IsViewResult(self) -> bool:
         return self.view_result
+
+    # Add this method to TexeraOperator
+
+    def ToPydantic(self) -> OperatorInterpretation:
+
+        return OperatorInterpretation(
+            operatorID=self.operator_id,
+            operatorType=self.operator_type,
+            customDisplayName=self.custom_display_name or None,
+            operatorProperties=self.operator_properties,
+            error=self.error,
+            inputSchemas={
+                port.GetId(): port.ToPydantic() for port in self.GetInputPorts()
+            },
+        )
 
     def __str__(self) -> str:
         input_ports_str = "\n    ".join([str(port) for port in self.GetInputPorts()])
