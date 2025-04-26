@@ -107,7 +107,7 @@ def generate_suggestions(dir_name: str):
 
 def run_all():
     """Run interpretation and suggestion on all workflows."""
-    workflows = ["workflow1", "workflow2", "workflow3"]
+    workflows = ["workflow3"]
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     for dir_name in workflows:

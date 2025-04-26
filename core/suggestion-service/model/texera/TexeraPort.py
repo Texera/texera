@@ -3,6 +3,11 @@ from typing import List
 from model.DataSchema import DataSchema
 from model.Operator import Operator
 from model.Port import Port
+from model.llm.interpretation import (
+    PortInterpretation,
+    SchemaInterpretation,
+    AttributeInterpretation,
+)
 
 
 class TexeraPort(Port):
@@ -58,6 +63,16 @@ class TexeraPort(Port):
 
     def GetAffiliateOperator(self) -> "Operator":
         return self.affiliate_operator
+
+    def ToPydantic(self) -> PortInterpretation:
+        attributeList = [
+            AttributeInterpretation(attributeName=attr.name, attributeType=attr.type)
+            for attr in self.GetDataSchema().attributes
+        ]
+        return PortInterpretation(
+            portID=self.GetId(),
+            inputSchema=SchemaInterpretation(attributes=attributeList),
+        )
 
     def __str__(self) -> str:
         return (

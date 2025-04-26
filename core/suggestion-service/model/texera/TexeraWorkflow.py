@@ -7,6 +7,11 @@ from model.Port import Port
 from model.DataSchema import DataSchema
 
 from model.Workflow import Workflow
+from model.llm.interpretation import (
+    WorkflowInterpretation,
+    LinkInterpretation,
+    LinkEndInterpretation,
+)
 from model.texera.TexeraOperator import TexeraOperator
 
 
@@ -26,12 +31,10 @@ class TexeraWorkflow(Workflow):
     def __init__(
         self,
         workflow_dict: Dict[str, Any] = None,
-        input_schema: Dict[str, Any] = None,
+        input_schema: Dict[str, List] = None,
         operator_errors: Dict[str, Any] = None,
         wid: int = 0,
         workflow_title: str = "",
-        operators: Dict[str, "TexeraOperator"] = None,
-        links: List[Any] = None,
     ):
         """
         Initialize a TexeraWorkflow from either a workflow dictionary or directly from operators and links.
@@ -57,46 +60,11 @@ class TexeraWorkflow(Workflow):
         self.workflow_content = None
 
         # Initialize based on provided parameters
-        if operators is not None and links is not None:
-            # Direct operators and links provided
-            self.operators = operators
-            self.links = links
-            self.workflow_dict = self._create_workflow_dict_from_operators_and_links(
-                operators, links
-            )
-            self.workflow_content = json.dumps(self.workflow_dict)
-            self._build_dag_from_operators_and_links()
-        elif workflow_dict is not None:
+        if workflow_dict is not None:
             # Initialize from workflow dictionary
             self.workflow_dict = workflow_dict
             self.workflow_content = json.dumps(workflow_dict)
             self.initialize_from_dict(workflow_dict)
-
-    def _create_workflow_dict_from_operators_and_links(
-        self, operators: Dict[str, "TexeraOperator"], links: List[Any]
-    ) -> Dict[str, Any]:
-        """Create a workflow dictionary from operators and links."""
-        workflow_dict = {"content": {"operators": [], "links": []}}
-
-        # Add operators to the workflow dict
-        for op_id, operator in operators.items():
-            workflow_dict["content"]["operators"].append(operator.GetOperatorDict())
-
-        # Add links to the workflow dict
-        for link in links:
-            link_dict = {
-                "source": {
-                    "operatorID": link.source.operator_id,
-                    "portID": link.source.port_id,
-                },
-                "target": {
-                    "operatorID": link.target.operator_id,
-                    "portID": link.target.port_id,
-                },
-            }
-            workflow_dict["content"]["links"].append(link_dict)
-
-        return workflow_dict
 
     def initialize_from_dict(self, workflow_dict: Dict[str, Any]) -> None:
         """Initialize the workflow from a dictionary."""
@@ -120,7 +88,7 @@ class TexeraWorkflow(Workflow):
                     port_indexed_input_schemas=self._get_input_schemas_for_operator(
                         op_id
                     ),
-                    error=self.operator_errors.get(op_id, ""),
+                    error=self.operator_errors.get(op_id, {}),
                 )
 
         # Build the DAG (adds links and completes initialization)
@@ -283,8 +251,9 @@ class TexeraWorkflow(Workflow):
             for op_id in path
             if op_id in self.input_schema
         }
+
         path_operator_errors = {
-            op_id: self.operator_errors.get(op_id, "")
+            op_id: self.operator_errors.get(op_id)
             for op_id in path
             if op_id in self.operator_errors
         }
@@ -397,7 +366,8 @@ class TexeraWorkflow(Workflow):
         """Extract input schemas for a given operator from the input_schema dictionary."""
         if not self.input_schema or operator_id not in self.input_schema:
             return []
-        return self.input_schema.get(operator_id, [])
+        schema_list = self.input_schema.get(operator_id, [])
+        return [DataSchema(s) for s in schema_list]
 
     def __str__(self) -> str:
         operators_str = "\n".join([str(operator) for operator in self.GetOperators()])
@@ -430,3 +400,22 @@ class TexeraWorkflow(Workflow):
             )
 
         return visualization
+
+    def ToPydantic(self) -> WorkflowInterpretation:
+        return WorkflowInterpretation(
+            operators={
+                op_id: operator.ToPydantic()
+                for op_id, operator in self.operators.items()
+            },
+            links=[
+                LinkInterpretation(
+                    source=LinkEndInterpretation(
+                        operatorID=link.source.operator_id, portID=link.source.port_id
+                    ),
+                    target=LinkEndInterpretation(
+                        operatorID=link.target.operator_id, portID=link.target.port_id
+                    ),
+                )
+                for link in self.links
+            ],
+        )
