@@ -8,7 +8,6 @@ import anthropic
 from anthropic import Anthropic
 
 from llm_agent.base import LLMAgent, LLMAgentFactory
-from output_formatter.formatter import format_raw_suggestions
 
 
 @LLMAgentFactory.register("anthropic")
@@ -74,10 +73,7 @@ class AnthropicAgent(LLMAgent):
             # Extract content from the response
             raw_content = response.content[0].text
 
-            # Parse and format the suggestions
-            suggestions = format_raw_suggestions(raw_content)
-
-            return suggestions[:max_suggestions]
+            return raw_content[:max_suggestions]
 
         except Exception as e:
             print(f"Error generating suggestions with Anthropic Claude: {str(e)}")

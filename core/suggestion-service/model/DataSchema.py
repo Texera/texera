@@ -23,8 +23,7 @@
 ## constructors
 ## take a list of Attriubte
 from enum import Enum
-from typing import List, Set
-
+from typing import List, Set, Dict
 
 # Define the AttributeType enum
 from enum import Enum
@@ -73,8 +72,12 @@ class Attribute:
 
 # Define the DataSchema class
 class DataSchema:
-    def __init__(self, attributes: List[Attribute]):
-        self._attributes: FrozenSet[Attribute] = frozenset(attributes)
+    def __init__(self, attributes: List[Dict]):
+        attributeList = [
+            Attribute(a.get("attributeName"), a.get("attributeType"))
+            for a in attributes
+        ]
+        self._attributes: FrozenSet[Attribute] = frozenset(attributeList)
 
     @property
     def attributes(self) -> FrozenSet[Attribute]:

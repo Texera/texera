@@ -1,1 +1,116 @@
-[]
+[
+  {
+    "suggestion": "Integrate data visualization to understand tweet popularity",
+    "suggestionType": "improve",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorType": "BarChart",
+          "operatorID": "BarChart-operator-001",
+          "operatorProperties": {
+            "dummyPropertyList": [],
+            "Category Attribute": "create_at_month",
+            "Value Attribute": "favorite_count"
+          },
+          "customDisplayName": "Monthly Favorites Chart"
+        }
+      ],
+      "linksToAdd": [
+        {
+          "linkID": "link-003",
+          "source": {
+            "operatorID": "Sort-operator-82fa7c7a-d1e1-45a6-8510-1f57c223e260",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "BarChart-operator-001",
+            "portID": "input-0"
+          }
+        }
+      ],
+      "operatorsToDelete": []
+    }
+  },
+  {
+    "suggestion": "Add a filter to exclude zero favorite counts",
+    "suggestionType": "improve",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorType": "Filter",
+          "operatorID": "Filter-operator-002",
+          "operatorProperties": {
+            "conditions": [
+              {
+                "attributeName": "favorite_count",
+                "comparison": "GT",
+                "value": "0"
+              }
+            ]
+          },
+          "customDisplayName": "Filter Non-Favorites"
+        }
+      ],
+      "linksToAdd": [
+        {
+          "linkID": "link-004",
+          "source": {
+            "operatorID": "Projection-operator-b6799195-ecc4-426a-8e29-57e9248aa71f",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "Filter-operator-002",
+            "portID": "input-0"
+          }
+        },
+        {
+          "linkID": "link-005",
+          "source": {
+            "operatorID": "Filter-operator-002",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "Sort-operator-82fa7c7a-d1e1-45a6-8510-1f57c223e260",
+            "portID": "input-0"
+          }
+        }
+      ],
+      "operatorsToDelete": [
+        {
+          "operatorID": "Filter-operator-002"
+        }
+      ]
+    }
+  },
+  {
+    "suggestion": "Add a keyword extraction step to analyze tweet content",
+    "suggestionType": "improve",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorType": "KeywordExtraction",
+          "operatorID": "KeywordExtraction-operator-003",
+          "operatorProperties": {
+            "textColumn": "text",
+            "keywordTopK": 10
+          },
+          "customDisplayName": "Extract Keywords"
+        }
+      ],
+      "linksToAdd": [
+        {
+          "linkID": "link-006",
+          "source": {
+            "operatorID": "PythonUDFV2-operator-29189f24-4d27-413f-9b67-1c8b37529289",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "KeywordExtraction-operator-003",
+            "portID": "input-0"
+          }
+        }
+      ],
+      "operatorsToDelete": []
+    }
+  }
+]

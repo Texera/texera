@@ -1,1 +1,76 @@
-[]
+[
+  {
+    "suggestion": "Add a Word Cloud visualization to display the most frequent words from the text column.",
+    "suggestionType": "improve",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorType": "WordCloud",
+          "operatorID": "WordCloud-operator-12345",
+          "operatorProperties": {
+            "textColumn": "text",
+            "topN": 50
+          },
+          "customDisplayName": "Word Cloud"
+        }
+      ],
+      "linksToAdd": [
+        {
+          "linkID": "link-678",
+          "source": {
+            "operatorID": "CSVFileScan-operator-02af511d-2912-4d48-a86e-8ac73a6e2b0e",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "WordCloud-operator-12345",
+            "portID": "input-0"
+          }
+        }
+      ],
+      "operatorsToDelete": []
+    }
+  },
+  {
+    "suggestion": "Apply a filtering operator to filter tweets by language before projection.",
+    "suggestionType": "improve",
+    "changes": {
+      "operatorsToAdd": [
+        {
+          "operatorType": "DictionaryMatcher",
+          "operatorID": "DictionaryMatcher-operator-67890",
+          "operatorProperties": {
+            "Dictionary": "English",
+            "Attribute": "lang",
+            "result attribute": "matched"
+          },
+          "customDisplayName": "Language Filter"
+        }
+      ],
+      "linksToAdd": [
+        {
+          "linkID": "link-789",
+          "source": {
+            "operatorID": "CSVFileScan-operator-02af511d-2912-4d48-a86e-8ac73a6e2b0e",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "DictionaryMatcher-operator-67890",
+            "portID": "input-0"
+          }
+        },
+        {
+          "linkID": "link-790",
+          "source": {
+            "operatorID": "DictionaryMatcher-operator-67890",
+            "portID": "output-0"
+          },
+          "target": {
+            "operatorID": "Projection-operator-9d955369-5e4d-44f9-a6f3-ec66b1192894",
+            "portID": "input-0"
+          }
+        }
+      ],
+      "operatorsToDelete": []
+    }
+  }
+]

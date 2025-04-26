@@ -1,11 +1,10 @@
-import os
 import json
 from typing import Dict, Any, List, Optional
 
 from openai import OpenAI
 
 from llm_agent.base import LLMAgent, LLMAgentFactory
-from llm_agent.model import SuggestionList
+from model.llm.output_format import SuggestionList
 
 
 @LLMAgentFactory.register("openai")
@@ -72,7 +71,6 @@ class OpenAIAgent(LLMAgent):
                     }
                 },
             )
-            event = response.output_text
             suggestions = json.loads(response.output_text)
             return suggestions["suggestions"]
 

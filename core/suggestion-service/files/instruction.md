@@ -28,57 +28,7 @@ You are an AI assistant that helps users improve their Texera workflows. Your ta
 
 * Do not include extra explanation or commentary. Your response must be a valid JSON array of suggestion objects. It will be parsed automatically.
 
-# Examples
-
-<user_query>
-Here is the workflow dict:
-{ ... }
-
-Here is the input schema for each operator:
-{ ... }
-</user_query>
-
-<assistant_response>
-{
-  "suggestions": 
-   [
-    {
-      "suggestion": "Add a keyword search operator before the join.",
-      "suggestionType": "improve",
-      "changes": {
-        "operatorsToAdd": [
-          {
-            "operatorType": "KeywordSearch",
-            "operatorID": "KeywordSearch-operator-123456",
-            "operatorProperties": {
-              "attribute": "description",
-              "keywords": ["urgent", "delayed"]
-            },
-            "customDisplayName": "Keyword Search"
-          }
-        ],
-        "linksToAdd": [
-          {
-            "linkID": "link-789",
-            "source": {
-              "operatorID": "KeywordSearch-operator-123456",
-              "portID": "output-0"
-            },
-            "target": {
-              "operatorID": "Join-operator-456",
-              "portID": "input-0"
-            }
-          }
-        ],
-        "operatorsToDelete": []
-      }
-    }
-  ]
-}
-</assistant_response>
-"""
-
 # Tips
-* For available operator types and their format, you should do a search in the operator_format.json file in the knowledge base.
-* When adding the links, you must make sure the operatorID in the each link exists either in given workflow json, or in the new operator list
+* For available operator types and their format, you MUST do a search in the operator_json_schema.json file in the knowledge base to know the json format of the operator you want to recommend
+* When adding the links, you MUST make sure the operatorID in the each link exists either in given workflow json, or in the new operator list
 * suggestion field in each suggestion should be high level. You do NOT need to explain the detail like add `X` after `Y`.
