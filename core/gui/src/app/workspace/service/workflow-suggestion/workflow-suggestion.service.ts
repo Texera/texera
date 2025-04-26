@@ -73,31 +73,32 @@ export class WorkflowSuggestionService {
     private workflowCompilingService: WorkflowCompilingService
   ) {
 
-    // Listen for workflow changes and refresh suggestions
-    // This follows the same pattern as WorkflowCompilingService
-    merge(
-      this.workflowActionService.getTexeraGraph().getLinkAddStream(),
-      this.workflowActionService.getTexeraGraph().getLinkDeleteStream(),
-      this.workflowActionService.getTexeraGraph().getOperatorAddStream(),
-      this.workflowActionService.getTexeraGraph().getOperatorDeleteStream(),
-      this.workflowActionService.getTexeraGraph().getOperatorPropertyChangeStream(),
-      this.workflowActionService.getTexeraGraph().getDisabledOperatorsChangedStream()
-    )
-      .pipe(
-        // Debounce to avoid too many requests during rapid changes
-        debounceTime(1000),
-        // Skip refreshing if preview is active
-        filter(() => !this.previewActiveStream.getValue())
-      )
-      .subscribe(() => {
-        console.log("WorkflowSuggestionService: Workflow change detected");
-        // Only refresh if there are operators in the workflow
-        const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
-        if (operators.length > 0) {
-          console.log(`WorkflowSuggestionService: Refreshing with ${operators.length} operators`);
-          this.refreshSuggestions();
-        }
-      });
+    // Comment out the subscription to make the suggesetion not that often
+    // // Listen for workflow changes and refresh suggestions
+    // // This follows the same pattern as WorkflowCompilingService
+    // merge(
+    //   this.workflowActionService.getTexeraGraph().getLinkAddStream(),
+    //   this.workflowActionService.getTexeraGraph().getLinkDeleteStream(),
+    //   this.workflowActionService.getTexeraGraph().getOperatorAddStream(),
+    //   this.workflowActionService.getTexeraGraph().getOperatorDeleteStream(),
+    //   this.workflowActionService.getTexeraGraph().getOperatorPropertyChangeStream(),
+    //   this.workflowActionService.getTexeraGraph().getDisabledOperatorsChangedStream()
+    // )
+    //   .pipe(
+    //     // Debounce to avoid too many requests during rapid changes
+    //     debounceTime(1000),
+    //     // Skip refreshing if preview is active
+    //     filter(() => !this.previewActiveStream.getValue())
+    //   )
+    //   .subscribe(() => {
+    //     console.log("WorkflowSuggestionService: Workflow change detected");
+    //     // Only refresh if there are operators in the workflow
+    //     const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
+    //     if (operators.length > 0) {
+    //       console.log(`WorkflowSuggestionService: Refreshing with ${operators.length} operators`);
+    //       this.refreshSuggestions();
+    //     }
+    //   });
 
     // Subscribe to execution state changes to refresh suggestions
     this.executeWorkflowService
@@ -138,34 +139,34 @@ export class WorkflowSuggestionService {
         }
       });
 
-    // Subscribe to workflow result updates
-    this.workflowResultService
-      .getResultUpdateStream()
-      .pipe(
-        // Skip if preview is active
-        filter(() => !this.previewActiveStream.getValue())
-      )
-      .subscribe(resultUpdate => {
-        // Only process if there are new results and we're not in a preview
-        if (resultUpdate && Object.keys(resultUpdate).length > 0) {
-          console.log("WorkflowSuggestionService: Result update detected for operators:", Object.keys(resultUpdate));
-
-          // Debounce multiple result updates that come in quick succession
-          const now = Date.now();
-          if (now - this.lastResultUpdateTime > this.resultUpdateDebounceMs) {
-            this.lastResultUpdateTime = now;
-
-            // Refresh suggestions with the new results
-            const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
-            if (operators.length > 0) {
-              console.log("WorkflowSuggestionService: Refreshing suggestions after result update");
-              this.refreshSuggestions();
-            }
-          } else {
-            console.log("WorkflowSuggestionService: Skipping result update refresh (debounce)");
-          }
-        }
-      });
+    // // Subscribe to workflow result updates
+    // this.workflowResultService
+    //   .getResultUpdateStream()
+    //   .pipe(
+    //     // Skip if preview is active
+    //     filter(() => !this.previewActiveStream.getValue())
+    //   )
+    //   .subscribe(resultUpdate => {
+    //     // Only process if there are new results and we're not in a preview
+    //     if (resultUpdate && Object.keys(resultUpdate).length > 0) {
+    //       console.log("WorkflowSuggestionService: Result update detected for operators:", Object.keys(resultUpdate));
+    //
+    //       // Debounce multiple result updates that come in quick succession
+    //       const now = Date.now();
+    //       if (now - this.lastResultUpdateTime > this.resultUpdateDebounceMs) {
+    //         this.lastResultUpdateTime = now;
+    //
+    //         // Refresh suggestions with the new results
+    //         const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
+    //         if (operators.length > 0) {
+    //           console.log("WorkflowSuggestionService: Refreshing suggestions after result update");
+    //           this.refreshSuggestions();
+    //         }
+    //       } else {
+    //         console.log("WorkflowSuggestionService: Skipping result update refresh (debounce)");
+    //       }
+    //     }
+    //   });
   }
 
   /**
@@ -185,7 +186,7 @@ export class WorkflowSuggestionService {
     // Get the current workflow
     const workflow: Workflow = this.workflowActionService.getWorkflow();
 
-    
+
     let compilationState = {
       state: this.workflowCompilingService.getWorkflowCompilationState(),
       physicalPlan: undefined,
