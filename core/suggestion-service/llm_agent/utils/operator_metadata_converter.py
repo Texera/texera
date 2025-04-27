@@ -87,6 +87,53 @@ def convert_to_operator_predicate(schema: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def extract_json_schema(
+    operator_type: str, properties_only: bool = False
+) -> Dict[str, Any]:
+    """
+    Extract the full or properties-only JSON schema of an operatorType.
+
+    Args:
+        operator_type: The operatorType string to search for
+        properties_only: If True, only include "properties", "definitions", "required" fields
+                         and remove dummy/partition-related parts
+
+    Returns:
+        A dictionary containing the extracted JSON schema.
+    """
+    for operator_schema in operator_metadata["operators"]:
+        if operator_schema["operatorType"] == operator_type:
+            json_schema = operator_schema.get("jsonSchema")
+            if not json_schema:
+                raise ValueError(
+                    f"No jsonSchema found for operatorType '{operator_type}'"
+                )
+
+            if not properties_only:
+                return {"operatorType": operator_type, "jsonSchema": json_schema}
+
+            # Deepcopy to avoid modifying the original schema
+            filtered_schema = {
+                "properties": {},
+                "definitions": {},
+                "required": json_schema.get("required", []),
+            }
+
+            # Copy only valid properties
+            for prop_name, prop_value in json_schema.get("properties", {}).items():
+                if prop_name != "dummyPropertyList":
+                    filtered_schema["properties"][prop_name] = prop_value
+
+            # Copy only valid definitions
+            for def_name, def_value in json_schema.get("definitions", {}).items():
+                if def_name != "DummyProperties" and not def_name.endswith("Partition"):
+                    filtered_schema["definitions"][def_name] = def_value
+
+            return {"operatorType": operator_type, "jsonSchema": filtered_schema}
+
+    raise ValueError(f"OperatorType '{operator_type}' not found in metadata.")
+
+
 # Convert all schemas
 operator_predicates: List[Dict[str, Any]] = [
     convert_to_operator_predicate(schema) for schema in operator_metadata["operators"]
