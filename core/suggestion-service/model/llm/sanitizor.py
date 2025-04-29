@@ -11,4 +11,4 @@ class OperatorSchema(BaseModel):
 
 class SuggestionSanitization(BaseModel):
     suggestions: SuggestionList
-    schemas: OperatorSchema
+    schemas: List[OperatorSchema]

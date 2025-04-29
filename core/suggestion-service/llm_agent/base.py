@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Type
 import os
 
+from model.llm.suggestion import SuggestionList
+
 
 class LLMAgent(ABC):
     """
@@ -29,7 +31,7 @@ class LLMAgent(ABC):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> SuggestionList:
         """
         Generate workflow suggestions using the LLM provider.
 

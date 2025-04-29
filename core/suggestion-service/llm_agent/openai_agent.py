@@ -1,4 +1,5 @@
 import json
+import uuid
 from typing import Dict, Any, List, Optional
 
 from openai import OpenAI
@@ -45,7 +46,7 @@ class OpenAIAgent(LLMAgent):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> SuggestionList:
         """
         Generate workflow suggestions using OpenAI's `responses.create` endpoint with schema enforcement.
 
@@ -65,6 +66,7 @@ class OpenAIAgent(LLMAgent):
                 instructions=self.instruction_for_suggestion,
                 input=prompt,
                 tools=self.tools,
+                # text_format=SuggestionList
                 text={
                     "format": {
                         "type": "json_schema",
@@ -76,7 +78,8 @@ class OpenAIAgent(LLMAgent):
             )
 
             raw_suggestions = json.loads(raw_response.output_text)["suggestions"]
-
+            with open("raw_suggestions_debug.json", "w") as f:
+                json.dump(raw_suggestions, f, indent=2)
             # Step 2: Sanitize the suggestions
             sanitized_suggestions = self._sanitize_suggestions(raw_suggestions)
 
@@ -84,13 +87,14 @@ class OpenAIAgent(LLMAgent):
 
         except Exception as e:
             print(f"Error generating suggestions: {e}")
-            return []
+            return SuggestionList(suggestions=[])
 
     def _sanitize_suggestions(
         self, suggestions: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    ) -> SuggestionList:
         """
         Internal method to sanitize raw suggestions using OpenAI.
+        Also prechecks operatorTypes and fills missing linkIDs.
 
         Args:
             suggestions: The raw suggestions to sanitize
@@ -99,24 +103,41 @@ class OpenAIAgent(LLMAgent):
             A sanitized list of suggestions
         """
         try:
-            # Extract involved operator types
-            operator_types = set()
+            # Filter valid suggestions based on operator type
+            valid_suggestions = []
+            operator_types_seen = set()
+
             for suggestion in suggestions:
-                for op in suggestion["changes"]["operatorsToAdd"]:
-                    operator_types.add(op["operatorType"])
+                operator_types = {
+                    op["operatorType"] for op in suggestion["changes"]["operatorsToAdd"]
+                }
+                try:
+                    for op_type in operator_types:
+                        # Check validity by attempting schema extraction
+                        extract_json_schema(op_type, properties_only=True)
+                        operator_types_seen.add(op_type)
+                    # Fix missing linkIDs
+                    for link in suggestion["changes"]["linksToAdd"]:
+                        if "linkID" not in link or not link["linkID"]:
+                            link["linkID"] = f"link-{uuid.uuid4()}"
+                    valid_suggestions.append(suggestion)
+                except ValueError:
+                    # Skip suggestion if any operatorType is invalid
+                    continue
 
             # Prepare operator schemas
             operator_schemas = [
                 OperatorSchema(**extract_json_schema(op_type, properties_only=True))
-                for op_type in operator_types
+                for op_type in operator_types_seen
             ]
 
             # Build sanitizer input
             sanitization_input = SuggestionSanitization(
-                suggestions=SuggestionList(suggestions=suggestions),
+                suggestions=SuggestionList(suggestions=valid_suggestions),
                 schemas=operator_schemas,
             )
 
+            # LLM sanitization call
             sanitize_response = self.client.responses.create(
                 model=self.model,
                 instructions=self.instruction_for_sanitizor,
@@ -132,8 +153,8 @@ class OpenAIAgent(LLMAgent):
                 },
             )
 
-            sanitized = json.loads(sanitize_response.output_text)
-            return sanitized["suggestions"]
+            sanitized_result = json.loads(sanitize_response.output_text)
+            return SuggestionList(suggestions=sanitized_result["suggestions"])
 
         except Exception as e:
             print(f"Error sanitizing suggestions: {e}")
