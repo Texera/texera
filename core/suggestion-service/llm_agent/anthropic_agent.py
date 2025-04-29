@@ -8,6 +8,7 @@ import anthropic
 from anthropic import Anthropic
 
 from llm_agent.base import LLMAgent, LLMAgentFactory
+from model.llm.suggestion import SuggestionList
 
 
 @LLMAgentFactory.register("anthropic")
@@ -43,7 +44,7 @@ class AnthropicAgent(LLMAgent):
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> SuggestionList:
         """
         Generate workflow suggestions using Anthropic's Claude API.
 

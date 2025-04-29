@@ -4,6 +4,7 @@ import uuid
 import os
 from dotenv import load_dotenv
 
+from model.llm.suggestion import SuggestionList
 from workflow_interpretation.interpreter import (
     WorkflowInterpreter,
     InterpretationMethod,
@@ -72,7 +73,7 @@ class SuggestionGenerator:
         compilation_state: Dict[str, Any],
         result_tables: Dict[str, Dict[str, Any]],
         execution_state: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> SuggestionList:
         """
         Generate workflow suggestions based on the current workflow, compilation state, execution state, and result tables.
 
@@ -86,14 +87,6 @@ class SuggestionGenerator:
         Returns:
             A list of workflow suggestions
         """
-        # For debugging purposes
-        print(
-            f"Generating suggestions for workflow with {len(workflow_json.get('content', {}).get('operators', []))} operators"
-        )
-        print(f"Compilation state: {compilation_state['state']}")
-        if execution_state:
-            print(f"Execution state: {execution_state['state']}")
-        print(f"Result tables available for {len(result_tables)} operators")
 
         # Generate natural language description of the workflow
         workflow_description = self._generate_workflow_prompt(
@@ -102,36 +95,21 @@ class SuggestionGenerator:
             compilation_state.get("operatorErrors"),
         )
 
-        print("Generated workflow description:")
-        print(workflow_description)
-
         # If we have a valid LLM agent, use it to generate suggestions
         if self.llm_agent:
             try:
-                # Add context to the workflow description about compilation and execution state
-                enriched_prompt = self._enhance_prompt_with_state_info(
-                    workflow_description, compilation_state, execution_state
-                )
-
                 # Get suggestions from the LLM agent
                 suggestions = self.llm_agent.generate_suggestions(
-                    prompt=enriched_prompt,
+                    prompt=workflow_description,
                     temperature=0.7,  # Lower temperature for more focused suggestions
                 )
-
-                # Convert suggestions to the expected format for the frontend
-                # formatted_suggestions = self._convert_to_frontend_format(suggestions)
-
-                # Return generated suggestions (if any were generated)
                 return suggestions
             except Exception as e:
                 print(f"Error generating suggestions with LLM: {str(e)}")
                 # Fall back to mock suggestions on error
 
         # If LLM generation failed or agent is not available, return mock suggestions
-        return self._generate_mock_suggestions(
-            workflow_json, compilation_state, execution_state
-        )
+        return SuggestionList(suggestions=[])
 
     def _generate_workflow_prompt(
         self,

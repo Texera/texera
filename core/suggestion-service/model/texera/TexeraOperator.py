@@ -53,7 +53,7 @@ class TexeraOperator(Operator):
             self.error = {
                 "type": error.get("type").get("name"),
                 "message": error.get("message"),
-                "details": error.get("details"),
+                "details": error.get("details")[:200],
             }
         else:
             self.error = None
