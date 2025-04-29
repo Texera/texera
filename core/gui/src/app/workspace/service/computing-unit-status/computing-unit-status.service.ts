@@ -275,4 +275,11 @@ export class ComputingUnitStatusService implements OnDestroy {
   public getSelectedComputingUnitValue(): DashboardWorkflowComputingUnit | null {
     return this.selectedUnitSubject.value;
   }
+
+  /**
+   * Get the current selected computing unit value synchronously
+   */
+  public getSelectedComputingUnitValue(): DashboardWorkflowComputingUnit | null {
+    return this.selectedUnitSubject.value;
+  }
 }
