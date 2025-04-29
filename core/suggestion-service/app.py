@@ -3,10 +3,11 @@ import os
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from model.llm.suggestion import SuggestionList
 from suggestion_engine.generator import SuggestionGenerator
 
 # Load environment variables
@@ -31,47 +32,13 @@ LLM_MODEL = os.environ.get(
 MAX_SUGGESTIONS = int(os.environ.get("MAX_SUGGESTIONS", "3"))
 
 # Initialize the suggestion generator with LLM support
-suggestion_generator = SuggestionGenerator(
-    llm_provider=LLM_PROVIDER, llm_model=LLM_MODEL
-)
+suggestion_generator = SuggestionGenerator()
 
 
 # Input models
 class SchemaAttribute(BaseModel):
     attributeName: str
     attributeType: str
-
-
-class Position(BaseModel):
-    x: float
-    y: float
-
-
-class OperatorToAdd(BaseModel):
-    operatorType: str
-    position: Position
-    properties: Optional[Dict[str, Any]] = None
-    customDisplayName: Optional[str] = None
-
-
-class OperatorPropertyChange(BaseModel):
-    operatorId: str
-    properties: Dict[str, Any]
-
-
-class Link(BaseModel):
-    source: Dict[str, str]
-    target: Dict[str, str]
-
-
-class WorkflowSuggestion(BaseModel):
-    id: str
-    description: str
-    operatorsToAdd: List[OperatorToAdd]
-    operatorPropertiesToChange: List[OperatorPropertyChange]
-    operatorsToDelete: List[str]
-    linksToAdd: List[Link]
-    isPreviewActive: bool = False
 
 
 class PhysicalPlan(BaseModel):
@@ -105,7 +72,6 @@ class SuggestionRequest(BaseModel):
     compilationState: CompilationStateInfo
     executionState: Optional[ExecutionStateInfo] = None
     resultTables: Dict[str, ResultTable]
-    maxSuggestions: Optional[int] = MAX_SUGGESTIONS
 
 
 class LLMConfig(BaseModel):
@@ -127,7 +93,7 @@ async def get_config():
     }
 
 
-@app.post("/api/workflow-suggestion", response_model=List[WorkflowSuggestion])
+@app.post("/api/workflow-suggestion", response_model=SuggestionList)
 async def generate_suggestions(request: SuggestionRequest):
     """
     Generate workflow suggestions based on the current workflow, compilation state, and result tables.
@@ -140,7 +106,6 @@ async def generate_suggestions(request: SuggestionRequest):
     """
     try:
         # Parse the workflow JSON
-        print("Received suggestion request")
         workflow_json = json.loads(request.workflow)
 
         # Convert Pydantic models to dictionaries for the suggestion generator
@@ -154,38 +119,15 @@ async def generate_suggestions(request: SuggestionRequest):
             request.executionState.model_dump() if request.executionState else None
         )
 
-        # Create a data directory if it doesn't exist
-        os.makedirs("test/data", exist_ok=True)
-
-        # Save the workflow data as JSON files
-        with open("test/data/workflow.json", "w") as f:
-            json.dump(workflow_json, f, indent=2)
-
-        with open("test/data/workflow_compilation_state.json", "w") as f:
-            json.dump(compilation_state_dict, f, indent=2)
-
-        with open("test/data/result_tables.json", "w") as f:
-            json.dump(result_tables_dict, f, indent=2)
-
-        if execution_state_dict:
-            with open("test/data/execution_state.json", "w") as f:
-                json.dump(execution_state_dict, f, indent=2)
-
         # Generate suggestions using the suggestion engine
         suggestions = suggestion_generator.generate_suggestions(
             workflow_json,
             compilation_state_dict,
             result_tables_dict,
             execution_state_dict,
-            max_suggestions=request.maxSuggestions or MAX_SUGGESTIONS,
         )
 
-        # Convert the dictionaries to WorkflowSuggestion objects
-        workflow_suggestions = []
-        for suggestion in suggestions:
-            workflow_suggestions.append(WorkflowSuggestion(**suggestion))
-
-        return workflow_suggestions
+        return suggestions
 
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid workflow JSON format")

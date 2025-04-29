@@ -6,10 +6,10 @@ class Operator(BaseModel):
     operatorType: str
     operatorID: str
     operatorProperties: dict
-    customDisplayName: Optional[str] = None
+    customDisplayName: str
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "required": ["operatorType", "operatorID", "operatorProperties"]
         }
 
@@ -19,7 +19,7 @@ class Port(BaseModel):
     portID: str
 
     class Config:
-        schema_extra = {"required": ["operatorID", "portID"]}
+        json_schema_extra = {"required": ["operatorID", "portID"]}
 
 
 class Link(BaseModel):
@@ -28,7 +28,7 @@ class Link(BaseModel):
     target: Port
 
     class Config:
-        schema_extra = {"required": ["linkID", "source", "target"]}
+        json_schema_extra = {"required": ["linkID", "source", "target"]}
 
 
 class Changes(BaseModel):
@@ -37,7 +37,7 @@ class Changes(BaseModel):
     operatorsToDelete: List[str]
 
     class Config:
-        schema_extra = {"required": ["operatorsToAdd", "linksToAdd"]}
+        json_schema_extra = {"required": ["operatorsToAdd", "linksToAdd"]}
 
 
 class Suggestion(BaseModel):
@@ -46,11 +46,11 @@ class Suggestion(BaseModel):
     changes: Changes
 
     class Config:
-        schema_extra = {"required": ["suggestion", "suggestionType", "changes"]}
+        json_schema_extra = {"required": ["suggestion", "suggestionType", "changes"]}
 
 
 class SuggestionList(BaseModel):
     suggestions: List[Suggestion]
 
     class Config:
-        schema_extra = {"required": ["suggestions"]}
+        json_schema_extra = {"required": ["suggestions"]}

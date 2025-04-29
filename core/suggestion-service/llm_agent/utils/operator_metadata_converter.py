@@ -4,8 +4,12 @@ from typing import Dict, Any, List
 import copy
 
 # Load the operator metadata file
-with open("../../files/operator_json_schema.json", "r") as f:
+with open("files/operator_json_schema.json", "r") as f:
     operator_metadata = json.load(f)
+
+valid_operator_types: set[str] = {
+    schema["operatorType"] for schema in operator_metadata["operators"]
+}
 
 
 def resolve_ref(ref: str, definitions: Dict[str, Any]) -> Dict[str, Any]:
@@ -101,6 +105,9 @@ def extract_json_schema(
     Returns:
         A dictionary containing the extracted JSON schema.
     """
+    if operator_type not in valid_operator_types:
+        raise ValueError(f"OperatorType '{operator_type}' not found in metadata.")
+
     for operator_schema in operator_metadata["operators"]:
         if operator_schema["operatorType"] == operator_type:
             json_schema = operator_schema.get("jsonSchema")
@@ -119,19 +126,17 @@ def extract_json_schema(
                 "required": json_schema.get("required", []),
             }
 
-            # Copy only valid properties
             for prop_name, prop_value in json_schema.get("properties", {}).items():
                 if prop_name != "dummyPropertyList":
                     filtered_schema["properties"][prop_name] = prop_value
 
-            # Copy only valid definitions
             for def_name, def_value in json_schema.get("definitions", {}).items():
                 if def_name != "DummyProperties" and not def_name.endswith("Partition"):
                     filtered_schema["definitions"][def_name] = def_value
 
             return {"operatorType": operator_type, "jsonSchema": filtered_schema}
 
-    raise ValueError(f"OperatorType '{operator_type}' not found in metadata.")
+    raise ValueError(f"OperatorType '{operator_type}' not found unexpectedly.")
 
 
 # Convert all schemas
@@ -139,7 +144,12 @@ operator_predicates: List[Dict[str, Any]] = [
     convert_to_operator_predicate(schema) for schema in operator_metadata["operators"]
 ]
 
-# Save result to file
-output_path = "../../files/operator_format.json"
-with open(output_path, "w") as f:
-    json.dump(operator_predicates, f, indent=2)
+if __name__ == "__main__":
+    # Save result to file
+    output_path = "files/operator_format.json"
+    with open(output_path, "w") as f:
+        json.dump(operator_predicates, f, indent=2)
+
+    operator_type_filepath = "files/operator_type.txt"
+    with open(operator_type_filepath, "w") as f:
+        f.write(str(list(valid_operator_types)))
