@@ -135,7 +135,10 @@ export class WorkflowCompilingService {
   }
 
   public getOperatorInputSchemaMap(): Record<string, OperatorInputSchema> {
-    if (this.currentCompilationStateInfo.state === CompilationState.Succeeded || this.currentCompilationStateInfo.state === CompilationState.Failed) {
+    if (
+      this.currentCompilationStateInfo.state === CompilationState.Succeeded ||
+      this.currentCompilationStateInfo.state === CompilationState.Failed
+    ) {
       return this.currentCompilationStateInfo.operatorInputSchemaMap;
     }
     return {};
