@@ -1,17 +1,14 @@
 import { HttpClient, HttpHeaders } from "@angular/common/http";
-import { Injectable, Injector, Inject, Optional, OnDestroy } from "@angular/core";
-import { Observable, ReplaySubject, of, merge, BehaviorSubject, pipe, timer } from "rxjs";
-import { catchError, map, debounceTime, filter, take, switchMap, delay } from "rxjs/operators";
+import { Injectable, OnDestroy } from "@angular/core";
+import { Observable, of, BehaviorSubject, pipe, timer } from "rxjs";
+import { catchError, map } from "rxjs/operators";
 import { AppSettings } from "../../../common/app-setting";
-import { WorkflowActionService } from "../workflow-graph/model/workflow-action.service";
 import { Workflow } from "../../../common/type/workflow";
-import { WorkflowResultService } from "../workflow-result/workflow-result.service";
-import { ExecuteWorkflowService } from "../execute-workflow/execute-workflow.service";
-import { ExecutionState, ExecutionStateInfo } from "../../types/execute-workflow.interface";
+import { ExecutionStateInfo } from "../../types/execute-workflow.interface";
 // Import the WorkflowCompilingService type for better type checking
 import { WorkflowSuggestionList } from "../../types/workflow-suggestion.interface";
 import { v4 as uuid } from "uuid";
-import { CompilationState, CompilationStateInfo } from "../../types/workflow-compiling.interface";
+import { CompilationStateInfo } from "../../types/workflow-compiling.interface";
 
 // endpoint for workflow suggestions
 export const WORKFLOW_SUGGESTION_ENDPOINT = "workflow-suggestion";
@@ -28,7 +25,7 @@ export class WorkflowSuggestionService implements OnDestroy {
   // Stream that indicates whether a preview is currently active - initialized to false
   private previewActiveStream = new BehaviorSubject<boolean>(false);
   // Flag to ignore workflow changes during preview activation/deactivation
-  private mock = true; // Set to true to enable mock mode
+  private mock = false; // Set to true to enable mock mode
 
   constructor(private httpClient: HttpClient) {
     // Ensure preview is false on initial load
@@ -61,21 +58,13 @@ export class WorkflowSuggestionService implements OnDestroy {
       return of(this.MOCK_SUGGESTIONS);
     }
 
-    // Prepare the request body
-    const requestBody = {
-      workflow: JSON.stringify(workflow),
-      compilationState: compilationState,
-      executionState: executionState,
-    };
-
     return this.httpClient
       .post<WorkflowSuggestionList>(
         `${AppSettings.getApiEndpoint()}/${WORKFLOW_SUGGESTION_ENDPOINT}`,
-        JSON.stringify(requestBody),
         {
-          headers: new HttpHeaders({
-            "Content-Type": "application/json",
-          }),
+          workflow: JSON.stringify(workflow),
+          compilationState: compilationState,
+          executionState: executionState,
         }
       )
       .pipe(
