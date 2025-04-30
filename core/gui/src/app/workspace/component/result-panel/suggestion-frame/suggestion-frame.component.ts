@@ -6,15 +6,13 @@ import { WorkflowUtilService } from "../../../service/workflow-graph/util/workfl
 import { NzMessageService } from "ng-zorro-antd/message";
 import { WorkflowPersistService } from "../../../../common/service/workflow-persist/workflow-persist.service";
 import { Workflow } from "../../../../common/type/workflow";
-import { cloneDeep, isEqual } from "lodash";
+import { cloneDeep } from "lodash";
 import { ExecuteWorkflowService } from "../../../service/execute-workflow/execute-workflow.service";
 import { ExecutionState } from "../../../types/execute-workflow.interface";
-import { filter, take } from "rxjs/operators";
+import { filter } from "rxjs/operators";
 import { WorkflowCompilingService } from "../../../service/compile-workflow/workflow-compiling.service";
-import { Subject, Subscription, interval } from "rxjs";
-import { CompilationState } from "../../../types/workflow-compiling.interface";
+import { Subscription, interval } from "rxjs";
 import {
-  OperatorSuggestion,
   WorkflowSuggestion,
   WorkflowSuggestionList,
 } from "../../../types/workflow-suggestion.interface";
@@ -56,6 +54,8 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
   constructor(
     private workflowActionService: WorkflowActionService,
     private workflowUtilService: WorkflowUtilService,
+    private workflowCompilingService: WorkflowCompilingService,
+    private workflowExecuteService: ExecuteWorkflowService,
     private messageService: NzMessageService,
     private workflowPersistService: WorkflowPersistService,
     private workflowSuggestionService: WorkflowSuggestionService,
@@ -164,7 +164,11 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
 
     this.loadingSuggestions = true;
     this.workflowSuggestionService
-      .getSuggestions()
+      .getSuggestions(
+        this.workflowActionService.getWorkflow(),
+        this.workflowCompilingService.getWorkflowCompilationStateInfo(),
+        this.workflowExecuteService.getExecutionState()
+      )
       .pipe(untilDestroyed(this))
       .subscribe((suggestionList: WorkflowSuggestionList) => {
         this.suggestions = suggestionList.suggestions;
