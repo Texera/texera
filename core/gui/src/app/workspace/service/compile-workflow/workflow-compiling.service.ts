@@ -18,14 +18,14 @@
  */
 
 import { HttpClient, HttpHeaders } from "@angular/common/http";
-import { Injectable, Inject, Optional, NgModule, forwardRef } from "@angular/core";
-import { EMPTY, merge, Observable, ReplaySubject } from "rxjs";
+import { Injectable } from "@angular/core";
+import { EMPTY, merge, Observable, ReplaySubject, withLatestFrom } from "rxjs";
 import { CustomJSONSchema7 } from "src/app/workspace/types/custom-json-schema.interface";
 import { AppSettings } from "../../../common/app-setting";
 import { areOperatorSchemasEqual, OperatorSchema } from "../../types/operator-schema.interface";
 import { ExecuteWorkflowService } from "../execute-workflow/execute-workflow.service";
 import { WorkflowActionService } from "../workflow-graph/model/workflow-action.service";
-import { catchError, debounceTime, mergeMap, filter } from "rxjs/operators";
+import { catchError, debounceTime, mergeMap, filter, take } from "rxjs/operators";
 import { DynamicSchemaService } from "../dynamic-schema/dynamic-schema.service";
 import {
   AttributeType,
@@ -37,16 +37,12 @@ import {
 } from "../../types/workflow-compiling.interface";
 import { WorkflowFatalError } from "../../types/workflow-websocket.interface";
 import { LogicalPlan } from "../../types/execute-workflow.interface";
+import { WorkflowSuggestionService } from "../workflow-suggestion/workflow-suggestion.service";
 
 // endpoint for workflow compile
 export const WORKFLOW_COMPILATION_ENDPOINT = "compile";
 
 export const WORKFLOW_COMPILATION_DEBOUNCE_TIME_MS = 500;
-
-/**
- * Token for the WorkflowSuggestionService to avoid circular dependencies
- */
-export const WORKFLOW_SUGGESTION_SERVICE = "WORKFLOW_SUGGESTION_SERVICE";
 
 /**
  * Workflow Compiling Service provides mainly 3 functionalities:
@@ -76,19 +72,9 @@ export class WorkflowCompilingService {
     private httpClient: HttpClient,
     private workflowActionService: WorkflowActionService,
     private dynamicSchemaService: DynamicSchemaService,
-    @Optional() @Inject(WORKFLOW_SUGGESTION_SERVICE) private workflowSuggestionServiceRef: any
+    private workflowSuggestionService: WorkflowSuggestionService
   ) {
-    // Listen to preview active status changes if the service is available
-    if (this.workflowSuggestionServiceRef) {
-      this.workflowSuggestionServiceRef.getPreviewActiveStream().subscribe((isActive: boolean) => {
-        console.log(`CompilationService: Preview active status changed to ${isActive}`);
-        this.isPreviewActive = isActive;
-      });
-    }
-
-    // invoke the compilation service when there are any changes on workflow topology and properties. This includes:
-    // - operator add, delete, property changed, disabled
-    // - link add, delete
+    // Stream for triggering compilation
     merge(
       this.workflowActionService.getTexeraGraph().getLinkAddStream(),
       this.workflowActionService.getTexeraGraph().getLinkDeleteStream(),
@@ -97,36 +83,41 @@ export class WorkflowCompilingService {
       this.workflowActionService.getTexeraGraph().getOperatorPropertyChangeStream(),
       this.workflowActionService.getTexeraGraph().getDisabledOperatorsChangedStream()
     )
-      .pipe(debounceTime(WORKFLOW_COMPILATION_DEBOUNCE_TIME_MS))
       .pipe(
-        // Skip compilation if preview is active
-        filter(() => !this.isPreviewActive),
+        debounceTime(WORKFLOW_COMPILATION_DEBOUNCE_TIME_MS),
+        withLatestFrom(this.workflowSuggestionService.getPreviewActiveStream()),
+        filter(([_, isPreview]) => !isPreview),
         mergeMap(() =>
           this.compile(ExecuteWorkflowService.getLogicalPlanRequest(this.workflowActionService.getTexeraGraph()))
         )
       )
       .subscribe(response => {
-        // Skip updating compilation state if preview has become active since the request was sent
-        if (this.isPreviewActive) {
-          console.log("CompilationService: Preview active, skipping compilation state update");
-          return;
-        }
+        // Skip updating compilation state if preview is now active
+        this.workflowSuggestionService
+          .getPreviewActiveStream()
+          .pipe(take(1))
+          .subscribe(isPreview => {
+            if (isPreview) {
+              return;
+            }
 
-        if (response.physicalPlan) {
-          this.currentCompilationStateInfo = {
-            state: CompilationState.Succeeded,
-            physicalPlan: response.physicalPlan,
-            operatorInputSchemaMap: response.operatorInputSchemas,
-          };
-        } else {
-          this.currentCompilationStateInfo = {
-            state: CompilationState.Failed,
-            operatorInputSchemaMap: response.operatorInputSchemas,
-            operatorErrors: response.operatorErrors,
-          };
-        }
-        this.compilationStateInfoChangedStream.next(this.currentCompilationStateInfo.state);
-        this._applySchemaPropagationResult(this.currentCompilationStateInfo.operatorInputSchemaMap);
+            if (response.physicalPlan) {
+              this.currentCompilationStateInfo = {
+                state: CompilationState.Succeeded,
+                physicalPlan: response.physicalPlan,
+                operatorInputSchemaMap: response.operatorInputSchemas,
+              };
+            } else {
+              this.currentCompilationStateInfo = {
+                state: CompilationState.Failed,
+                operatorInputSchemaMap: response.operatorInputSchemas,
+                operatorErrors: response.operatorErrors,
+              };
+            }
+
+            this.compilationStateInfoChangedStream.next(this.currentCompilationStateInfo.state);
+            this._applySchemaPropagationResult(this.currentCompilationStateInfo.operatorInputSchemaMap);
+          });
       });
   }
 
@@ -134,14 +125,8 @@ export class WorkflowCompilingService {
     return this.currentCompilationStateInfo.state;
   }
 
-  public getOperatorInputSchemaMap(): Record<string, OperatorInputSchema> {
-    if (
-      this.currentCompilationStateInfo.state === CompilationState.Succeeded ||
-      this.currentCompilationStateInfo.state === CompilationState.Failed
-    ) {
-      return this.currentCompilationStateInfo.operatorInputSchemaMap;
-    }
-    return {};
+  public getWorkflowCompilationStateInfo(): CompilationStateInfo {
+    return this.currentCompilationStateInfo;
   }
 
   public getWorkflowCompilationErrors(): Readonly<Record<string, WorkflowFatalError>> {
@@ -250,14 +235,6 @@ export class WorkflowCompilingService {
           return EMPTY;
         })
       );
-  }
-
-  /**
-   * Set the preview active status directly - used when the suggestion service is not available
-   * to avoid circular dependencies
-   */
-  public setPreviewActive(isActive: boolean): void {
-    this.isPreviewActive = isActive;
   }
 
   public static setOperatorInputAttrs(
