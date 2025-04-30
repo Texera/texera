@@ -1,6 +1,8 @@
 import json
 import os
 from typing import Dict, List, Any, Optional
+from fastapi.requests import Request
+
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException
@@ -40,11 +42,14 @@ class SchemaAttribute(BaseModel):
     attributeName: str
     attributeType: str
 
+    class Config:
+        extra = "allow"
+
 
 class PhysicalPlan(BaseModel):
-    # Simplified physical plan model
-    operators: Dict[str, Any] = {}
-    links: List[Dict[str, Any]] = []
+    # operators IS A LIST  ➜ declare it as such
+    operators: List[Dict[str, Any]] = Field(default_factory=list)
+    links: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class CompilationStateInfo(BaseModel):
@@ -62,21 +67,23 @@ class ExecutionStateInfo(BaseModel):
     errorMessages: Optional[List[Dict[str, Any]]] = None
 
 
-class ResultTable(BaseModel):
-    rows: List[Dict[str, Any]]
-    columnNames: List[str]
-
-
 class SuggestionRequest(BaseModel):
     workflow: str = Field(..., description="JSON string of the workflow")
     compilationState: CompilationStateInfo
     executionState: Optional[ExecutionStateInfo] = None
-    resultTables: Dict[str, ResultTable]
 
 
 class LLMConfig(BaseModel):
     provider: str = LLM_PROVIDER
     model: Optional[str] = LLM_MODEL
+
+
+# @app.middleware("http")
+# async def log_raw_body(request: Request, call_next):
+#     body = await request.body()
+#     print("🔥 RAW REQUEST BODY:", body.decode())
+#     response = await call_next(request)
+#     return response
 
 
 @app.get("/")
@@ -96,13 +103,7 @@ async def get_config():
 @app.post("/api/workflow-suggestion", response_model=SuggestionList)
 async def generate_suggestions(request: SuggestionRequest):
     """
-    Generate workflow suggestions based on the current workflow, compilation state, and result tables.
-
-    Args:
-        request: Contains workflow as JSON string, compilation state info, execution state info, and result tables by operator ID
-
-    Returns:
-        A list of workflow suggestions
+    Generate workflow suggestions based on the current workflow, compilation state, and execution state.
     """
     try:
         # Parse the workflow JSON
@@ -110,9 +111,6 @@ async def generate_suggestions(request: SuggestionRequest):
 
         # Convert Pydantic models to dictionaries for the suggestion generator
         compilation_state_dict = request.compilationState.model_dump()
-        result_tables_dict = {
-            op_id: table.model_dump() for op_id, table in request.resultTables.items()
-        }
 
         # Include execution state if available
         execution_state_dict = (
@@ -123,7 +121,7 @@ async def generate_suggestions(request: SuggestionRequest):
         suggestions = suggestion_generator.generate_suggestions(
             workflow_json,
             compilation_state_dict,
-            result_tables_dict,
+            {},  # send empty resultTables
             execution_state_dict,
         )
 

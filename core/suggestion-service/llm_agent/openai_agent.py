@@ -92,7 +92,7 @@ class OpenAIAgent(LLMAgent):
             return SuggestionList(suggestions=[])
 
     def _sanitize_suggestions(
-            self, suggestions: List[Dict[str, Any]]
+        self, suggestions: List[Dict[str, Any]]
     ) -> SuggestionList:
         """
         Internal method to sanitize raw suggestions. Optionally uses LLM
@@ -139,7 +139,9 @@ class OpenAIAgent(LLMAgent):
                 for op_type in operator_types_seen
             ]
             sanitization_input = SuggestionSanitization(
-                suggestions=SuggestionList(suggestions=[Suggestion(**s) for s in valid_suggestions]),
+                suggestions=SuggestionList(
+                    suggestions=[Suggestion(**s) for s in valid_suggestions]
+                ),
                 schemas=operator_schemas,
             )
 
