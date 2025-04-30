@@ -5,7 +5,6 @@ import { catchError, map } from "rxjs/operators";
 import { AppSettings } from "../../../common/app-setting";
 import { Workflow } from "../../../common/type/workflow";
 import { ExecutionStateInfo } from "../../types/execute-workflow.interface";
-// Import the WorkflowCompilingService type for better type checking
 import { WorkflowSuggestionList } from "../../types/workflow-suggestion.interface";
 import { v4 as uuid } from "uuid";
 import { CompilationStateInfo } from "../../types/workflow-compiling.interface";

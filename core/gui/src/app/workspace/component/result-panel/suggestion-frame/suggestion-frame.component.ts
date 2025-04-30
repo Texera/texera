@@ -70,29 +70,6 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
       .getWorkflowModificationEnabledStream()
       .pipe(untilDestroyed(this))
       .subscribe(canModify => (this.canModify = canModify));
-
-    // Monitor execution state to refresh suggestions when workflow completes or fails
-    this.executeWorkflowService
-      .getExecutionStateStream()
-      .pipe(
-        filter(
-          event => event.current.state === ExecutionState.Completed || event.current.state === ExecutionState.Failed
-        ),
-        untilDestroyed(this)
-      )
-      .subscribe(event => {
-        if (!this.isInPreviewMode) {
-          console.log(`SuggestionFrame: Execution state changed to ${event.current.state}, refreshing suggestions`);
-          this.refreshSuggestions();
-        } else {
-          console.log(
-            `SuggestionFrame: Execution state changed to ${event.current.state}, but preview is active - skipping refresh`
-          );
-        }
-      });
-
-    // Initial refresh of suggestions
-    this.refreshSuggestions();
   }
 
   ngOnDestroy(): void {
