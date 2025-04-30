@@ -169,7 +169,6 @@ import { ComputingUnitSelectionComponent } from "./workspace/component/power-but
 import { NzSliderModule } from "ng-zorro-antd/slider";
 import { SuggestionFrameComponent } from "./workspace/component/result-panel/suggestion-frame/suggestion-frame.component";
 
-
 registerLocaleData(en);
 
 @NgModule({

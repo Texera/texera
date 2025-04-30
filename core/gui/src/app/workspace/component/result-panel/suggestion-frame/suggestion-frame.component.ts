@@ -13,6 +13,12 @@ import { filter, take } from "rxjs/operators";
 import { WorkflowCompilingService } from "../../../service/compile-workflow/workflow-compiling.service";
 import { Subject, Subscription, interval } from "rxjs";
 import { CompilationState } from "../../../types/workflow-compiling.interface";
+import {
+  OperatorSuggestion,
+  WorkflowSuggestion,
+  WorkflowSuggestionList,
+} from "../../../types/workflow-suggestion.interface";
+import { OperatorPredicate } from "../../../types/workflow-common.interface";
 
 /**
  * SuggestionFrameComponent is a wrapper for the workflow suggestion functionality
@@ -26,7 +32,7 @@ import { CompilationState } from "../../../types/workflow-compiling.interface";
 })
 export class SuggestionFrameComponent implements OnInit, OnDestroy {
   // Variables needed for suggestion functionality
-  public suggestions: any[] = [];
+  public suggestions: WorkflowSuggestion[] = [];
   public activePreviewId: string | null = null;
   public canModify = true;
   public loadingSuggestions = false;
@@ -42,10 +48,6 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
 
   // Track if we're in preview mode to prevent tab changes
   public isInPreviewMode = false;
-  // Track the subscription to compilation state changed stream
-  private compilationStateSubscription: Subscription | null = null;
-  // Custom subject to handle compilation state changes during preview
-  private previewCompilationSubject = new Subject<CompilationState>();
   // Track the tab focus interval
   private tabFocusInterval: Subscription | null = null;
   // Store click listeners to prevent unnecessary event binding
@@ -57,25 +59,12 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
     private messageService: NzMessageService,
     private workflowPersistService: WorkflowPersistService,
     private workflowSuggestionService: WorkflowSuggestionService,
-    private executeWorkflowService: ExecuteWorkflowService,
-    private workflowCompilingService: WorkflowCompilingService
+    private executeWorkflowService: ExecuteWorkflowService
   ) {
     this.boundHandleDocumentClick = this.handleDocumentClick.bind(this);
   }
 
   ngOnInit(): void {
-    // Subscribe to suggestion service
-    this.workflowSuggestionService
-      .getSuggestionStream()
-      .pipe(untilDestroyed(this))
-      .subscribe(suggestions => {
-        // Only update suggestions if not in preview mode
-        if (!this.isInPreviewMode) {
-          this.suggestions = suggestions;
-          this.loadingSuggestions = false;
-        }
-      });
-
     // Get initial permission state
     this.workflowActionService
       .getWorkflowModificationEnabledStream()
@@ -168,75 +157,45 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Refreshes the workflow suggestions
-   */
   public refreshSuggestions(): void {
-    // Only refresh if there are operators in the workflow and not in preview mode
-    if (this.isInPreviewMode) {
-      console.log("Preview mode is active, skipping suggestion refresh");
-      return;
-    }
-
+    if (this.isInPreviewMode) return;
     const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
-    if (operators.length > 0) {
-      this.loadingSuggestions = true;
-      this.workflowSuggestionService.refreshSuggestions();
-    }
+    if (operators.length === 0) return;
+
+    this.loadingSuggestions = true;
+    this.workflowSuggestionService
+      .getSuggestions()
+      .pipe(untilDestroyed(this))
+      .subscribe((suggestionList: WorkflowSuggestionList) => {
+        this.suggestions = suggestionList.suggestions;
+        this.loadingSuggestions = false;
+      });
   }
 
-  /**
-   * Toggles the preview of a suggestion
-   */
-  public togglePreview(suggestion: any): void {
-    // If there's an active preview, clear it and restore the previous workflow
+  public togglePreview(suggestion: WorkflowSuggestion): void {
     if (this.activePreviewId) {
       this.clearPreviewAndRestoreWorkflow();
     }
 
-    if (this.activePreviewId === suggestion.id) {
-      // Deactivate preview if clicking the same suggestion (already handled by clearing above)
+    if (this.activePreviewId === suggestion.suggestionID) {
       this.activePreviewId = null;
       this.isInPreviewMode = false;
-
-      // Notify the suggestion service that preview is no longer active
       this.workflowSuggestionService.setPreviewActive(false);
-
-      // Remove the document click listener
       this.removeDocumentClickListener();
-
-      // Clear the tab focus interval
       if (this.tabFocusInterval) {
         this.tabFocusInterval.unsubscribe();
         this.tabFocusInterval = null;
       }
     } else {
-      // Save the current workflow state before creating the preview
       this.saveWorkflowState();
-
-      // Clear property style maps and original properties
       this.propertyStyleMaps.clear();
       this.originalOperatorProperties.clear();
-
-      // Set preview mode to prevent tab changes and suggestion updates
       this.isInPreviewMode = true;
-
-      // Add the document click listener to prevent tab changes
       this.addDocumentClickListener();
-
-      // Notify the suggestion service that preview is active
       this.workflowSuggestionService.setPreviewActive(true);
-
-      // Activate preview for this suggestion
-      this.activePreviewId = suggestion.id;
-
-      // Create the preview without requesting new suggestions from backend
+      this.activePreviewId = suggestion.suggestionID;
       this.createPreview(suggestion);
-
-      // Focus on this tab programmatically
       this.focusSuggestionTab();
-
-      // Notify user that they're in preview mode
       this.messageService.info("Preview mode active. Any compilation errors will be ignored.");
     }
   }
@@ -312,110 +271,16 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Applies a suggestion to the workflow
-   */
-  public applySuggestion(suggestion: any): void {
-    // First clear any previews and restore the original workflow
-    this.clearPreviewAndRestoreWorkflow();
-
-    // Then apply the changes for real
-    try {
-      const texeraGraph = this.workflowActionService.getTexeraGraph();
-
-      // Delete operators first
-      if (suggestion.operatorsToDelete && suggestion.operatorsToDelete.length > 0) {
-        this.workflowActionService.deleteOperatorsAndLinks(suggestion.operatorsToDelete);
-      }
-
-      // Add operators
-      const operatorsToAdd = suggestion.operatorsToAdd.map((opToAdd: any) => {
-        const operatorPredicate = this.workflowUtilService.getNewOperatorPredicate(opToAdd.operatorType);
-
-        // Set properties if provided
-        if (opToAdd.properties) {
-          Object.assign(operatorPredicate.operatorProperties, opToAdd.properties);
-        }
-
-        return {
-          op: operatorPredicate,
-          pos: opToAdd.position,
-        };
-      });
-
-      // Add all operators at once
-      this.workflowActionService.addOperatorsAndLinks(operatorsToAdd);
-
-      // Add links
-      suggestion.linksToAdd.forEach((linkToAdd: any) => {
-        let sourceOperatorId = linkToAdd.source.operatorId;
-        let targetOperatorId = linkToAdd.target.operatorId;
-
-        // Map operator IDs if needed
-        if (!texeraGraph.hasOperator(sourceOperatorId)) {
-          const newOperator = operatorsToAdd.find((op: any) => op.op.operatorType === sourceOperatorId.split("-")[0]);
-          if (newOperator) sourceOperatorId = newOperator.op.operatorID;
-        }
-
-        if (!texeraGraph.hasOperator(targetOperatorId)) {
-          const newOperator = operatorsToAdd.find((op: any) => op.op.operatorType === targetOperatorId.split("-")[0]);
-          if (newOperator) targetOperatorId = newOperator.op.operatorID;
-        }
-
-        if (texeraGraph.hasOperator(sourceOperatorId) && texeraGraph.hasOperator(targetOperatorId)) {
-          const link = {
-            linkID: `link-${Date.now()}`,
-            source: {
-              operatorID: sourceOperatorId,
-              portID: linkToAdd.source.portId,
-            },
-            target: {
-              operatorID: targetOperatorId,
-              portID: linkToAdd.target.portId,
-            },
-          };
-
-          this.workflowActionService.addLink(link);
-        }
-      });
-
-      // Change properties for existing operators
-      if (suggestion.operatorPropertiesToChange) {
-        suggestion.operatorPropertiesToChange.forEach((propChange: any) => {
-          if (texeraGraph.hasOperator(propChange.operatorId)) {
-            const operator = texeraGraph.getOperator(propChange.operatorId);
-            this.workflowActionService.setOperatorProperty(propChange.operatorId, {
-              ...operator.operatorProperties,
-              ...propChange.properties,
-            });
-          }
-        });
-      }
-
-      // Save the workflow to materialize the changes
-      const workflow = this.workflowActionService.getWorkflow();
-      this.workflowPersistService.persistWorkflow(workflow).subscribe(() => {
-        this.messageService.success("Successfully applied and saved the suggestion!");
-
-        // Remove the applied suggestion from the list
-        this.suggestions = this.suggestions.filter(s => s.id !== suggestion.id);
-      });
-    } catch (error) {
-      console.error("Error applying suggestion:", error);
-      this.messageService.error("Failed to apply the suggestion.");
-    }
-  }
-
-  /**
    * Removes a suggestion from the list
    */
-  public dislikeSuggestion(suggestion: any): void {
+  public dislikeSuggestion(suggestion: WorkflowSuggestion): void {
     // If this is the active suggestion, restore the workflow first
-    if (this.activePreviewId === suggestion.id) {
+    if (this.activePreviewId === suggestion.suggestionID) {
       this.clearPreviewAndRestoreWorkflow();
     }
 
     // Remove the suggestion from the list
-    this.suggestions = this.suggestions.filter(s => s.id !== suggestion.id);
+    this.suggestions = this.suggestions.filter(s => s.suggestionID !== suggestion.suggestionID);
 
     // Show a message to confirm the action
     this.messageService.info("Suggestion removed from the list.");
@@ -495,20 +360,24 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Creates a preview of a suggestion in the workflow
+   * Internal helper to apply workflow changes described by a suggestion.
+   * Used by both applySuggestion and createPreview.
    */
-  private createPreview(suggestion: any): void {
+  private applyWorkflowSuggestion(suggestion: WorkflowSuggestion, options: { preview: boolean }): Map<string, string> {
     const texeraGraph = this.workflowActionService.getTexeraGraph();
     const jointGraph = this.workflowActionService.getJointGraph();
+    const jointGraphWrapper = this.workflowActionService.getJointGraphWrapper();
+    const operatorIDMap = new Map<string, string>();
+    const operatorsAndPositions: { op: OperatorPredicate; pos: { x: number; y: number } }[] = [];
 
-    // Handle operators to delete first
-    if (suggestion.operatorsToDelete) {
-      suggestion.operatorsToDelete.forEach((operatorId: string) => {
-        if (texeraGraph.hasOperator(operatorId)) {
-          // Highlight the operator in red before "deleting" it
-          const operatorCell = jointGraph.getCell(operatorId);
-          if (operatorCell) {
-            operatorCell.attr({
+    suggestion.changes.operatorsToAdd.forEach((op, index) => {
+      const isExisting = texeraGraph.hasOperator(op.operatorID);
+
+      if (isExisting) {
+        if (options.preview) {
+          const cell = jointGraph.getCell(op.operatorID);
+          if (cell) {
+            cell.attr({
               rect: {
                 fill: "rgba(255, 200, 200, 0.6)",
                 stroke: "rgba(255, 0, 0, 0.6)",
@@ -516,66 +385,97 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
               },
             });
           }
+        } else {
+          this.workflowActionService.setOperatorProperty(op.operatorID, {
+            ...op.operatorProperties,
+          });
         }
-      });
-    }
-
-    // Add preview operators
-    suggestion.operatorsToAdd.forEach((opToAdd: any) => {
-      // Create a new operator predicate
-      const operatorPredicate = this.workflowUtilService.getNewOperatorPredicate(opToAdd.operatorType);
-
-      // Set properties if provided
-      if (opToAdd.properties) {
-        Object.assign(operatorPredicate.operatorProperties, opToAdd.properties);
+        return;
       }
 
-      // Add operator to graph
-      this.workflowActionService.addOperator(operatorPredicate, opToAdd.position);
+      const newOp = this.workflowUtilService.getNewOperatorPredicate(op.operatorType);
+      Object.assign(newOp.operatorProperties, op.operatorProperties);
+      operatorIDMap.set(op.operatorID, newOp.operatorID);
 
-      // Make the operator semi-transparent to indicate it's a preview
-      const operatorCell = jointGraph.getCell(operatorPredicate.operatorID);
-      if (operatorCell) {
-        operatorCell.attr({
-          ".": { opacity: 0.6 },
-          rect: { stroke: "#1890ff", "stroke-width": 2 },
-        });
+      let pos = { x: 100, y: 100 + index * 100 };
+      const anchorLink = suggestion.changes.linksToAdd.find(l => l.target.operatorID === op.operatorID);
+      if (anchorLink) {
+        const anchorID = texeraGraph.hasOperator(anchorLink.source.operatorID)
+          ? anchorLink.source.operatorID
+          : operatorIDMap.get(anchorLink.source.operatorID);
+        if (anchorID && texeraGraph.hasOperator(anchorID)) {
+          const anchorPos = jointGraphWrapper.getElementPosition(anchorID);
+          pos = { x: anchorPos.x + 200, y: anchorPos.y };
+        }
+      }
+
+      operatorsAndPositions.push({ op: newOp, pos });
+
+      if (options.preview) {
+        this.workflowActionService.addOperator(newOp, pos);
+        const cell = jointGraph.getCell(newOp.operatorID);
+        if (cell) {
+          cell.attr({
+            ".": { opacity: 0.6 },
+            rect: { stroke: "#1890ff", "stroke-width": 2 },
+          });
+        }
       }
     });
 
-    // Add preview links
-    suggestion.linksToAdd.forEach((linkToAdd: any) => {
-      let sourceOperatorId = linkToAdd.source.operatorId;
-      let targetOperatorId = linkToAdd.target.operatorId;
+    if (!options.preview) {
+      if (suggestion.changes.operatorsToDelete.length > 0) {
+        this.workflowActionService.deleteOperatorsAndLinks(suggestion.changes.operatorsToDelete);
+      }
+      this.workflowActionService.addOperatorsAndLinks(operatorsAndPositions);
+    }
 
-      if (texeraGraph.hasOperator(sourceOperatorId) && texeraGraph.hasOperator(targetOperatorId)) {
-        try {
-          const link = {
-            linkID: `link-preview-${Date.now()}`,
-            source: {
-              operatorID: sourceOperatorId,
-              portID: linkToAdd.source.portId,
-            },
-            target: {
-              operatorID: targetOperatorId,
-              portID: linkToAdd.target.portId,
-            },
-          };
+    suggestion.changes.linksToAdd.forEach(link => {
+      const sourceID = operatorIDMap.get(link.source.operatorID) ?? link.source.operatorID;
+      const targetID = operatorIDMap.get(link.target.operatorID) ?? link.target.operatorID;
 
-          this.workflowActionService.addLink(link);
+      if (texeraGraph.hasOperator(sourceID) && texeraGraph.hasOperator(targetID)) {
+        const linkObject = {
+          linkID: options.preview ? `link-preview-${Date.now()}` : `link-${Date.now()}`,
+          source: { operatorID: sourceID, portID: link.source.portID },
+          target: { operatorID: targetID, portID: link.target.portID },
+        };
+        this.workflowActionService.addLink(linkObject);
 
-          // Make the link semi-transparent
-          const linkCell = jointGraph.getCell(link.linkID);
-          if (linkCell) {
-            linkCell.attr({
+        if (options.preview) {
+          const cell = jointGraph.getCell(linkObject.linkID);
+          if (cell) {
+            cell.attr({
               ".connection": { opacity: 0.6, stroke: "#1890ff" },
               ".marker-target": { opacity: 0.6, fill: "#1890ff" },
             });
           }
-        } catch (error) {
-          console.error("Error adding preview link:", error);
         }
       }
     });
+
+    return operatorIDMap;
+  }
+
+  public applySuggestion(suggestion: WorkflowSuggestion): void {
+    this.clearPreviewAndRestoreWorkflow();
+    try {
+      this.applyWorkflowSuggestion(suggestion, { preview: false });
+      const workflow = this.workflowActionService.getWorkflow();
+      this.workflowPersistService
+        .persistWorkflow(workflow)
+        .pipe(untilDestroyed(this))
+        .subscribe(() => {
+          this.messageService.success("Successfully applied and saved the suggestion!");
+          this.suggestions = this.suggestions.filter(s => s.suggestionID !== suggestion.suggestionID);
+        });
+    } catch (error) {
+      console.error("Error applying suggestion:", error);
+      this.messageService.error("Failed to apply the suggestion.");
+    }
+  }
+
+  private createPreview(suggestion: WorkflowSuggestion): void {
+    this.applyWorkflowSuggestion(suggestion, { preview: true });
   }
 }
