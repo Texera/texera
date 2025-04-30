@@ -7,7 +7,7 @@ from openai import OpenAI
 from llm_agent.base import LLMAgent, LLMAgentFactory
 from llm_agent.utils.operator_metadata_converter import extract_json_schema
 from model.llm.sanitizor import OperatorSchema, SuggestionSanitization
-from model.llm.suggestion import SuggestionList
+from model.llm.suggestion import SuggestionList, Suggestion
 
 
 @LLMAgentFactory.register("openai")
@@ -39,6 +39,8 @@ class OpenAIAgent(LLMAgent):
         # Load sanitizer instruction
         with open("files/instruction_for_sanitizor.md", "r") as f:
             self.instruction_for_sanitizor = f.read()
+
+        self.enable_llm_sanitizor = False
 
     def generate_suggestions(
         self,
@@ -90,11 +92,11 @@ class OpenAIAgent(LLMAgent):
             return SuggestionList(suggestions=[])
 
     def _sanitize_suggestions(
-        self, suggestions: List[Dict[str, Any]]
+            self, suggestions: List[Dict[str, Any]]
     ) -> SuggestionList:
         """
-        Internal method to sanitize raw suggestions using OpenAI.
-        Also prechecks operatorTypes and fills missing linkIDs.
+        Internal method to sanitize raw suggestions. Optionally uses LLM
+        if enabled, otherwise just validates and returns structured output.
 
         Args:
             suggestions: The raw suggestions to sanitize
@@ -116,28 +118,31 @@ class OpenAIAgent(LLMAgent):
                         # Check validity by attempting schema extraction
                         extract_json_schema(op_type, properties_only=True)
                         operator_types_seen.add(op_type)
+
                     # Fix missing linkIDs
                     for link in suggestion["changes"]["linksToAdd"]:
                         if "linkID" not in link or not link["linkID"]:
                             link["linkID"] = f"link-{uuid.uuid4()}"
+
                     valid_suggestions.append(suggestion)
                 except ValueError:
-                    # Skip suggestion if any operatorType is invalid
-                    continue
+                    continue  # Skip suggestion if operatorType is invalid
 
-            # Prepare operator schemas
+            # If LLM sanitization is disabled, directly parse into Pydantic models
+            if not self.enable_llm_sanitizor:
+                structured = [Suggestion(**s) for s in valid_suggestions]
+                return SuggestionList(suggestions=structured)
+
+            # Otherwise: Use LLM for further validation/sanitization
             operator_schemas = [
                 OperatorSchema(**extract_json_schema(op_type, properties_only=True))
                 for op_type in operator_types_seen
             ]
-
-            # Build sanitizer input
             sanitization_input = SuggestionSanitization(
-                suggestions=SuggestionList(suggestions=valid_suggestions),
+                suggestions=SuggestionList(suggestions=[Suggestion(**s) for s in valid_suggestions]),
                 schemas=operator_schemas,
             )
 
-            # LLM sanitization call
             sanitize_response = self.client.responses.create(
                 model=self.model,
                 instructions=self.instruction_for_sanitizor,
@@ -154,8 +159,10 @@ class OpenAIAgent(LLMAgent):
             )
 
             sanitized_result = json.loads(sanitize_response.output_text)
-            return SuggestionList(suggestions=sanitized_result["suggestions"])
+            return SuggestionList(
+                suggestions=[Suggestion(**s) for s in sanitized_result["suggestions"]]
+            )
 
         except Exception as e:
             print(f"Error sanitizing suggestions: {e}")
-            return []
+            return SuggestionList(suggestions=[])
