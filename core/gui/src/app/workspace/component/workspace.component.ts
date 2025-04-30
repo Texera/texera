@@ -41,6 +41,7 @@ import { WorkflowMetadata } from "src/app/dashboard/type/workflow-metadata.inter
 import { HubService } from "../../hub/service/hub.service";
 import { THROTTLE_TIME_MS } from "../../hub/component/workflow/detail/hub-workflow-detail.component";
 import { WorkflowCompilingService } from "../service/compile-workflow/workflow-compiling.service";
+import { WorkflowSuggestionService } from "../service/workflow-suggestion/workflow-suggestion.service";
 
 export const SAVE_DEBOUNCE_TIME_IN_MS = 5000;
 
@@ -87,7 +88,8 @@ export class WorkspaceComponent implements AfterViewInit, OnInit, OnDestroy {
     private router: Router,
     private notificationService: NotificationService,
     private hubService: HubService,
-    private codeEditorService: CodeEditorService
+    private codeEditorService: CodeEditorService,
+    private workflowSuggestionService: WorkflowSuggestionService
   ) {}
 
   ngOnInit() {
@@ -105,6 +107,9 @@ export class WorkspaceComponent implements AfterViewInit, OnInit, OnDestroy {
      */
     this.pid = parseInt(this.route.snapshot.queryParams.pid) || undefined;
     this.workflowActionService.setHighlightingEnabled(true);
+
+    // Reset any active suggestion preview state
+    this.workflowSuggestionService.resetPreviewState();
   }
 
   ngAfterViewInit(): void {
@@ -153,6 +158,9 @@ export class WorkspaceComponent implements AfterViewInit, OnInit, OnDestroy {
       const workflow = this.workflowActionService.getWorkflow();
       this.workflowPersistService.persistWorkflow(workflow).pipe(untilDestroyed(this)).subscribe();
     }
+
+    // Ensure the suggestion preview is reset when leaving the workspace
+    this.workflowSuggestionService.resetPreviewState();
 
     this.codeEditorViewRef.clear();
     this.workflowActionService.clearWorkflow();
@@ -204,6 +212,9 @@ export class WorkspaceComponent implements AfterViewInit, OnInit, OnDestroy {
       .pipe(untilDestroyed(this))
       .subscribe(
         (workflow: Workflow) => {
+          // Make sure any active preview is reset before loading a new workflow
+          this.workflowSuggestionService.resetPreviewState();
+
           this.workflowActionService.setNewSharedModel(wid, this.userService.getCurrentUser());
           // remember URL fragment
           const fragment = this.route.snapshot.fragment;
