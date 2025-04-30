@@ -17,15 +17,15 @@
       <div
         *ngFor="let suggestion of suggestions"
         class="suggestion-item"
-        [ngClass]="{'active': activePreviewId === suggestion.id}">
+        [ngClass]="{'active': activePreviewId === suggestion.suggestionID}">
         <div
           class="suggestion-content"
           (click)="togglePreview(suggestion)">
-          <span class="description">{{suggestion.description}}</span>
+          <span class="description">{{suggestion.suggestion}}</span>
         </div>
 
         <div
-          *ngIf="activePreviewId === suggestion.id"
+          *ngIf="activePreviewId === suggestion.suggestionID"
           class="suggestion-actions">
           <button
             nz-button
