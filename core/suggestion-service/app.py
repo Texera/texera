@@ -1,15 +1,12 @@
 import json
 import os
-from typing import Dict, List, Any, Optional
-from fastapi.requests import Request
-
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 
 from model.llm.suggestion import SuggestionList
+from model.web.input import SuggestionRequest
 from suggestion_engine.generator import SuggestionGenerator
 
 # Load environment variables
@@ -36,48 +33,6 @@ MAX_SUGGESTIONS = int(os.environ.get("MAX_SUGGESTIONS", "3"))
 # Initialize the suggestion generator with LLM support
 suggestion_generator = SuggestionGenerator()
 
-
-# Input models
-class SchemaAttribute(BaseModel):
-    attributeName: str
-    attributeType: str
-
-    class Config:
-        extra = "allow"
-
-
-class PhysicalPlan(BaseModel):
-    # operators IS A LIST  ➜ declare it as such
-    operators: List[Dict[str, Any]] = Field(default_factory=list)
-    links: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class CompilationStateInfo(BaseModel):
-    state: str
-    physicalPlan: Optional[PhysicalPlan] = None
-    operatorInputSchemaMap: Optional[
-        Dict[str, List[Optional[List[SchemaAttribute]]]]
-    ] = None
-    operatorErrors: Optional[Dict[str, Any]] = None
-
-
-class ExecutionStateInfo(BaseModel):
-    state: str
-    currentTuples: Optional[Dict[str, Any]] = None
-    errorMessages: Optional[List[Dict[str, Any]]] = None
-
-
-class SuggestionRequest(BaseModel):
-    workflow: str = Field(..., description="JSON string of the workflow")
-    compilationState: CompilationStateInfo
-    executionState: Optional[ExecutionStateInfo] = None
-
-
-class LLMConfig(BaseModel):
-    provider: str = LLM_PROVIDER
-    model: Optional[str] = LLM_MODEL
-
-
 # @app.middleware("http")
 # async def log_raw_body(request: Request, call_next):
 #     body = await request.body()
@@ -89,15 +44,6 @@ class LLMConfig(BaseModel):
 @app.get("/")
 async def root():
     return {"message": "Texera Workflow Suggestion Service is running"}
-
-
-@app.get("/api/config")
-async def get_config():
-    """Get the current configuration."""
-    return {
-        "llm": {"provider": LLM_PROVIDER, "model": LLM_MODEL},
-        "maxSuggestions": MAX_SUGGESTIONS,
-    }
 
 
 @app.post("/api/workflow-suggestion", response_model=SuggestionList)

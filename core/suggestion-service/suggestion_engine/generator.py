@@ -12,10 +12,19 @@ from workflow_interpretation.interpreter import (
 from model.Tuple import Tuple
 from model.DataSchema import DataSchema, Attribute, AttributeType
 from llm_agent.base import LLMAgentFactory
+from distutils.util import strtobool  # stdlib helper
 
 
 # Load environment variables from .env file if present
 load_dotenv()
+
+
+# helper that treats 1/true/yes/y (case‑insensitive) as True
+def env_bool(key: str, default: bool = False) -> bool:
+    try:
+        return bool(strtobool(os.getenv(key, str(default))))
+    except ValueError:
+        return default
 
 
 class SuggestionGenerator:
@@ -60,6 +69,9 @@ class SuggestionGenerator:
                 extra_params["tools"] = tools
                 extra_params["project"] = os.environ.get("OPENAI_PROJECT_ID")
                 extra_params["organization"] = os.environ.get("OPENAI_ORG_ID")
+                extra_params["use_function_calls"] = env_bool(
+                    "OPENAI_USE_FUNCTION_CALLS", default=True
+                )
             self.llm_agent = LLMAgentFactory.create(
                 self.llm_provider, model=self.llm_model, **extra_params
             )
