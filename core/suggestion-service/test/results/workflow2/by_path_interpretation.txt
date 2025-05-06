@@ -55,7 +55,7 @@
                     "attributeType": "integer"
                   },
                   {
-                    "attributeName": "favorite_count",
+                    "attributeName": "tweet_id",
                     "attributeType": "integer"
                   },
                   {
@@ -63,20 +63,20 @@
                     "attributeType": "integer"
                   },
                   {
-                    "attributeName": "tweet_id",
-                    "attributeType": "integer"
-                  },
-                  {
-                    "attributeName": "create_at_month",
-                    "attributeType": "timestamp"
+                    "attributeName": "lang",
+                    "attributeType": "string"
                   },
                   {
                     "attributeName": "is_retweet",
                     "attributeType": "boolean"
                   },
                   {
-                    "attributeName": "lang",
-                    "attributeType": "string"
+                    "attributeName": "favorite_count",
+                    "attributeType": "integer"
+                  },
+                  {
+                    "attributeName": "create_at_month",
+                    "attributeType": "timestamp"
                   }
                 ]
               }
@@ -189,7 +189,7 @@
                     "attributeType": "integer"
                   },
                   {
-                    "attributeName": "favorite_count",
+                    "attributeName": "tweet_id",
                     "attributeType": "integer"
                   },
                   {
@@ -197,20 +197,20 @@
                     "attributeType": "integer"
                   },
                   {
-                    "attributeName": "tweet_id",
-                    "attributeType": "integer"
-                  },
-                  {
-                    "attributeName": "create_at_month",
-                    "attributeType": "timestamp"
+                    "attributeName": "lang",
+                    "attributeType": "string"
                   },
                   {
                     "attributeName": "is_retweet",
                     "attributeType": "boolean"
                   },
                   {
-                    "attributeName": "lang",
-                    "attributeType": "string"
+                    "attributeName": "favorite_count",
+                    "attributeType": "integer"
+                  },
+                  {
+                    "attributeName": "create_at_month",
+                    "attributeType": "timestamp"
                   }
                 ]
               }

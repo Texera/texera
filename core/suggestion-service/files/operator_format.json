@@ -1,6 +1,6 @@
 [
   {
-    "operatorID": "IntervalJoin-operator-72b366f3-ef19-4dd1-9bcf-0376b492e0ff",
+    "operatorID": "IntervalJoin-operator-94a405e8-f1d0-44c7-a024-dc6c355ef389",
     "operatorType": "IntervalJoin",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -48,7 +48,7 @@
     "customDisplayName": "Interval Join"
   },
   {
-    "operatorID": "DotPlot-operator-e087b936-d811-4bf0-93b3-e71db8ff37aa",
+    "operatorID": "DotPlot-operator-073e4322-fd56-4f39-a7cc-fd9e1bf01dd6",
     "operatorType": "DotPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -79,7 +79,7 @@
     "customDisplayName": "Dot Plot"
   },
   {
-    "operatorID": "CartesianProduct-operator-02edfe35-a0af-4f75-a093-76a2b8fe6f40",
+    "operatorID": "CartesianProduct-operator-8c355f9a-625e-41ef-b9a4-faa58a49fc42",
     "operatorType": "CartesianProduct",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -121,7 +121,7 @@
     "customDisplayName": "Cartesian Product"
   },
   {
-    "operatorID": "HuggingFaceSentimentAnalysis-operator-27dfd03d-62f8-49e3-ac8a-6a315dfca082",
+    "operatorID": "HuggingFaceSentimentAnalysis-operator-057df3f1-bf65-4569-a529-67022a473cc8",
     "operatorType": "HuggingFaceSentimentAnalysis",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -155,7 +155,7 @@
     "customDisplayName": "Hugging Face Sentiment Analysis"
   },
   {
-    "operatorID": "PythonUDFSourceV2-operator-3f96d72d-e1e0-47f3-b16e-6cfb93d0c300",
+    "operatorID": "PythonUDFSourceV2-operator-5b79ff6d-5f36-434d-ad9c-1d65c2dd0638",
     "operatorType": "PythonUDFSourceV2",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -180,7 +180,7 @@
     "customDisplayName": "1-out Python UDF"
   },
   {
-    "operatorID": "TwitterFullArchiveSearch-operator-3338dc02-df59-4017-8cc7-d059d759044b",
+    "operatorID": "TwitterFullArchiveSearch-operator-abf6914f-f6f1-409d-b2f1-7910270bddab",
     "operatorType": "TwitterFullArchiveSearch",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -209,7 +209,7 @@
     "customDisplayName": "Twitter Full Archive Search API"
   },
   {
-    "operatorID": "SklearnLogisticRegressionCV-operator-ec9a53c3-d681-4a6f-aba4-e360b3d723da",
+    "operatorID": "SklearnLogisticRegressionCV-operator-a7c38481-03c4-41f4-b496-623bd48d8817",
     "operatorType": "SklearnLogisticRegressionCV",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -255,7 +255,7 @@
     "customDisplayName": "Logistic Regression Cross Validation"
   },
   {
-    "operatorID": "JSONLFileScan-operator-03f6c827-1818-4477-b822-317bbc758bf9",
+    "operatorID": "JSONLFileScan-operator-4da5d4a2-a94c-439b-9ab2-9c8c69ec10aa",
     "operatorType": "JSONLFileScan",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -282,7 +282,7 @@
     "customDisplayName": "JSONL File Scan"
   },
   {
-    "operatorID": "CandlestickChart-operator-f33fe5be-4680-4849-b9b2-17e3180fe8b5",
+    "operatorID": "CandlestickChart-operator-61822092-5166-489a-beff-79ee44ff07f6",
     "operatorType": "CandlestickChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -317,7 +317,7 @@
     "customDisplayName": "Candlestick Chart"
   },
   {
-    "operatorID": "ReservoirSampling-operator-2a88b9e4-b034-4d98-b0f9-ddba1863f010",
+    "operatorID": "ReservoirSampling-operator-be6bb046-5c14-452d-8284-f399c4368175",
     "operatorType": "ReservoirSampling",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -348,7 +348,7 @@
     "customDisplayName": "Reservoir Sampling"
   },
   {
-    "operatorID": "ScatterMatrixChart-operator-946d1378-249d-4615-b2ec-94cf648d6129",
+    "operatorID": "ScatterMatrixChart-operator-6bb2ebfa-cb71-4927-b97f-5d5e57c831c6",
     "operatorType": "ScatterMatrixChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -380,7 +380,7 @@
     "customDisplayName": "Scatter Matrix Chart"
   },
   {
-    "operatorID": "SklearnKNN-operator-5d30b435-ad39-4b25-9ad9-3d7b6cd045dc",
+    "operatorID": "SklearnKNN-operator-ae1b0bf4-cee7-43b2-999f-8c6ade032e00",
     "operatorType": "SklearnKNN",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -426,7 +426,7 @@
     "customDisplayName": "K-nearest Neighbors"
   },
   {
-    "operatorID": "SklearnProbabilityCalibration-operator-9f6bf6dd-6562-42de-96bb-5b0d12bfd427",
+    "operatorID": "SklearnProbabilityCalibration-operator-1d1d950a-7d55-4261-b476-deb5725e5d39",
     "operatorType": "SklearnProbabilityCalibration",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -472,7 +472,7 @@
     "customDisplayName": "Probability Calibration"
   },
   {
-    "operatorID": "SortPartitions-operator-d0428d49-acec-4389-a474-a0fceb5ad114",
+    "operatorID": "SortPartitions-operator-570f7cdd-c55f-4051-a1d0-5411892c27ed",
     "operatorType": "SortPartitions",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -505,7 +505,7 @@
     "customDisplayName": "Sort Partitions"
   },
   {
-    "operatorID": "DumbbellPlot-operator-79e4d7ab-dfe8-48b7-8bf9-a9065628f69e",
+    "operatorID": "DumbbellPlot-operator-40a538d5-bd1d-4ba5-a731-372a749617df",
     "operatorType": "DumbbellPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -542,7 +542,7 @@
     "customDisplayName": "Dumbbell Plot"
   },
   {
-    "operatorID": "If-operator-2781a109-9a38-4def-b099-2666c86e6119",
+    "operatorID": "If-operator-bff0e021-2948-4503-a98f-6ae4ab6334b5",
     "operatorType": "If",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -591,7 +591,7 @@
     "customDisplayName": "If"
   },
   {
-    "operatorID": "SklearnSDG-operator-72516a9e-a280-4ab1-be65-a26521b1ca74",
+    "operatorID": "SklearnSDG-operator-279f8e8e-1a02-44e5-a2ec-3e0e928428fb",
     "operatorType": "SklearnSDG",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -637,7 +637,7 @@
     "customDisplayName": "Stochastic Gradient Descent"
   },
   {
-    "operatorID": "URLVisualizer-operator-e7969eca-09f8-4880-9b58-8a8fd0f1fd40",
+    "operatorID": "URLVisualizer-operator-a3280fb2-19fe-404a-891f-bdc1dec5603e",
     "operatorType": "URLVisualizer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -668,7 +668,7 @@
     "customDisplayName": "URL Visualizer"
   },
   {
-    "operatorID": "Dummy-operator-b896deb9-0e31-4e5c-bbd3-8436cf1bab49",
+    "operatorID": "Dummy-operator-101e4a24-e75c-4820-84dc-838042549310",
     "operatorType": "Dummy",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -699,7 +699,7 @@
     "customDisplayName": "Dummy"
   },
   {
-    "operatorID": "HuggingFaceTextSummarization-operator-f564b83f-5ce6-4425-82af-9f0b5680ba41",
+    "operatorID": "HuggingFaceTextSummarization-operator-fb0fcd94-0a72-4fb5-af74-52189fab70b2",
     "operatorType": "HuggingFaceTextSummarization",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -731,7 +731,7 @@
     "customDisplayName": "Hugging Face Text Summarization"
   },
   {
-    "operatorID": "Union-operator-5460acac-8db3-44bf-bbb5-1f97b327a0a5",
+    "operatorID": "Union-operator-3c22307d-c6f2-4e84-929e-efccac4531af",
     "operatorType": "Union",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -761,7 +761,7 @@
     "customDisplayName": "Union"
   },
   {
-    "operatorID": "SklearnGradientBoosting-operator-c8f8d11b-1217-43ec-90a2-79cea88c02fd",
+    "operatorID": "SklearnGradientBoosting-operator-148ef602-52b9-4b37-bf1e-beab517c4781",
     "operatorType": "SklearnGradientBoosting",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -807,7 +807,7 @@
     "customDisplayName": "Gradient Boosting"
   },
   {
-    "operatorID": "KNNRegressorTrainer-operator-3078b098-5f8f-4bc0-a37d-ee6e4bf7f39f",
+    "operatorID": "KNNRegressorTrainer-operator-f5419456-e879-4510-8b6c-a4c3ed322f0e",
     "operatorType": "KNNRegressorTrainer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -852,7 +852,7 @@
     "customDisplayName": "KNN Regressor"
   },
   {
-    "operatorID": "RUDFSource-operator-c3c180aa-5d78-4fb2-8e18-b6c61b0ad25d",
+    "operatorID": "RUDFSource-operator-30130996-ae93-4e58-9df3-3f1fbc92012d",
     "operatorType": "RUDFSource",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -878,7 +878,7 @@
     "customDisplayName": "1-out R UDF"
   },
   {
-    "operatorID": "HuggingFaceIrisLogisticRegression-operator-7243688c-c794-4309-8cbe-f53f0963b848",
+    "operatorID": "HuggingFaceIrisLogisticRegression-operator-dbdeaa54-b343-4941-b83e-1df81a971300",
     "operatorType": "HuggingFaceIrisLogisticRegression",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -912,7 +912,7 @@
     "customDisplayName": "Hugging Face Iris Logistic Regression"
   },
   {
-    "operatorID": "ContinuousErrorBands-operator-a7b9d468-e74c-4680-a446-0ec543df79c9",
+    "operatorID": "ContinuousErrorBands-operator-dc2ff6db-6181-42b9-b071-300e10a76c9c",
     "operatorType": "ContinuousErrorBands",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -945,7 +945,7 @@
     "customDisplayName": "Continuous Error Bands"
   },
   {
-    "operatorID": "TwitterSearch-operator-d6d9d930-43fe-435b-b6b0-fc7547049c8b",
+    "operatorID": "TwitterSearch-operator-4eba20a9-718c-445b-b573-6a6a8523e139",
     "operatorType": "TwitterSearch",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -972,7 +972,7 @@
     "customDisplayName": "Twitter Search API"
   },
   {
-    "operatorID": "SklearnPassiveAggressive-operator-11f96d50-dd76-47c4-9bfe-40579019b16f",
+    "operatorID": "SklearnPassiveAggressive-operator-a296a825-31d2-419c-ab82-d5fcaefca355",
     "operatorType": "SklearnPassiveAggressive",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1018,7 +1018,7 @@
     "customDisplayName": "Passive Aggressive"
   },
   {
-    "operatorID": "HTMLVisualizer-operator-6599c2da-ad7a-4f58-abe0-edcda261ed94",
+    "operatorID": "HTMLVisualizer-operator-0e1e767c-b5f2-49d1-a518-9cf44eb3d8c8",
     "operatorType": "HTMLVisualizer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1049,7 +1049,7 @@
     "customDisplayName": "HTML Visualizer"
   },
   {
-    "operatorID": "SklearnComplementNaiveBayes-operator-f8e70fe5-b84a-43f3-9644-9a0393c54101",
+    "operatorID": "SklearnComplementNaiveBayes-operator-03bf8714-500d-4564-9420-5b2f197c93cc",
     "operatorType": "SklearnComplementNaiveBayes",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1095,7 +1095,7 @@
     "customDisplayName": "Complement Naive Bayes"
   },
   {
-    "operatorID": "URLFetcher-operator-2880856f-cf3d-44e7-834a-7f9e41f76b62",
+    "operatorID": "URLFetcher-operator-bd715acc-9ecc-41e3-88f2-4c5921afe6fc",
     "operatorType": "URLFetcher",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1119,7 +1119,7 @@
     "customDisplayName": "URL fetcher"
   },
   {
-    "operatorID": "JavaUDF-operator-95544c9f-4395-4d4f-9911-90b16ea95294",
+    "operatorID": "JavaUDF-operator-53281828-0900-4954-a2e4-4e6a13baba8f",
     "operatorType": "JavaUDF",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1153,7 +1153,7 @@
     "customDisplayName": "Java UDF"
   },
   {
-    "operatorID": "PieChart-operator-b8259d74-a05f-4ef4-ab5f-a2ca09923f16",
+    "operatorID": "PieChart-operator-5202bee8-24bb-429b-ad3d-9cf2e43ba3f0",
     "operatorType": "PieChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1185,7 +1185,7 @@
     "customDisplayName": "Pie Chart"
   },
   {
-    "operatorID": "DictionaryMatcher-operator-e8f16cd0-d022-4f87-adb3-0bdcd0d21fba",
+    "operatorID": "DictionaryMatcher-operator-d822ff6f-edc4-4f71-b94c-b3e4582ae55f",
     "operatorType": "DictionaryMatcher",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1219,7 +1219,7 @@
     "customDisplayName": "Dictionary matcher"
   },
   {
-    "operatorID": "UnnestString-operator-96d10cfc-b75c-4691-b0aa-fd4fc84b2b6f",
+    "operatorID": "UnnestString-operator-e5941278-400e-440c-86d5-8bdd04a6df21",
     "operatorType": "UnnestString",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1252,7 +1252,7 @@
     "customDisplayName": "Unnest String"
   },
   {
-    "operatorID": "BubbleChart-operator-7f28c7ad-e15b-4755-9b11-a619d7fd8a9a",
+    "operatorID": "BubbleChart-operator-cc325164-2231-4c1e-81d3-f357685263cd",
     "operatorType": "BubbleChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1287,7 +1287,7 @@
     "customDisplayName": "Bubble Chart"
   },
   {
-    "operatorID": "RedditSearch-operator-562ccdb3-7852-43bf-89c8-7bc23fb43581",
+    "operatorID": "RedditSearch-operator-0b36dafa-e6c6-497f-aec8-83fc034f09f9",
     "operatorType": "RedditSearch",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1314,7 +1314,7 @@
     "customDisplayName": "Reddit Search"
   },
   {
-    "operatorID": "SVRTrainer-operator-69e7bdc2-5f99-4b49-882e-a39d6d25e0a4",
+    "operatorID": "SVRTrainer-operator-2311a515-dcd9-4ec1-aecc-0654df6f2124",
     "operatorType": "SVRTrainer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1359,7 +1359,7 @@
     "customDisplayName": "SVM Regressor"
   },
   {
-    "operatorID": "RUDF-operator-3374e8a3-5a94-4476-89fb-2d17a543c0f1",
+    "operatorID": "RUDF-operator-7aad59ec-5ee3-4242-b3cd-b43c8a1b2f54",
     "operatorType": "RUDF",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1394,7 +1394,7 @@
     "customDisplayName": "R UDF"
   },
   {
-    "operatorID": "BoxViolinPlot-operator-6691b3f9-fae7-4249-9518-2559efe5e170",
+    "operatorID": "BoxViolinPlot-operator-afb8bcda-2f85-4bee-97b8-354958272047",
     "operatorType": "BoxViolinPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1428,7 +1428,7 @@
     "customDisplayName": "Box/Violin Plot"
   },
   {
-    "operatorID": "SklearnAdaptiveBoosting-operator-caedc6d6-1644-41c9-942d-ff218643bf9b",
+    "operatorID": "SklearnAdaptiveBoosting-operator-6732949a-95a4-42d2-8493-41799da0166c",
     "operatorType": "SklearnAdaptiveBoosting",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1474,7 +1474,7 @@
     "customDisplayName": "Adaptive Boosting"
   },
   {
-    "operatorID": "Scatterplot-operator-c2ce9a0e-ff5b-4b1b-ba14-b324fdaf9f33",
+    "operatorID": "Scatterplot-operator-ac841e0c-7016-4934-bfc6-d566373fc6cf",
     "operatorType": "Scatterplot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1510,7 +1510,7 @@
     "customDisplayName": "Scatter Plot"
   },
   {
-    "operatorID": "SklearnPerceptron-operator-e7c2328e-ac06-4967-ac6f-f1f38c6c89a3",
+    "operatorID": "SklearnPerceptron-operator-a4a1b83f-072b-4723-ab60-527a1f3a0083",
     "operatorType": "SklearnPerceptron",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1556,7 +1556,7 @@
     "customDisplayName": "Linear Perceptron"
   },
   {
-    "operatorID": "KeywordSearch-operator-4eae42da-c06a-44cd-b14b-f46bf3ab05ac",
+    "operatorID": "KeywordSearch-operator-c7f3b41f-e12d-4025-b0b1-0ef75aac817e",
     "operatorType": "KeywordSearch",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1588,7 +1588,7 @@
     "customDisplayName": "Keyword Search"
   },
   {
-    "operatorID": "PythonUDFV2-operator-3d93a8dd-3a87-40a8-b6b5-0417ecb4c098",
+    "operatorID": "PythonUDFV2-operator-f051c7e2-c487-47b7-a151-7efe9ca78874",
     "operatorType": "PythonUDFV2",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1622,7 +1622,7 @@
     "customDisplayName": "Python UDF"
   },
   {
-    "operatorID": "SklearnLogisticRegression-operator-52b42d9c-934c-4158-b262-9d4c386c9d6e",
+    "operatorID": "SklearnLogisticRegression-operator-e7b0a305-9954-4a79-9008-3b2a1edb34e6",
     "operatorType": "SklearnLogisticRegression",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1668,7 +1668,7 @@
     "customDisplayName": "Logistic Regression"
   },
   {
-    "operatorID": "SklearnRandomForest-operator-4a2ed684-53f0-48c4-932e-fd0314ba249c",
+    "operatorID": "SklearnRandomForest-operator-bc418f9c-1798-4d74-903d-fbe5c7af2a6d",
     "operatorType": "SklearnRandomForest",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1714,7 +1714,7 @@
     "customDisplayName": "Random Forest"
   },
   {
-    "operatorID": "TypeCasting-operator-32ad7907-032b-46bf-99c2-65c461e4f8e6",
+    "operatorID": "TypeCasting-operator-c3b17263-69b0-448f-a23f-21bba9301bd7",
     "operatorType": "TypeCasting",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1745,7 +1745,7 @@
     "customDisplayName": "Type Casting"
   },
   {
-    "operatorID": "SklearnGaussianNaiveBayes-operator-6376fef2-e2e9-44d0-a517-62f06293f4f1",
+    "operatorID": "SklearnGaussianNaiveBayes-operator-546fc1da-1fff-44a4-b2cb-49dd02485fd8",
     "operatorType": "SklearnGaussianNaiveBayes",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1791,7 +1791,7 @@
     "customDisplayName": "Gaussian Naive Bayes"
   },
   {
-    "operatorID": "AsterixDBSource-operator-264a5840-3e79-4dfa-bae4-f2f9b166a355",
+    "operatorID": "AsterixDBSource-operator-99ff1b64-4443-43b2-9919-d7bb0c86b978",
     "operatorType": "AsterixDBSource",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1835,7 +1835,7 @@
     "customDisplayName": "AsterixDB Source"
   },
   {
-    "operatorID": "DualInputPortsPythonUDFV2-operator-ace5683f-3598-4762-8ac6-d50f2513f570",
+    "operatorID": "DualInputPortsPythonUDFV2-operator-08949588-ed84-48e4-b1d5-427d155c2bf7",
     "operatorType": "DualInputPortsPythonUDFV2",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1881,7 +1881,7 @@
     "customDisplayName": "2-in Python UDF"
   },
   {
-    "operatorID": "Histogram-operator-a07d634f-b8be-4148-998f-5517503872ce",
+    "operatorID": "Histogram-operator-09a3d8a7-96f4-4e27-9d17-b851e4e9b9c2",
     "operatorType": "Histogram",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1916,7 +1916,7 @@
     "customDisplayName": "Histogram"
   },
   {
-    "operatorID": "SklearnDummyClassifier-operator-87552e1c-6064-4ed0-9f51-c2a9ce030a25",
+    "operatorID": "SklearnDummyClassifier-operator-c09cb6cf-edf2-49eb-a3f6-269f11baeab7",
     "operatorType": "SklearnDummyClassifier",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1962,7 +1962,7 @@
     "customDisplayName": "Dummy Classifier"
   },
   {
-    "operatorID": "Distinct-operator-96c46a4f-505d-4605-89bf-8d71fc22d851",
+    "operatorID": "Distinct-operator-a50aeabd-61ca-419b-bbf1-476dac6c5f10",
     "operatorType": "Distinct",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -1992,7 +1992,7 @@
     "customDisplayName": "Distinct"
   },
   {
-    "operatorID": "NetworkGraph-operator-d781d3bf-44ce-40e8-b5d2-6db25882dadf",
+    "operatorID": "NetworkGraph-operator-55d6f6e5-443b-4a32-b61d-84ac9ffe0c17",
     "operatorType": "NetworkGraph",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2025,7 +2025,7 @@
     "customDisplayName": "Network Graph"
   },
   {
-    "operatorID": "WaterfallChart-operator-61751856-08be-45c4-9e01-346c11356754",
+    "operatorID": "WaterfallChart-operator-fde6eb29-7620-4364-b52e-c483bbaf94eb",
     "operatorType": "WaterfallChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2057,7 +2057,7 @@
     "customDisplayName": "Waterfall Chart"
   },
   {
-    "operatorID": "Limit-operator-280b0d6f-0532-419d-9d3c-d2babb311cf6",
+    "operatorID": "Limit-operator-51368085-289f-4c81-9710-7f50c773986c",
     "operatorType": "Limit",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2088,7 +2088,7 @@
     "customDisplayName": "Limit"
   },
   {
-    "operatorID": "Scorer-operator-52458956-e4dd-466f-a4ad-814ba651a03c",
+    "operatorID": "Scorer-operator-7c7678b4-6808-4b88-b668-827a4b239953",
     "operatorType": "Scorer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2123,7 +2123,7 @@
     "customDisplayName": "Machine Learning Scorer"
   },
   {
-    "operatorID": "SklearnExtraTrees-operator-201c4cf3-997c-4d24-b57e-a280e01e3045",
+    "operatorID": "SklearnExtraTrees-operator-51253af5-d50e-4f7a-9b88-6a982a122aeb",
     "operatorType": "SklearnExtraTrees",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2169,7 +2169,7 @@
     "customDisplayName": "Extra Trees"
   },
   {
-    "operatorID": "FileScan-operator-d6c0878c-7ee9-48a3-9f59-ab0d95a53293",
+    "operatorID": "FileScan-operator-9c176295-3e96-4b0d-96ae-4414af9c4156",
     "operatorType": "FileScan",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2199,7 +2199,7 @@
     "customDisplayName": " File Scan"
   },
   {
-    "operatorID": "GanttChart-operator-b1bedf48-d86f-400b-a8f6-f73701e18ca6",
+    "operatorID": "GanttChart-operator-17fd05af-1037-4104-82f7-031c450edf79",
     "operatorType": "GanttChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2234,7 +2234,7 @@
     "customDisplayName": "Gantt Chart"
   },
   {
-    "operatorID": "TernaryPlot-operator-e7a20b03-4747-4f5b-96d5-9c386aa0ea19",
+    "operatorID": "TernaryPlot-operator-204e4579-92f5-4560-a19c-31fbcbaf8be7",
     "operatorType": "TernaryPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2269,7 +2269,7 @@
     "customDisplayName": "Ternary Plot"
   },
   {
-    "operatorID": "SVCTrainer-operator-dee0a9fd-7119-45d0-9e3c-ed4a9a9127e0",
+    "operatorID": "SVCTrainer-operator-8368d270-ce0f-499c-bd00-9685ae9e6eed",
     "operatorType": "SVCTrainer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2314,7 +2314,7 @@
     "customDisplayName": "SVM Classifier"
   },
   {
-    "operatorID": "SklearnLinearRegression-operator-e34b1ab6-14f3-4f87-b338-8e27aa939a88",
+    "operatorID": "SklearnLinearRegression-operator-4a2f1610-bae4-46b7-9b7e-477a5b076cfe",
     "operatorType": "SklearnLinearRegression",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2358,7 +2358,7 @@
     "customDisplayName": "Linear Regression"
   },
   {
-    "operatorID": "MySQLSource-operator-65c9ddc6-b553-4020-9ffc-8ba329389e0d",
+    "operatorID": "MySQLSource-operator-8967246d-8668-4746-8fcd-d4623d72514d",
     "operatorType": "MySQLSource",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2396,7 +2396,7 @@
     "customDisplayName": "MySQL Source"
   },
   {
-    "operatorID": "CSVOldFileScan-operator-a269e142-3f61-42b3-b84a-5058ed19da21",
+    "operatorID": "CSVOldFileScan-operator-bbdf2a26-1246-48ab-93a1-5c52ac9e3d84",
     "operatorType": "CSVOldFileScan",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2424,7 +2424,7 @@
     "customDisplayName": "CSVOld File Scan"
   },
   {
-    "operatorID": "CSVFileScan-operator-6d6329ec-2810-4e8b-965a-c40a10fb21eb",
+    "operatorID": "CSVFileScan-operator-5bd48e8e-8eea-4750-b23a-870c8687e374",
     "operatorType": "CSVFileScan",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2452,7 +2452,7 @@
     "customDisplayName": "CSV File Scan"
   },
   {
-    "operatorID": "FunnelPlot-operator-86802513-2bac-4ad1-ad30-17819e6be58e",
+    "operatorID": "FunnelPlot-operator-f16667f4-84a3-4aca-b977-2358362379bc",
     "operatorType": "FunnelPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2485,7 +2485,7 @@
     "customDisplayName": "Funnel Plot"
   },
   {
-    "operatorID": "Projection-operator-31dc6506-d584-4d09-b911-4b0209b80cad",
+    "operatorID": "Projection-operator-c7071d17-f212-4f15-b25c-4e61b235c56a",
     "operatorType": "Projection",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2517,7 +2517,7 @@
     "customDisplayName": "Projection"
   },
   {
-    "operatorID": "Filter-operator-0a35c1ac-83a1-465d-9839-6601e4e95780",
+    "operatorID": "Filter-operator-66cf7145-0659-487b-9c81-8e4dffb2f44a",
     "operatorType": "Filter",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2548,7 +2548,7 @@
     "customDisplayName": "Filter"
   },
   {
-    "operatorID": "SklearnRidge-operator-fe7c78d4-1716-40e6-ac2f-47cc33374ac8",
+    "operatorID": "SklearnRidge-operator-5792371d-fe13-4862-9eb5-570f04de6dbc",
     "operatorType": "SklearnRidge",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2594,7 +2594,7 @@
     "customDisplayName": "Ridge Regression"
   },
   {
-    "operatorID": "Intersect-operator-93185868-2685-4243-a961-cea6be0764d2",
+    "operatorID": "Intersect-operator-c1a5cf03-631a-4300-b096-cad673322c95",
     "operatorType": "Intersect",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2631,7 +2631,7 @@
     "customDisplayName": "Intersect"
   },
   {
-    "operatorID": "SklearnPrediction-operator-271dbe11-10f8-4897-ac76-426e5b99d47b",
+    "operatorID": "SklearnPrediction-operator-55d13d3a-da51-4d9b-a3eb-4ac6973551e4",
     "operatorType": "SklearnPrediction",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2676,7 +2676,7 @@
     "customDisplayName": "Sklearn Prediction"
   },
   {
-    "operatorID": "SymmetricDifference-operator-b1ae2376-0af6-436f-88e3-5da4143501a4",
+    "operatorID": "SymmetricDifference-operator-32ce4cc8-9da8-4e9e-9065-65df7b12c410",
     "operatorType": "SymmetricDifference",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2713,7 +2713,7 @@
     "customDisplayName": "SymmetricDifference"
   },
   {
-    "operatorID": "FigureFactoryTable-operator-1e942b16-7293-4711-81a4-8653ad3a3e4a",
+    "operatorID": "FigureFactoryTable-operator-bdb0630f-8515-4867-9a50-69592b225e92",
     "operatorType": "FigureFactoryTable",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2747,7 +2747,7 @@
     "customDisplayName": "Figure Factory Table"
   },
   {
-    "operatorID": "FilledAreaPlot-operator-7c9df81d-18d1-4a03-b80b-b9e638c1b8c6",
+    "operatorID": "FilledAreaPlot-operator-8a20c87e-8a37-4086-9cfb-338aa143f4cd",
     "operatorType": "FilledAreaPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2783,7 +2783,7 @@
     "customDisplayName": "Filled Area Plot"
   },
   {
-    "operatorID": "SklearnRidgeCV-operator-4a333e30-3475-4b90-8013-22bf9c5f0f3b",
+    "operatorID": "SklearnRidgeCV-operator-29d4bbec-1ef5-45b9-a2db-acd5695db037",
     "operatorType": "SklearnRidgeCV",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2829,7 +2829,7 @@
     "customDisplayName": "Ridge Regression Cross Validation"
   },
   {
-    "operatorID": "IcicleChart-operator-d9e1cf3b-5d15-458a-816a-58c8a3bc75e6",
+    "operatorID": "IcicleChart-operator-4c8cfb86-c602-4665-95dc-d419d0fa7d37",
     "operatorType": "IcicleChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2861,7 +2861,7 @@
     "customDisplayName": "Icicle Chart"
   },
   {
-    "operatorID": "Regex-operator-3932fae1-8c28-40f5-9b81-d76c4a5a230a",
+    "operatorID": "Regex-operator-e908abb1-7c91-41ac-97dd-13f23e9b9455",
     "operatorType": "Regex",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2894,7 +2894,7 @@
     "customDisplayName": "Regular Expression"
   },
   {
-    "operatorID": "HeatMap-operator-1a8f6ca5-eb9a-48b7-8e59-d1baaaec5661",
+    "operatorID": "HeatMap-operator-2dd1c4f2-f275-4c7e-a175-0048a4a114e6",
     "operatorType": "HeatMap",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2927,7 +2927,7 @@
     "customDisplayName": "Heatmap"
   },
   {
-    "operatorID": "TablesPlot-operator-acd786b6-ab10-4b3b-9d4b-04934eda3966",
+    "operatorID": "TablesPlot-operator-aaa3c914-5727-4c8a-8d6a-d8942b732234",
     "operatorType": "TablesPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2958,7 +2958,7 @@
     "customDisplayName": "Tables Plot"
   },
   {
-    "operatorID": "HierarchyChart-operator-46461d13-6d6e-4f59-b78c-3b96693d6395",
+    "operatorID": "HierarchyChart-operator-b8980f15-0f01-481c-af20-a3cf506ef058",
     "operatorType": "HierarchyChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -2991,7 +2991,7 @@
     "customDisplayName": "Hierarchy Chart"
   },
   {
-    "operatorID": "SklearnExtraTree-operator-44e84020-35e9-451a-8e23-e54baf53cda6",
+    "operatorID": "SklearnExtraTree-operator-f707f26b-d288-4072-8c7b-7eae4c2cf51a",
     "operatorType": "SklearnExtraTree",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3037,7 +3037,7 @@
     "customDisplayName": "Extra Tree"
   },
   {
-    "operatorID": "Sort-operator-da86c97a-9229-4e66-a10f-3f4f360840e1",
+    "operatorID": "Sort-operator-78396fbf-85d4-40ff-b0f0-7ed3328b78cf",
     "operatorType": "Sort",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3068,7 +3068,7 @@
     "customDisplayName": "Sort"
   },
   {
-    "operatorID": "Scatter3DChart-operator-b7ad88b6-1bab-4513-ba00-e5e4540fcb67",
+    "operatorID": "Scatter3DChart-operator-34866a13-48cd-49d1-ab77-252e0a7963e2",
     "operatorType": "Scatter3DChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3101,7 +3101,7 @@
     "customDisplayName": "Scatter3D Chart"
   },
   {
-    "operatorID": "SklearnBagging-operator-def70fc6-9357-4109-af7a-549c3d29dee2",
+    "operatorID": "SklearnBagging-operator-de64f368-2abc-4871-89e8-b07c04978885",
     "operatorType": "SklearnBagging",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3147,7 +3147,7 @@
     "customDisplayName": "Bagging"
   },
   {
-    "operatorID": "Difference-operator-8269a006-022d-42cc-8843-13fe54fee213",
+    "operatorID": "Difference-operator-18e513a2-b20f-46ea-8459-fb5b79a8ae09",
     "operatorType": "Difference",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3184,7 +3184,7 @@
     "customDisplayName": "Difference"
   },
   {
-    "operatorID": "ContourPlot-operator-bfb65dff-3f0d-4c0b-a797-719026d54a6e",
+    "operatorID": "ContourPlot-operator-fbc683a2-b8fb-4e9a-ae60-ff4040477c30",
     "operatorType": "ContourPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3220,7 +3220,7 @@
     "customDisplayName": "Contour Plot"
   },
   {
-    "operatorID": "PythonLambdaFunction-operator-ecd96a6a-0273-4f26-87d7-52abcfc6d577",
+    "operatorID": "PythonLambdaFunction-operator-e96035f2-8bef-41e2-8b3d-665d381513e1",
     "operatorType": "PythonLambdaFunction",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3251,7 +3251,7 @@
     "customDisplayName": "Python Lambda Function"
   },
   {
-    "operatorID": "WordCloud-operator-8ce8d2da-d69c-4425-b4c0-e05314eb0099",
+    "operatorID": "WordCloud-operator-1f6f0630-a12f-4dde-8f0d-1da1099793a6",
     "operatorType": "WordCloud",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3283,7 +3283,7 @@
     "customDisplayName": "Word Cloud"
   },
   {
-    "operatorID": "LineChart-operator-3786f331-cc2f-447c-a3f1-05e5d275c117",
+    "operatorID": "LineChart-operator-0e6f35eb-b550-41be-955c-44412c8c57ff",
     "operatorType": "LineChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3316,7 +3316,7 @@
     "customDisplayName": "Line Chart"
   },
   {
-    "operatorID": "RandomKSampling-operator-3e38e8cc-a078-4650-8a18-d784dd3ba0a2",
+    "operatorID": "RandomKSampling-operator-b144d179-9567-447b-9c87-dbe737b369f0",
     "operatorType": "RandomKSampling",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3347,7 +3347,7 @@
     "customDisplayName": "Random K Sampling"
   },
   {
-    "operatorID": "Split-operator-10d960da-b309-4a36-bb9e-a77d40990952",
+    "operatorID": "Split-operator-640cebe2-ad96-4302-9c38-ddd8632b1f61",
     "operatorType": "Split",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3386,7 +3386,7 @@
     "customDisplayName": "Split"
   },
   {
-    "operatorID": "SklearnMultiLayerPerceptron-operator-36a9cf36-14e0-4e33-b940-8246e329532d",
+    "operatorID": "SklearnMultiLayerPerceptron-operator-a4c22712-a10a-413c-a0a8-34fcb8316905",
     "operatorType": "SklearnMultiLayerPerceptron",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3432,7 +3432,7 @@
     "customDisplayName": "Multi-layer Perceptron"
   },
   {
-    "operatorID": "BarChart-operator-bc15d760-51a5-4267-bef5-f6d66ac061b1",
+    "operatorID": "BarChart-operator-4a666711-5089-468a-aca3-5fa3c954c6ae",
     "operatorType": "BarChart",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3467,7 +3467,7 @@
     "customDisplayName": "Bar Chart"
   },
   {
-    "operatorID": "HashJoin-operator-cdc4e8f1-2730-4f99-acba-ea9bc77157c5",
+    "operatorID": "HashJoin-operator-bfc31771-261a-4c38-8df8-ec8525f5c0f7",
     "operatorType": "HashJoin",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3512,7 +3512,7 @@
     "customDisplayName": "Hash Join"
   },
   {
-    "operatorID": "PythonTableReducer-operator-56a5d8c2-723e-4568-893e-6ca4c056040a",
+    "operatorID": "PythonTableReducer-operator-d60f85bf-7357-41f4-a843-587c0eaff39e",
     "operatorType": "PythonTableReducer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3543,7 +3543,7 @@
     "customDisplayName": "Python Table Reducer"
   },
   {
-    "operatorID": "Dendrogram-operator-5ebcffd7-76ae-4a53-afb5-36044bd86a93",
+    "operatorID": "Dendrogram-operator-682e5623-7f7a-4d19-908d-76807af1bd40",
     "operatorType": "Dendrogram",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3577,7 +3577,7 @@
     "customDisplayName": "Dendrogram"
   },
   {
-    "operatorID": "KNNClassifierTrainer-operator-55835110-2c66-4eef-bda6-c5950f053663",
+    "operatorID": "KNNClassifierTrainer-operator-4b23afa3-25c8-4b0f-b1b9-88a20f59d005",
     "operatorType": "KNNClassifierTrainer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3622,7 +3622,7 @@
     "customDisplayName": "KNN Classifier"
   },
   {
-    "operatorID": "SklearnMultinomialNaiveBayes-operator-ef1b18f9-59c1-4187-914c-1cbf6398e311",
+    "operatorID": "SklearnMultinomialNaiveBayes-operator-175a52d9-5ac1-4e7c-90a1-ab830965c4cb",
     "operatorType": "SklearnMultinomialNaiveBayes",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3668,7 +3668,7 @@
     "customDisplayName": "Multinomial Naive Bayes"
   },
   {
-    "operatorID": "SklearnDecisionTree-operator-1e47d7e5-d90e-4ee0-82ef-eb286baa8bf3",
+    "operatorID": "SklearnDecisionTree-operator-d209040c-fb3a-4831-8a6f-bc632fb16bb2",
     "operatorType": "SklearnDecisionTree",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3714,7 +3714,7 @@
     "customDisplayName": "Decision Tree"
   },
   {
-    "operatorID": "PostgreSQLSource-operator-20f4586f-faf3-472c-bf3d-451eedee963c",
+    "operatorID": "PostgreSQLSource-operator-acc0043b-0948-473a-963f-e3c51f250d77",
     "operatorType": "PostgreSQLSource",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3752,7 +3752,7 @@
     "customDisplayName": "PostgreSQL Source"
   },
   {
-    "operatorID": "ArrowSource-operator-c681b198-6b3e-421e-9988-303c46a69b9b",
+    "operatorID": "ArrowSource-operator-2b69b043-3b33-4064-91df-5e11c42e01b5",
     "operatorType": "ArrowSource",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3777,7 +3777,7 @@
     "customDisplayName": "Arrow File Scan"
   },
   {
-    "operatorID": "SankeyDiagram-operator-b685db36-0619-424f-a2dc-6b650ebdaba4",
+    "operatorID": "SankeyDiagram-operator-045b0d37-a678-405d-b7dd-09a6866afbbf",
     "operatorType": "SankeyDiagram",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3810,7 +3810,7 @@
     "customDisplayName": "Sankey Diagram"
   },
   {
-    "operatorID": "SklearnSVM-operator-fec9f3f5-02ef-4bce-844a-8de0a41d6fd5",
+    "operatorID": "SklearnSVM-operator-05ad5a59-59a1-4e4e-bc25-eb698ec02b72",
     "operatorType": "SklearnSVM",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3856,7 +3856,7 @@
     "customDisplayName": "Support Vector Machine"
   },
   {
-    "operatorID": "SklearnBernoulliNaiveBayes-operator-0cf4881b-0ec7-4980-ac3c-d78aecd3164a",
+    "operatorID": "SklearnBernoulliNaiveBayes-operator-2f502786-1c9b-4062-8d45-c2bb07e253c5",
     "operatorType": "SklearnBernoulliNaiveBayes",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3902,7 +3902,7 @@
     "customDisplayName": "Bernoulli Naive Bayes"
   },
   {
-    "operatorID": "ImageVisualizer-operator-812d51c1-dde6-4957-911e-8713a83080a1",
+    "operatorID": "ImageVisualizer-operator-4f3ab694-0c74-4ae0-a79b-df5b2568f4cd",
     "operatorType": "ImageVisualizer",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3933,7 +3933,7 @@
     "customDisplayName": "Image Visualizer"
   },
   {
-    "operatorID": "SklearnLinearSVM-operator-854585aa-a6cb-4b78-9e68-850851adfcfd",
+    "operatorID": "SklearnLinearSVM-operator-74638340-5cbf-4b0e-862f-ba2adb37d744",
     "operatorType": "SklearnLinearSVM",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -3979,7 +3979,7 @@
     "customDisplayName": "Linear Support Vector Machine"
   },
   {
-    "operatorID": "TextInput-operator-c19041c8-aa58-482d-a3af-3d85414e2e9a",
+    "operatorID": "TextInput-operator-94c6b3cd-009b-4373-adbd-3b460c0b3825",
     "operatorType": "TextInput",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -4006,7 +4006,7 @@
     "customDisplayName": "Text Input"
   },
   {
-    "operatorID": "HuggingFaceSpamSMSDetection-operator-a40cc892-df7b-4919-94ba-d8f026a8dc80",
+    "operatorID": "HuggingFaceSpamSMSDetection-operator-74a33cc6-3d8e-4c2a-8e98-bbb64b0ee907",
     "operatorType": "HuggingFaceSpamSMSDetection",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -4039,7 +4039,7 @@
     "customDisplayName": "Hugging Face Spam Detection"
   },
   {
-    "operatorID": "QuiverPlot-operator-0a5506d2-45e8-4bb3-a02b-b72c1d81fe67",
+    "operatorID": "QuiverPlot-operator-9556e857-9496-4428-9c4b-4c863c45a704",
     "operatorType": "QuiverPlot",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -4073,7 +4073,7 @@
     "customDisplayName": "Quiver Plot"
   },
   {
-    "operatorID": "SklearnNearestCentroid-operator-d8313011-b0f0-4f2c-8f3b-a6313e51eb4a",
+    "operatorID": "SklearnNearestCentroid-operator-a243c2f9-645f-459f-8ea0-16ae505a527e",
     "operatorType": "SklearnNearestCentroid",
     "operatorVersion": "N/A",
     "operatorProperties": {
@@ -4119,7 +4119,7 @@
     "customDisplayName": "Nearest Centroid"
   },
   {
-    "operatorID": "Aggregate-operator-ae81a02d-55c6-462e-8895-de98952b9e34",
+    "operatorID": "Aggregate-operator-f6eb5dc3-f10a-4b98-ac81-4a2f63cb9b39",
     "operatorType": "Aggregate",
     "operatorVersion": "N/A",
     "operatorProperties": {

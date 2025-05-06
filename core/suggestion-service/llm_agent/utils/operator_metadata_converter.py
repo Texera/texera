@@ -91,8 +91,8 @@ def convert_to_operator_predicate(schema: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def extract_json_schema(
-    operator_type: str, properties_only: bool = False
+def _extract_json_schema(
+    operator_type: str, properties_only: bool = True
 ) -> Dict[str, Any]:
     """
     Extract the full or properties-only JSON schema of an operatorType.
@@ -139,13 +139,12 @@ def extract_json_schema(
     raise ValueError(f"OperatorType '{operator_type}' not found unexpectedly.")
 
 
-# Convert all schemas
-operator_predicates: List[Dict[str, Any]] = [
-    convert_to_operator_predicate(schema) for schema in operator_metadata["operators"]
-]
-
 if __name__ == "__main__":
-    # Save result to file
+    # Convert all schemas
+    operator_predicates: List[Dict[str, Any]] = [
+        convert_to_operator_predicate(schema)
+        for schema in operator_metadata["operators"]
+    ]
     output_path = "files/operator_format.json"
     with open(output_path, "w") as f:
         json.dump(operator_predicates, f, indent=2)
@@ -153,3 +152,20 @@ if __name__ == "__main__":
     operator_type_filepath = "files/operator_type.txt"
     with open(operator_type_filepath, "w") as f:
         f.write(str(list(valid_operator_types)))
+
+    md_path = "files/operator_type_and_descriptions.md"
+    with open(md_path, "w") as f:
+        # optional title – remove if you don't want a header
+        f.write("# Operator Types and Descriptions\n\n")
+
+        for op in operator_metadata["operators"]:
+            op_type = op["operatorType"]
+            op_desc = op.get("additionalMetadata", {}).get("operatorDescription", "")
+            # fallback if description is missing
+            if not op_desc:
+                op_desc = "(no description provided)"
+            f.write(f"- {op_type}: {op_desc}\n")
+
+
+def extract_json_schemas(operator_types: List[str]) -> List[Dict[str, Any]]:
+    return [_extract_json_schema(op_type, True) for op_type in operator_types]
