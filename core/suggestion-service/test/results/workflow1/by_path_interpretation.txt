@@ -47,20 +47,24 @@
               "inputSchema": {
                 "attributes": [
                   {
-                    "attributeName": "text",
-                    "attributeType": "string"
-                  },
-                  {
                     "attributeName": "user_id",
-                    "attributeType": "integer"
-                  },
-                  {
-                    "attributeName": "favorite_count",
                     "attributeType": "integer"
                   },
                   {
                     "attributeName": "retweet_count",
                     "attributeType": "integer"
+                  },
+                  {
+                    "attributeName": "lang",
+                    "attributeType": "string"
+                  },
+                  {
+                    "attributeName": "text",
+                    "attributeType": "string"
+                  },
+                  {
+                    "attributeName": "is_retweet",
+                    "attributeType": "boolean"
                   },
                   {
                     "attributeName": "tweet_id",
@@ -71,12 +75,8 @@
                     "attributeType": "timestamp"
                   },
                   {
-                    "attributeName": "is_retweet",
-                    "attributeType": "boolean"
-                  },
-                  {
-                    "attributeName": "lang",
-                    "attributeType": "string"
+                    "attributeName": "favorite_count",
+                    "attributeType": "integer"
                   }
                 ]
               }
@@ -102,8 +102,8 @@
               "inputSchema": {
                 "attributes": [
                   {
-                    "attributeName": "tweet_id",
-                    "attributeType": "integer"
+                    "attributeName": "create_at_month",
+                    "attributeType": "timestamp"
                   },
                   {
                     "attributeName": "retweet_count",
@@ -114,8 +114,8 @@
                     "attributeType": "integer"
                   },
                   {
-                    "attributeName": "create_at_month",
-                    "attributeType": "timestamp"
+                    "attributeName": "tweet_id",
+                    "attributeType": "integer"
                   }
                 ]
               }

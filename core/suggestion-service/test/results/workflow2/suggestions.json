@@ -1,116 +1,90 @@
-[
-  {
-    "suggestion": "Integrate data visualization to understand tweet popularity",
-    "suggestionType": "improve",
-    "changes": {
-      "operatorsToAdd": [
-        {
-          "operatorType": "BarChart",
-          "operatorID": "BarChart-operator-001",
-          "operatorProperties": {
-            "dummyPropertyList": [],
-            "Category Attribute": "create_at_month",
-            "Value Attribute": "favorite_count"
+{
+  "suggestions": [
+    {
+      "suggestion": "Add sentiment analysis to the text data and visualize the distribution of sentiment results.",
+      "suggestionType": "improve",
+      "changes": {
+        "operatorsToAdd": [
+          {
+            "operatorType": "HuggingFaceSentimentAnalysis",
+            "operatorID": "HuggingFaceSentimentAnalysis-operator-001",
+            "operatorProperties": {
+              "attribute": "text",
+              "Positive result attribute": "positive_score",
+              "Neutral result attribute": "neutral_score",
+              "Negative result attribute": "negative_score"
+            },
+            "customDisplayName": "Sentiment Analysis"
           },
-          "customDisplayName": "Monthly Favorites Chart"
-        }
-      ],
-      "linksToAdd": [
-        {
-          "linkID": "link-003",
-          "source": {
-            "operatorID": "Sort-operator-82fa7c7a-d1e1-45a6-8510-1f57c223e260",
-            "portID": "output-0"
-          },
-          "target": {
+          {
+            "operatorType": "BarChart",
             "operatorID": "BarChart-operator-001",
-            "portID": "input-0"
+            "operatorProperties": {
+              "fields": "text",
+              "value": "positive_score",
+              "horizontalOrientation": false
+            },
+            "customDisplayName": "Bar Chart for Sentiment Analysis"
           }
-        }
-      ],
-      "operatorsToDelete": []
+        ],
+        "linksToAdd": [
+          {
+            "linkID": "link-0e41958f-61f5-42aa-b43a-37be091353f8",
+            "source": {
+              "operatorID": "PythonUDFV2-operator-29189f24-4d27-413f-9b67-1c8b37529289",
+              "portID": "output-0"
+            },
+            "target": {
+              "operatorID": "HuggingFaceSentimentAnalysis-operator-001",
+              "portID": "input-0"
+            }
+          },
+          {
+            "linkID": "link-eee341d8-185f-416e-8d2c-66b7ccabcff5",
+            "source": {
+              "operatorID": "HuggingFaceSentimentAnalysis-operator-001",
+              "portID": "output-0"
+            },
+            "target": {
+              "operatorID": "BarChart-operator-001",
+              "portID": "input-0"
+            }
+          }
+        ],
+        "operatorsToDelete": []
+      }
+    },
+    {
+      "suggestion": "Visualize the top tweets by favorite count using a bar chart.",
+      "suggestionType": "improve",
+      "changes": {
+        "operatorsToAdd": [
+          {
+            "operatorType": "BarChart",
+            "operatorID": "BarChart-operator-002",
+            "operatorProperties": {
+              "fields": "tweet_id",
+              "value": "favorite_count",
+              "horizontalOrientation": false
+            },
+            "customDisplayName": "Top Tweets Bar Chart"
+          }
+        ],
+        "linksToAdd": [
+          {
+            "linkID": "link-02319f9d-cf2a-4933-98a7-45379516b9f8",
+            "source": {
+              "operatorID": "Sort-operator-82fa7c7a-d1e1-45a6-8510-1f57c223e260",
+              "portID": "output-0"
+            },
+            "target": {
+              "operatorID": "BarChart-operator-002",
+              "portID": "input-0"
+            }
+          }
+        ],
+        "operatorsToDelete": []
+      }
     }
-  },
-  {
-    "suggestion": "Add a filter to exclude zero favorite counts",
-    "suggestionType": "improve",
-    "changes": {
-      "operatorsToAdd": [
-        {
-          "operatorType": "Filter",
-          "operatorID": "Filter-operator-002",
-          "operatorProperties": {
-            "conditions": [
-              {
-                "attributeName": "favorite_count",
-                "comparison": "GT",
-                "value": "0"
-              }
-            ]
-          },
-          "customDisplayName": "Filter Non-Favorites"
-        }
-      ],
-      "linksToAdd": [
-        {
-          "linkID": "link-004",
-          "source": {
-            "operatorID": "Projection-operator-b6799195-ecc4-426a-8e29-57e9248aa71f",
-            "portID": "output-0"
-          },
-          "target": {
-            "operatorID": "Filter-operator-002",
-            "portID": "input-0"
-          }
-        },
-        {
-          "linkID": "link-005",
-          "source": {
-            "operatorID": "Filter-operator-002",
-            "portID": "output-0"
-          },
-          "target": {
-            "operatorID": "Sort-operator-82fa7c7a-d1e1-45a6-8510-1f57c223e260",
-            "portID": "input-0"
-          }
-        }
-      ],
-      "operatorsToDelete": [
-        {
-          "operatorID": "Filter-operator-002"
-        }
-      ]
-    }
-  },
-  {
-    "suggestion": "Add a keyword extraction step to analyze tweet content",
-    "suggestionType": "improve",
-    "changes": {
-      "operatorsToAdd": [
-        {
-          "operatorType": "KeywordExtraction",
-          "operatorID": "KeywordExtraction-operator-003",
-          "operatorProperties": {
-            "textColumn": "text",
-            "keywordTopK": 10
-          },
-          "customDisplayName": "Extract Keywords"
-        }
-      ],
-      "linksToAdd": [
-        {
-          "linkID": "link-006",
-          "source": {
-            "operatorID": "PythonUDFV2-operator-29189f24-4d27-413f-9b67-1c8b37529289",
-            "portID": "output-0"
-          },
-          "target": {
-            "operatorID": "KeywordExtraction-operator-003",
-            "portID": "input-0"
-          }
-        }
-      ],
-      "operatorsToDelete": []
-    }
-  }
-]
+  ]
+}

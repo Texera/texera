@@ -99,15 +99,16 @@ def generate_suggestions(dir_name: str):
         data["execution_state"],
     )
 
-    with open(result_dir / "suggestions.json", "w") as f:
-        json.dump(suggestions, f, indent=2)
+    output_file = result_dir / "suggestions.json"
+    with open(output_file, "w") as f:
+        f.write(suggestions.model_dump_json(indent=2))
 
-    print(f"✅ {len(suggestions)} suggestions written to {result_dir}/suggestions.json")
+    print(f"✅ {len(suggestions.suggestions)} suggestions written to {output_file}")
 
 
 def run_all():
     """Run interpretation and suggestion on all workflows."""
-    workflows = ["workflow3"]
+    workflows = ["workflow2"]
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     for dir_name in workflows:
