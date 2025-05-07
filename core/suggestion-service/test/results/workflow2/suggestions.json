@@ -1,88 +1,56 @@
 {
   "suggestions": [
     {
-      "suggestion": "Add sentiment analysis to the text data and visualize the distribution of sentiment results.",
+      "suggestion": "Implement different recommendation models using machine learning techniques.",
       "suggestionType": "improve",
       "changes": {
         "operatorsToAdd": [
           {
-            "operatorType": "HuggingFaceSentimentAnalysis",
-            "operatorID": "HuggingFaceSentimentAnalysis-operator-001",
+            "operatorType": "SklearnKNN",
+            "operatorID": "KNN-operator",
             "operatorProperties": {
-              "attribute": "text",
-              "Positive result attribute": "positive_score",
-              "Neutral result attribute": "neutral_score",
-              "Negative result attribute": "negative_score"
+              "target": "text_length",
+              "countVectorizer": true,
+              "text": "text",
+              "tfidfTransformer": true
             },
-            "customDisplayName": "Sentiment Analysis"
+            "customDisplayName": "KNN Model"
           },
           {
-            "operatorType": "BarChart",
-            "operatorID": "BarChart-operator-001",
+            "operatorType": "SklearnLogisticRegressionCV",
+            "operatorID": "LogisticRegressionCV-operator",
             "operatorProperties": {
-              "fields": "text",
-              "value": "positive_score",
-              "horizontalOrientation": false
+              "target": "text_length",
+              "countVectorizer": true,
+              "text": "text",
+              "tfidfTransformer": true
             },
-            "customDisplayName": "Bar Chart for Sentiment Analysis"
-          }
-        ],
-        "linksToAdd": [
-          {
-            "linkID": "link-0e41958f-61f5-42aa-b43a-37be091353f8",
-            "source": {
-              "operatorID": "PythonUDFV2-operator-29189f24-4d27-413f-9b67-1c8b37529289",
-              "portID": "output-0"
-            },
-            "target": {
-              "operatorID": "HuggingFaceSentimentAnalysis-operator-001",
-              "portID": "input-0"
-            }
+            "customDisplayName": "Logistic Regression CV Model"
           },
           {
-            "linkID": "link-eee341d8-185f-416e-8d2c-66b7ccabcff5",
-            "source": {
-              "operatorID": "HuggingFaceSentimentAnalysis-operator-001",
-              "portID": "output-0"
-            },
-            "target": {
-              "operatorID": "BarChart-operator-001",
-              "portID": "input-0"
-            }
-          }
-        ],
-        "operatorsToDelete": []
-      }
-    },
-    {
-      "suggestion": "Visualize the top tweets by favorite count using a bar chart.",
-      "suggestionType": "improve",
-      "changes": {
-        "operatorsToAdd": [
-          {
-            "operatorType": "BarChart",
-            "operatorID": "BarChart-operator-002",
+            "operatorType": "SklearnRandomForest",
+            "operatorID": "RandomForest-operator",
             "operatorProperties": {
-              "fields": "tweet_id",
-              "value": "favorite_count",
-              "horizontalOrientation": false
+              "target": "text_length",
+              "countVectorizer": true,
+              "text": "text",
+              "tfidfTransformer": true
             },
-            "customDisplayName": "Top Tweets Bar Chart"
-          }
-        ],
-        "linksToAdd": [
+            "customDisplayName": "Random Forest Model"
+          },
           {
-            "linkID": "link-02319f9d-cf2a-4933-98a7-45379516b9f8",
-            "source": {
-              "operatorID": "Sort-operator-82fa7c7a-d1e1-45a6-8510-1f57c223e260",
-              "portID": "output-0"
+            "operatorType": "SklearnGradientBoosting",
+            "operatorID": "GradientBoosting-operator",
+            "operatorProperties": {
+              "target": "text_length",
+              "countVectorizer": true,
+              "text": "text",
+              "tfidfTransformer": true
             },
-            "target": {
-              "operatorID": "BarChart-operator-002",
-              "portID": "input-0"
-            }
+            "customDisplayName": "Gradient Boosting Model"
           }
         ],
+        "linksToAdd": [],
         "operatorsToDelete": []
       }
     }
