@@ -1,4 +1,7 @@
 # model/serialization.py
+from abc import ABC, abstractmethod
+from enum import Enum
+
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Any
 
@@ -47,11 +50,36 @@ class WorkflowInterpretation(BaseModel):
     links: List[LinkInterpretation]
 
 
-class PathInterpretation(BaseModel):
-    paths: List[WorkflowInterpretation]
+# Base interpretation class for commonality among interpretations
+class BaseInterpretation(BaseModel, ABC):
+    """Abstract base class for workflow interpretation variants."""
+
+    class Config:
+        extra = "forbid"
+
+    @abstractmethod
+    def get_base_workflow_interpretation(self) -> WorkflowInterpretation:
+        """Returns one or more workflow interpretations (typically just one for Raw, or multiple for Path)."""
+        pass
 
 
-class RawInterpretation(BaseModel):
-    workflow: Dict[str, Any]
-    inputSchema: Optional[Dict[str, Any]]
-    operatorStaticErrors: Optional[Dict[str, Any]]
+# Interpretation derived from linear execution paths
+class PathInterpretation(BaseInterpretation):
+    workflow: WorkflowInterpretation
+    paths: List[List[str]]
+
+    def get_base_workflow_interpretation(self) -> WorkflowInterpretation:
+        return self.workflow
+
+
+# Interpretation derived directly from the raw workflow object
+class RawInterpretation(BaseInterpretation):
+    workflow: WorkflowInterpretation
+
+    def get_base_workflow_interpretation(self) -> WorkflowInterpretation:
+        return self.workflow
+
+
+class InterpretationMethod(Enum):
+    RAW = "raw"
+    BY_PATH = "by_path"

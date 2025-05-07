@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from model.llm.suggestion import SuggestionList
 from model.web.input import SuggestionRequest
+from model.llm.interpretation import InterpretationMethod
 from suggestion_engine.generator import SuggestionGenerator
 
 # Load environment variables
@@ -23,12 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Get LLM configuration from environment variables
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openai")
-LLM_MODEL = os.environ.get(
-    "OPENAI_MODEL" if LLM_PROVIDER == "openai" else "ANTHROPIC_MODEL", None
-)
-MAX_SUGGESTIONS = int(os.environ.get("MAX_SUGGESTIONS", "3"))
 
 # Initialize the suggestion generator with LLM support
 suggestion_generator = SuggestionGenerator()
@@ -52,23 +47,13 @@ async def generate_suggestions(request: SuggestionRequest):
     Generate workflow suggestions based on the current workflow, compilation state, and execution state.
     """
     try:
-        # Parse the workflow JSON
-        workflow_json = json.loads(request.workflow)
-
-        # Convert Pydantic models to dictionaries for the suggestion generator
-        compilation_state_dict = request.compilationState.model_dump()
-
-        # Include execution state if available
-        execution_state_dict = (
-            request.executionState.model_dump() if request.executionState else None
-        )
-
         # Generate suggestions using the suggestion engine
         suggestions = suggestion_generator.generate_suggestions(
-            workflow_json,
-            compilation_state_dict,
-            {},  # send empty resultTables
-            execution_state_dict,
+            request.workflow,
+            request.compilationState,
+            request.executionState,
+            request.intention,
+            request.focusingOperatorIDs,
         )
 
         return suggestions
