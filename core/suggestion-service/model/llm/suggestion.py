@@ -6,7 +6,7 @@ class Operator(BaseModel):
     operatorType: str
     operatorID: str
     operatorProperties: dict
-    customDisplayName: str
+    customDisplayName: Optional[str] = None
 
     class Config:
         json_schema_extra = {

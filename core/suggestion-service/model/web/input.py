@@ -38,3 +38,9 @@ class SuggestionRequest(BaseModel):
     workflow: str = Field(..., description="JSON string of the workflow")
     compilationState: CompilationStateInfo
     executionState: Optional[ExecutionStateInfo] = None
+    intention: Optional[str] = Field(
+        "", description="User intention for the suggestion generation"
+    )
+    focusingOperatorIDs: Optional[List[str]] = Field(
+        default_factory=list, description="Operator IDs that the user wants to focus on"
+    )

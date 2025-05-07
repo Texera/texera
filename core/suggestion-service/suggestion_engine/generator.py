@@ -5,12 +5,18 @@ import os
 from dotenv import load_dotenv
 
 from model.llm.suggestion import SuggestionList
+from model.web.input import CompilationStateInfo, ExecutionStateInfo
 from workflow_interpretation.interpreter import (
     WorkflowInterpreter,
+)
+from model.llm.prompt import Prompt
+from model.llm.interpretation import (
+    PathInterpretation,
+    RawInterpretation,
+    OperatorInterpretation,
+    BaseInterpretation,
     InterpretationMethod,
 )
-from model.Tuple import Tuple
-from model.DataSchema import DataSchema, Attribute, AttributeType
 from llm_agent.base import LLMAgentFactory
 from distutils.util import strtobool  # stdlib helper
 
@@ -42,7 +48,12 @@ class SuggestionGenerator:
             llm_model: The LLM model to use (defaults to environment variable LLM_MODEL)
             llm_api_key: The API key for the LLM provider (defaults to environment variable based on provider)
         """
-        self.workflow_interpreter = WorkflowInterpreter()
+        self.workflow_interpretation_method = InterpretationMethod(
+            os.environ.get("INTERPRETATION_METHOD")
+        )
+        self.workflow_interpreter = WorkflowInterpreter(
+            self.workflow_interpretation_method
+        )
 
         # Determine provider and model
         self.llm_provider = os.environ.get("LLM_PROVIDER")
@@ -81,78 +92,61 @@ class SuggestionGenerator:
 
     def generate_suggestions(
         self,
-        workflow_json: Dict[str, Any],
-        compilation_state: Dict[str, Any],
-        result_tables: Dict[str, Dict[str, Any]],
-        execution_state: Optional[Dict[str, Any]] = None,
+        workflow: str,
+        compilation_state: CompilationStateInfo,
+        execution_state: ExecutionStateInfo,
+        intention: str,
+        focusing_operator_ids: List[str],
     ) -> SuggestionList:
         """
         Generate workflow suggestions based on the current workflow, compilation state, execution state, and result tables.
 
         Args:
-            workflow_json: The current workflow configuration
+            workflow: The current workflow configuration
             compilation_state: Compilation information and errors
-            result_tables: Result data for each operator
             execution_state: Current execution state of the workflow
-            max_suggestions: Maximum number of suggestions to generate
+            intention: The intention of the workflow
+            focusing_operator_ids: List of operator IDs to focus on
 
         Returns:
             A list of workflow suggestions
         """
-
+        # If LLM generation failed or agent is not available, return mock suggestions
+        if not self.llm_agent:
+            return SuggestionList(suggestions=[])
+        workflow_json = json.loads(workflow)
         # Generate natural language description of the workflow
-        workflow_description = self._generate_workflow_prompt(
+        interpretation = self.workflow_interpreter.interpret_workflow(
             workflow_json,
-            compilation_state.get("operatorInputSchemaMap"),
-            compilation_state.get("operatorErrors"),
+            compilation_state,
         )
 
-        # If we have a valid LLM agent, use it to generate suggestions
-        if self.llm_agent:
-            try:
-                # Get suggestions from the LLM agent
-                suggestions = self.llm_agent.generate_suggestions(
-                    prompt=workflow_description,
-                    temperature=0.7,  # Lower temperature for more focused suggestions
-                )
-                return suggestions
-            except Exception as e:
-                print(f"Error generating suggestions with LLM: {str(e)}")
-                # Fall back to mock suggestions on error
+        # Determine intention (fallback)
+        if not intention:
+            intention = "Recommend improvements and fixes of current workflows"
 
-        # If LLM generation failed or agent is not available, return mock suggestions
-        return SuggestionList(suggestions=[])
+        workflow_intp = interpretation.get_base_workflow_interpretation()
+        focusing_operators: List[OperatorInterpretation] = []
+        for oid in focusing_operator_ids:
+            op = workflow_intp.operators.get(oid)
+            if op:
+                focusing_operators.append(op)
 
-    def _generate_workflow_prompt(
-        self,
-        workflow_json: Dict[str, Any],
-        input_schema: Optional[Dict[str, Any]] = None,
-        operator_errors: Optional[Dict[str, Any]] = None,
-        method: InterpretationMethod = InterpretationMethod.BY_PATH,
-    ) -> str:
-        """
-        Generate a natural language description of the workflow for use in prompts.
+        prompt_obj = Prompt(
+            intention=intention,
+            focusingOperators=focusing_operators,
+            workflowInterpretation=interpretation,
+        )
 
-        Args:
-            workflow_json: The workflow dictionary
-            input_schema: The input schema dictionary for each operator
-            operator_errors: Dictionary of static errors for each operator
-            method: The interpretation method to use
+        # Serialize prompt to JSON string to feed into LLM
+        workflow_description = prompt_obj.model_dump_json(indent=2)
 
-        Returns:
-            A natural language description of the workflow
-        """
-        try:
-            # Use the workflow interpreter to generate a description
-            description = self.workflow_interpreter.interpret_workflow(
-                workflow_json, input_schema, operator_errors, method
-            )
-
-            return description
-        except Exception as e:
-            print(f"Error generating workflow prompt: {str(e)}")
-            # Fallback to a simple description if interpretation fails
-            return f"Workflow with {len(workflow_json.get('content', {}).get('operators', []))} operators"
+        # Get suggestions from the LLM agent
+        suggestions = self.llm_agent.generate_suggestions(
+            prompt=workflow_description,
+            temperature=0.7,  # Lower temperature for more focused suggestions
+        )
+        return suggestions
 
     def _enhance_prompt_with_state_info(
         self,
@@ -201,286 +195,3 @@ class SuggestionGenerator:
         prompt += "\nBased on this workflow description and state information, suggest improvements or fixes."
 
         return prompt
-
-    def _convert_to_frontend_format(
-        self, suggestions: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        """
-        Convert LLM-generated suggestions to the format expected by the frontend.
-
-        Args:
-            suggestions: List of suggestions from the LLM agent
-
-        Returns:
-            List of suggestions formatted for the frontend
-        """
-        formatted_suggestions = []
-
-        for suggestion in suggestions:
-            # Create a new suggestion with the required format
-            formatted = {
-                "id": f"suggestion-{uuid.uuid4()}",
-                "description": suggestion["suggestion"],
-                "operatorsToAdd": [],
-                "operatorPropertiesToChange": [],
-                "operatorsToDelete": suggestion["changes"].get("operatorsToDelete", []),
-                "linksToAdd": [],
-                "isPreviewActive": False,
-            }
-
-            # Format operators to add
-            for operator in suggestion["changes"].get("operatorsToAdd", []):
-                formatted_operator = {
-                    "operatorType": operator["operatorType"],
-                    "position": {"x": 400, "y": 300},  # Default position
-                    "properties": operator.get("operatorProperties", {}),
-                }
-
-                # Add custom display name if provided
-                if operator.get("customDisplayName"):
-                    formatted_operator["customDisplayName"] = operator[
-                        "customDisplayName"
-                    ]
-
-                formatted["operatorsToAdd"].append(formatted_operator)
-
-            # Format operator properties to change
-            for prop_change in suggestion["changes"].get(
-                "operatorPropertiesToChange", []
-            ):
-                formatted_prop_change = {
-                    "operatorId": prop_change["operatorID"],
-                    "properties": prop_change["properties"],
-                }
-                formatted["operatorPropertiesToChange"].append(formatted_prop_change)
-
-            # Format links to add
-            for link in suggestion["changes"].get("linksToAdd", []):
-                formatted_link = {
-                    "source": {
-                        "operatorId": link["source"]["operatorID"],
-                        "portId": link["source"]["portID"],
-                    },
-                    "target": {
-                        "operatorId": link["target"]["operatorID"],
-                        "portId": link["target"]["portID"],
-                    },
-                }
-                formatted["linksToAdd"].append(formatted_link)
-
-            formatted_suggestions.append(formatted)
-
-        return formatted_suggestions
-
-    def _generate_mock_suggestions(
-        self,
-        workflow_json: Dict[str, Any],
-        compilation_state: Dict[str, Any],
-        execution_state: Optional[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        """
-        Generate mock suggestions for testing or when LLM generation fails.
-
-        Args:
-            workflow_json: The current workflow configuration
-            compilation_state: Compilation information and errors
-            execution_state: Current execution state of the workflow
-
-        Returns:
-            A list of mock workflow suggestions
-        """
-        # Extract operators from the workflow
-        operators = workflow_json.get("content", {}).get("operators", [])
-
-        # Create a list to store suggestions
-        suggestions = []
-
-        # Add suggestions based on the workflow state
-        if compilation_state["state"] == "Succeeded":
-            # Add mock suggestion 1: Add a KeywordSearch operator
-            suggestion1 = {
-                "id": f"suggestion-{uuid.uuid4()}",
-                "description": "Add a KeywordSearch operator with sentiment analysis",
-                "operatorsToAdd": [
-                    {
-                        "operatorType": "KeywordSearch",
-                        "position": {"x": 400, "y": 300},
-                        "properties": {
-                            "keyword": "climate change",
-                            "attributes": ["content", "title"],
-                        },
-                    },
-                    {
-                        "operatorType": "SentimentAnalysis",
-                        "position": {"x": 600, "y": 300},
-                        "properties": {
-                            "attribute": "content",
-                            "resultAttribute": "sentiment",
-                        },
-                    },
-                ],
-                "operatorPropertiesToChange": [
-                    {
-                        "operatorId": "View-Results-1",
-                        "properties": {"limit": 20, "offset": 0},
-                    }
-                ],
-                "operatorsToDelete": [],
-                "linksToAdd": [
-                    {
-                        "source": {"operatorId": "Source-Scan-1", "portId": "output-0"},
-                        "target": {
-                            "operatorId": "KeywordSearch-1",
-                            "portId": "input-0",
-                        },
-                    },
-                    {
-                        "source": {
-                            "operatorId": "KeywordSearch-1",
-                            "portId": "output-0",
-                        },
-                        "target": {
-                            "operatorId": "SentimentAnalysis-1",
-                            "portId": "input-0",
-                        },
-                    },
-                    {
-                        "source": {
-                            "operatorId": "SentimentAnalysis-1",
-                            "portId": "output-0",
-                        },
-                        "target": {"operatorId": "View-Results-1", "portId": "input-0"},
-                    },
-                ],
-                "isPreviewActive": False,
-            }
-            suggestions.append(suggestion1)
-
-            # Add suggestions based on execution state
-            if execution_state and execution_state["state"] == "Completed":
-                # Add a suggestion for optimization if workflow completed successfully
-                suggestion3 = {
-                    "id": f"suggestion-{uuid.uuid4()}",
-                    "description": "Optimize workflow with projection and sorting",
-                    "operatorsToAdd": [
-                        {
-                            "operatorType": "Projection",
-                            "position": {"x": 400, "y": 200},
-                            "properties": {
-                                "attributes": ["id", "name", "price", "category"]
-                            },
-                        },
-                        {
-                            "operatorType": "Sort",
-                            "position": {"x": 600, "y": 200},
-                            "properties": {
-                                "sortAttributesList": [
-                                    {"attributeName": "price", "order": "desc"}
-                                ]
-                            },
-                        },
-                    ],
-                    "operatorPropertiesToChange": [
-                        {
-                            "operatorId": "Source-Scan-1",
-                            "properties": {"tableName": "products", "limit": 1000},
-                        }
-                    ],
-                    "operatorsToDelete": [],
-                    "linksToAdd": [
-                        {
-                            "source": {
-                                "operatorId": "Source-Scan-1",
-                                "portId": "output-0",
-                            },
-                            "target": {
-                                "operatorId": "Projection-1",
-                                "portId": "input-0",
-                            },
-                        },
-                        {
-                            "source": {
-                                "operatorId": "Projection-1",
-                                "portId": "output-0",
-                            },
-                            "target": {"operatorId": "Sort-1", "portId": "input-0"},
-                        },
-                        {
-                            "source": {"operatorId": "Sort-1", "portId": "output-0"},
-                            "target": {
-                                "operatorId": "View-Results-1",
-                                "portId": "input-0",
-                            },
-                        },
-                    ],
-                    "isPreviewActive": False,
-                }
-                suggestions.append(suggestion3)
-
-            # If execution state has errors, add suggestions for fixing them
-            if (
-                execution_state
-                and execution_state["state"] == "Failed"
-                and execution_state.get("errorMessages")
-            ):
-                suggestion_error_fix = {
-                    "id": f"suggestion-{uuid.uuid4()}",
-                    "description": "Fix data type issues in workflow",
-                    "operatorsToAdd": [
-                        {
-                            "operatorType": "TypeConversion",
-                            "position": {"x": 300, "y": 250},
-                            "properties": {
-                                "targetType": "string",
-                                "attributeToConvert": "id",
-                            },
-                        }
-                    ],
-                    "operatorPropertiesToChange": [],
-                    "operatorsToDelete": [],
-                    "linksToAdd": [
-                        {
-                            "source": {
-                                "operatorId": "Source-Scan-1",
-                                "portId": "output-0",
-                            },
-                            "target": {
-                                "operatorId": "TypeConversion-1",
-                                "portId": "input-0",
-                            },
-                        }
-                    ],
-                    "isPreviewActive": False,
-                }
-                suggestions.append(suggestion_error_fix)
-
-        # Add suggestion based on the operator types
-        if any(op.get("operatorType") == "CSVFileScan" for op in operators):
-            suggestion2 = {
-                "id": f"suggestion-{uuid.uuid4()}",
-                "description": "Replace ScanSource with CSVFileScan for better performance",
-                "operatorsToAdd": [
-                    {
-                        "operatorType": "CSVFileScan",
-                        "position": {"x": 200, "y": 200},
-                        "properties": {
-                            "fileName": "data.csv",
-                            "limit": -1,
-                            "offset": 0,
-                            "schema": "auto",
-                        },
-                    }
-                ],
-                "operatorPropertiesToChange": [],
-                "operatorsToDelete": ["Source-Scan-1"],
-                "linksToAdd": [
-                    {
-                        "source": {"operatorId": "CSVFileScan-1", "portId": "output-0"},
-                        "target": {"operatorId": "View-Results-1", "portId": "input-0"},
-                    }
-                ],
-                "isPreviewActive": False,
-            }
-            suggestions.append(suggestion2)
-
-        return suggestions

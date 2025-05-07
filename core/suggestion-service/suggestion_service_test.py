@@ -4,16 +4,17 @@ Workflow Interpretation and Suggestion CLI Utility
 
 import json
 import os
-from typing import Dict, Any
+from typing import List, Optional
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from workflow_interpretation.interpreter import (
     WorkflowInterpreter,
-    InterpretationMethod,
 )
+from model.llm.interpretation import InterpretationMethod
 from suggestion_engine.generator import SuggestionGenerator
+from model.web.input import SuggestionRequest, CompilationStateInfo, ExecutionStateInfo
 
 # Base directory for test data and results
 DATA_DIR = Path("test/data")
@@ -21,7 +22,7 @@ RESULTS_DIR = Path("test/results")
 load_dotenv()
 
 
-def load_workflow_data(dir_name: str) -> Dict[str, Any]:
+def load_workflow_data(dir_name: str) -> SuggestionRequest:
     """
     Load workflow-related JSON files from a given directory.
 
@@ -29,16 +30,19 @@ def load_workflow_data(dir_name: str) -> Dict[str, Any]:
         dir_name: Subdirectory name under test/data
 
     Returns:
-        Dict containing all loaded workflow components.
+        SuggestionRequest object containing all loaded workflow components.
     """
     path = DATA_DIR / dir_name
 
-    return {
-        "workflow_json": json.load(open(path / "workflow.json")),
-        "compilation_state": json.load(open(path / "workflow_compilation_state.json")),
-        "result_tables": json.load(open(path / "result_tables.json")),
-        "execution_state": json.load(open(path / "execution_state.json")),
-    }
+    workflow = open(path / "workflow.json").read()
+    compilation_state = json.load(open(path / "workflow_compilation_state.json"))
+    execution_state = json.load(open(path / "execution_state.json"))
+
+    return SuggestionRequest(
+        workflow=workflow,
+        compilationState=CompilationStateInfo.model_validate(compilation_state),
+        executionState=ExecutionStateInfo.model_validate(execution_state),
+    )
 
 
 def interpret_workflow(dir_name: str):
@@ -50,53 +54,65 @@ def interpret_workflow(dir_name: str):
     """
     print(f"\n🧠 Interpreting workflow: {dir_name}")
 
-    data = load_workflow_data(dir_name)
-    interpreter = WorkflowInterpreter()
-    schema_map = data["compilation_state"].get("operatorInputSchemaMap", {})
-    errors = data["compilation_state"].get("operatorErrors", {})
+    request = load_workflow_data(dir_name)
 
     result_dir = RESULTS_DIR / dir_name
     os.makedirs(result_dir, exist_ok=True)
 
     # RAW
-    raw_text = interpreter.interpret_workflow(
-        data["workflow_json"], schema_map, errors, InterpretationMethod.RAW
+    raw_text = WorkflowInterpreter(InterpretationMethod.RAW).interpret_workflow(
+        json.loads(request.workflow), request.compilationState
     )
     with open(result_dir / "raw_interpretation.txt", "w") as f:
-        f.write(raw_text)
+        f.write(raw_text.model_dump_json())
 
     print("\n📄 Raw interpretation saved.")
 
     # BY_PATH
-    by_path_text = interpreter.interpret_workflow(
-        data["workflow_json"], schema_map, errors, InterpretationMethod.BY_PATH
+    by_path_text = WorkflowInterpreter(InterpretationMethod.BY_PATH).interpret_workflow(
+        json.loads(request.workflow), request.compilationState
     )
     with open(result_dir / "by_path_interpretation.txt", "w") as f:
-        f.write(by_path_text)
+        f.write(by_path_text.model_dump_json())
 
     print("📄 By-path interpretation saved.")
 
 
-def generate_suggestions(dir_name: str):
+def generate_suggestions(
+    dir_name: str,
+    intention: str = "",
+    focusing_operator_ids: Optional[List[str]] = None,
+):
     """
     Generate suggestions from a workflow.
 
     Args:
         dir_name: Workflow folder name
+        intention: User's intention for the suggestion
+        focusing_operator_ids: List of operator IDs to focus on
     """
     print(f"\n💡 Generating suggestions for: {dir_name}")
+    print(f"  Intention: {intention or '(empty)'}")
+    print(f"  Focusing operators: {focusing_operator_ids or '[]'}")
 
-    data = load_workflow_data(dir_name)
+    request = load_workflow_data(dir_name)
     generator = SuggestionGenerator()
 
     result_dir = RESULTS_DIR / dir_name
     os.makedirs(result_dir, exist_ok=True)
 
+    # Update request with any custom parameters
+    if intention:
+        request.intention = intention
+    if focusing_operator_ids:
+        request.focusingOperatorIDs = focusing_operator_ids
+
     suggestions = generator.generate_suggestions(
-        data["workflow_json"],
-        data["compilation_state"],
-        data["result_tables"],
-        data["execution_state"],
+        request.workflow,
+        request.compilationState,
+        request.executionState,
+        request.intention,
+        request.focusingOperatorIDs,
     )
 
     output_file = result_dir / "suggestions.json"
@@ -107,22 +123,38 @@ def generate_suggestions(dir_name: str):
 
 
 def run_all():
-    """Run interpretation and suggestion on all workflows."""
-    workflows = ["workflow2"]
+    """Run interpretation and suggestion on all workflows with specific test cases."""
+    # Dictionary of test cases with their specific parameters
+    test_cases = {
+        "workflow1": {
+            "intention": "",
+            "focusing_operator_ids": [],
+        },
+        "workflow2": {
+            "intention": "Suggest good recommendation techniques",
+            "focusing_operator_ids": [
+                "PythonUDFV2-operator-29189f24-4d27-413f-9b67-1c8b37529289"
+            ],
+        },
+        "workflow3": {
+            "intention": "Set the parameter of the operator to do visualization correctly",
+            "focusing_operator_ids": [
+                "LineChart-operator-e3009841-32e4-4080-a6e4-f659762b3865"
+            ],
+        },
+    }
+
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    for dir_name in workflows:
-        try:
-            print(f"\n{'='*60}")
-            print(f"▶ Running for workflow: {dir_name}")
-            print(f"{'='*60}")
-            interpret_workflow(dir_name)
-            generate_suggestions(dir_name)
-        except Exception as e:
-            print(f"❌ Error in {dir_name}: {e}")
-            import traceback
+    for dir_name, params in test_cases.items():
+        print(f"\n{'='*60}")
+        print(f"▶ Running for workflow: {dir_name}")
+        print(f"{'='*60}")
 
-            traceback.print_exc()
+        interpret_workflow(dir_name)
+        generate_suggestions(
+            dir_name, params["intention"], params["focusing_operator_ids"]
+        )
 
 
 if __name__ == "__main__":
