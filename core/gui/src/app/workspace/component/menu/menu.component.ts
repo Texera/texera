@@ -51,9 +51,7 @@ import { ReportGenerationService } from "../../service/report-generation/report-
 import { ShareAccessComponent } from "src/app/dashboard/component/user/share-access/share-access.component";
 import { PanelService } from "../../service/panel/panel.service";
 import { DASHBOARD_USER_WORKFLOW } from "../../../app-routing.constant";
-import { WorkflowComputingUnitManagingService } from "../../service/workflow-computing-unit/workflow-computing-unit-managing.service";
 import { ComputingUnitStatusService } from "../../service/computing-unit-status/computing-unit-status.service";
-import { DashboardWorkflowComputingUnit } from "../../types/workflow-computing-unit";
 import { ComputingUnitConnectionState } from "../../types/computing-unit-connection.interface";
 import { ComputingUnitSelectionComponent } from "../power-button/computing-unit-selection.component";
 
@@ -353,11 +351,7 @@ export class MenuComponent implements OnInit, OnDestroy {
     }
 
     // This handles the case where a unit exists but we're not connected to it
-    if (
-      environment.computingUnitManagerEnabled &&
-      this.computingUnitStatus !== ComputingUnitConnectionState.NoComputingUnit &&
-      !this.computingUnitConnected
-    ) {
+    if (this.computingUnitStatus !== ComputingUnitConnectionState.NoComputingUnit && !this.computingUnitConnected) {
       return {
         text: "Connecting",
         icon: "loading",
@@ -366,24 +360,11 @@ export class MenuComponent implements OnInit, OnDestroy {
       };
     }
 
-    // In cuManager mode with no computing unit, show "Connect" button
-    if (
-      environment.computingUnitManagerEnabled &&
-      this.computingUnitStatus === ComputingUnitConnectionState.NoComputingUnit
-    ) {
+    // no computing unit, show "Connect" button
+    if (this.computingUnitStatus === ComputingUnitConnectionState.NoComputingUnit) {
       return {
         text: "Connect",
         icon: "plus-circle",
-        disable: false,
-        onClick: () => this.runWorkflow(),
-      };
-    }
-
-    // In cuManager mode with disconnected computing unit, show "Connect" button
-    if (environment.computingUnitManagerEnabled && !this.computingUnitConnected) {
-      return {
-        text: "Connect",
-        icon: "link",
         disable: false,
         onClick: () => this.runWorkflow(),
       };
@@ -792,10 +773,7 @@ export class MenuComponent implements OnInit, OnDestroy {
     }
 
     // If computing unit manager is enabled and no computing unit is selected
-    if (
-      environment.computingUnitManagerEnabled &&
-      this.computingUnitStatus === ComputingUnitConnectionState.NoComputingUnit
-    ) {
+    if (this.computingUnitStatus === ComputingUnitConnectionState.NoComputingUnit) {
       // Create a default name based on the workflow name
       const defaultName = this.currentWorkflowName
         ? `${this.currentWorkflowName}'s Computing Unit`
@@ -806,27 +784,6 @@ export class MenuComponent implements OnInit, OnDestroy {
 
       // Show the existing modal in the ComputingUnitSelectionComponent
       this.computingUnitSelectionComponent.showAddComputeUnitModalVisible();
-      return;
-    }
-
-    // If computing unit manager is enabled and the computing unit is not connected
-    if (environment.computingUnitManagerEnabled && !this.computingUnitConnected) {
-      // Update button immediately to show connecting
-      this.applyRunButtonBehavior({
-        text: "Connecting",
-        icon: "loading",
-        disable: true,
-        onClick: () => {},
-      });
-
-      // Create and connect to a computing unit (no auto-run)
-      this.computingUnitStatusService
-        .createAndConnect()
-        .pipe(untilDestroyed(this))
-        .subscribe(() => {
-          // Update the button state after request is initiated
-          this.applyRunButtonBehavior(this.getRunButtonBehavior());
-        });
       return;
     }
 
