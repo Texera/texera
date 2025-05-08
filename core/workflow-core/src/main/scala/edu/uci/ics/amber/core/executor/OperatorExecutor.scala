@@ -56,4 +56,8 @@ trait OperatorExecutor {
 
   def close(): Unit = {}
 
+  def reset(): Unit = {
+    close()
+    open()
+  }
 }

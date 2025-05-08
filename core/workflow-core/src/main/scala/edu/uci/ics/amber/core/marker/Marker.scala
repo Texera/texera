@@ -20,6 +20,7 @@
 package edu.uci.ics.amber.core.marker
 
 import edu.uci.ics.amber.core.tuple.{Attribute, AttributeType, Schema, Tuple}
+import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
 
 import scala.collection.mutable
 
@@ -27,6 +28,8 @@ sealed trait Marker
 
 final case class StartOfInputChannel() extends Marker
 final case class EndOfInputChannel() extends Marker
+final case class StartOfIteration() extends Marker
+final case class EndOfIteration(workerId: ActorVirtualIdentity) extends Marker
 
 final case class State(tuple: Option[Tuple] = None, passToAllDownstream: Boolean = false)
     extends Marker {
