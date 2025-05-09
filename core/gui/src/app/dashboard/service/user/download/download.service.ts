@@ -142,9 +142,8 @@ export class DownloadService {
       filename,
       destination,
     };
-    console.log("received cui from exportWorkflowResult", unit);
     const urlPath =
-      unit && unit.computingUnit?.cuid
+      unit && unit.computingUnit.type == "kubernetes" && unit.computingUnit?.cuid
         ? `${WORKFLOW_EXECUTIONS_API_BASE_URL}/${EXPORT_BASE_URL}?cuid=${unit.computingUnit.cuid}`
         : `${WORKFLOW_EXECUTIONS_API_BASE_URL}/${EXPORT_BASE_URL}`;
     if (destination === "local") {
