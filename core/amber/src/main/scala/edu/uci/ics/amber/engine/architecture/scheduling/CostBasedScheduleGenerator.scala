@@ -32,6 +32,7 @@ import edu.uci.ics.amber.engine.common.{AmberConfig, AmberLogging}
 import org.jgrapht.alg.connectivity.BiconnectivityInspector
 import org.jgrapht.graph.{DirectedAcyclicGraph, DirectedPseudograph}
 
+import java.net.URI
 import java.util.concurrent.TimeoutException
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -98,7 +99,7 @@ class CostBasedScheduleGenerator(
     val connectedComponents = new BiconnectivityInspector[PhysicalOpIdentity, PhysicalLink](
       matEdgesRemovedDAG.dag
     ).getConnectedComponents.asScala.toSet
-    connectedComponents.zipWithIndex.map {
+    val regionsWithoutInputPortStorage = connectedComponents.zipWithIndex.map {
       case (connectedSubDAG, idx) =>
         val operatorIds = connectedSubDAG.vertexSet().asScala.toSet
         val links = operatorIds
@@ -107,19 +108,21 @@ class CostBasedScheduleGenerator(
               .getDownstreamPhysicalLinks(operatorId)
           })
           .filter(link => operatorIds.contains(link.fromOpId))
+          .diff(matEdges)
         val operators = operatorIds.map(operatorId => physicalPlan.getOperator(operatorId))
-        val portIdsToViewResult: Set[GlobalPortIdentity] =
+        val outputPortIdsToViewResult: Set[GlobalPortIdentity] =
           workflowContext.workflowSettings.outputPortsNeedingStorage
             .filter(outputPort => operatorIds.contains(outputPort.opId))
-        val portIdsNeedingStorage: Set[GlobalPortIdentity] = matEdges
+        val outputPortIdsNeedingStorage: Set[GlobalPortIdentity] = matEdges
           .diff(physicalPlan.getDependeeLinks)
           .filter(matLink => operatorIds.contains(matLink.fromOpId))
           .flatMap(link =>
             List(
               GlobalPortIdentity(link.fromOpId, link.fromPortId)
             )
-          ) ++ portIdsToViewResult
-        val portConfigs = portIdsNeedingStorage
+          ) ++ outputPortIdsToViewResult
+
+        val outputPortConfigs = outputPortIdsNeedingStorage
           .map(outputPortId =>
             outputPortId -> {
               val uri = createResultURI(
@@ -127,11 +130,12 @@ class CostBasedScheduleGenerator(
                 executionId = workflowContext.executionId,
                 globalPortId = outputPortId
               )
-              PortConfig(storageURI = uri)
+              PortConfig(storageURIs = List(uri))
             }
           )
           .toMap
-        val resourceConfig = ResourceConfig(portConfigs = portConfigs)
+
+        val resourceConfig = ResourceConfig(portConfigs = outputPortConfigs)
         val ports = operators.flatMap(op =>
           op.inputPorts.keys
             .map(inputPortId => GlobalPortIdentity(op.id, inputPortId, input = true))
@@ -146,6 +150,40 @@ class CostBasedScheduleGenerator(
           ports = ports,
           resourceConfig = Some(resourceConfig)
         )
+    }
+    val allPortConfigs = regionsWithoutInputPortStorage
+      .flatMap(_.resourceConfig.map(_.portConfigs))
+      .foldLeft(Map.empty[GlobalPortIdentity, PortConfig])(_ ++ _)
+    regionsWithoutInputPortStorage.map { existingRegion =>
+      {
+        val nonDepMatEdges = matEdges.diff(physicalPlan.getDependeeLinks)
+        val relevantMatEdges = nonDepMatEdges.filter(matLink =>
+          existingRegion.getOperators.map(physicalOp => physicalOp.id).contains(matLink.toOpId)
+        )
+        // Assign storage URIs to input ports of each materialized edge (each input port could have more than one URIs)
+        val inputPortConfigs = relevantMatEdges
+          .foldLeft(Map.empty[GlobalPortIdentity, List[URI]]) { (acc, link) =>
+            val globalOutputPortId = GlobalPortIdentity(link.fromOpId, link.fromPortId)
+            val uri = allPortConfigs(globalOutputPortId).storageURIs.head
+            val globalInputPortId = GlobalPortIdentity(link.toOpId, link.toPortId, input = true)
+            acc.updated(
+              globalInputPortId,
+              acc.getOrElse(globalInputPortId, List.empty[URI]) :+ uri
+            )
+          }
+          .map {
+            case (inputPortId, uris) => inputPortId -> PortConfig(storageURIs = uris)
+          }
+        val newResourceConfig = existingRegion.resourceConfig match {
+          case Some(existingConfig) =>
+            Some(ResourceConfig(portConfigs = existingConfig.portConfigs ++ inputPortConfigs))
+          case None =>
+            if (inputPortConfigs.nonEmpty) {
+              Some(ResourceConfig(portConfigs = inputPortConfigs))
+            } else None
+        }
+        existingRegion.copy(resourceConfig = newResourceConfig)
+      }
     }
   }
 
@@ -218,65 +256,11 @@ class CostBasedScheduleGenerator(
       s"WID: ${workflowContext.workflowId.id}, EID: ${workflowContext.executionId.id}, search time: " +
         s"${searchResult.searchTimeNanoSeconds / 1e6} ms."
     )
-    // Only a non-dependee blocking link that has not already been materialized should be replaced
-    // with a materialization write op + materialization read op.
-    val linksToMaterialize =
-      (searchResult.state ++ physicalPlan.getBlockingAndDependeeLinks).diff(
-        physicalPlan.getDependeeLinks
-      )
-    if (linksToMaterialize.nonEmpty) {
-      val matReaderWriterPairs = new mutable.HashMap[PhysicalOpIdentity, PhysicalOpIdentity]()
-      linksToMaterialize.foreach(link =>
-        physicalPlan = replaceLinkWithMaterialization(
-          link,
-          matReaderWriterPairs
-        )
-      )
-    }
-    // Calling the search again to include cache read ops in the regions.
-    // This new search is only needed because of additional cache read operators which alters the physical plan.
-    // However, as the new physical plan is already schedulable, the original materialized ports of each region will not
-    // be included in the new region DAG.
-    // TODO: remove this step after cache read is removed.
-    val regionDAG = bottomUpSearch().regionDAG
 
-    addMaterializationsAsRegionLinks(linksToMaterialize, regionDAG)
+    val regionDAG = searchResult.regionDAG
     populateDependeeLinks(regionDAG)
-    // The materialized ports of each region are already decided by the first RPG search
-    // However they will be lost after the second search as a consequence of the modified physical plan.
-    // The second search is only needed because of additional cache read operators.
-    // Need to add the original materialized ports back. This will not be needed after removal of cache read ops.
-    // TODO: remove this step after cache read is removed.
-    val outputPortsToMaterialize = linksToMaterialize.map(link =>
-      GlobalPortIdentity(opId = link.fromOpId, portId = link.fromPortId)
-    )
-    updateRegionsWithOutputPortStorage(outputPortsToMaterialize, regionDAG)
     allocateResource(regionDAG)
     regionDAG
-  }
-
-  /**
-    * Adds materialization links as region links within the given region DAG.
-    * This method processes each physical link in the input set, identifying the source and destination
-    * regions for each link. It then adds an edge between these regions in the DAG to represent
-    * the materialization relationship.
-    *
-    * @param linksToMaterialize The set of physical links to be materialized as region links in the DAG.
-    * @param regionDAG The DAG of regions to be modified
-    */
-  private def addMaterializationsAsRegionLinks(
-      linksToMaterialize: Set[PhysicalLink],
-      regionDAG: DirectedAcyclicGraph[Region, RegionLink]
-  ): Unit = {
-    linksToMaterialize.foreach(link => {
-      val fromOpRegions = getRegions(link.fromOpId, regionDAG)
-      val toOpRegions = getRegions(link.toOpId, regionDAG)
-      fromOpRegions.foreach(fromRegion => {
-        toOpRegions.foreach(toRegion => {
-          regionDAG.addEdge(fromRegion, toRegion, RegionLink(fromRegion.id, toRegion.id))
-        })
-      })
-    })
   }
 
   /**
