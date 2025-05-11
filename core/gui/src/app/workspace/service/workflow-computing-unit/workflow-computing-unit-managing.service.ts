@@ -179,4 +179,10 @@ export class WorkflowComputingUnitManagingService {
       .get<DashboardWorkflowComputingUnit>(`${AppSettings.getApiEndpoint()}/${COMPUTING_UNIT_BASE_URL}/${cuid}`)
       .pipe(map(raw => this.parseDashboardUnit(raw)));
   }
+
+  public getComputingUnit(cuid: number): Observable<DashboardWorkflowComputingUnit> {
+    return this.http.get<DashboardWorkflowComputingUnit>(
+      `${AppSettings.getApiEndpoint()}/${COMPUTING_UNIT_BASE_URL}/${cuid}`
+    );
+  }
 }
