@@ -84,13 +84,13 @@ object WorkflowExecutionsResource {
     * @param wid workflow id
     * @return Integer
     */
-  def getLatestExecutionID(wid: Integer): Option[Integer] = {
+  def getLatestExecutionID(wid: Integer, cuid: Integer): Option[Integer] = {
     val executions = context
       .select(WORKFLOW_EXECUTIONS.EID)
       .from(WORKFLOW_EXECUTIONS)
       .join(WORKFLOW_VERSION)
       .on(WORKFLOW_EXECUTIONS.VID.eq(WORKFLOW_VERSION.VID))
-      .where(WORKFLOW_VERSION.WID.eq(wid))
+      .where(WORKFLOW_VERSION.WID.eq(wid).and(WORKFLOW_EXECUTIONS.CUID.eq(cuid)))
       .fetchInto(classOf[Integer])
       .asScala
       .toList
@@ -715,7 +715,8 @@ class WorkflowExecutionsResource {
         case "local" =>
           // CASE A: multiple operators => produce ZIP
           if (request.operatorIds.size > 1) {
-            val resultExportService = new ResultExportService(WorkflowIdentity(request.workflowId))
+            val resultExportService =
+              new ResultExportService(WorkflowIdentity(request.workflowId), request.computingUnitId)
             val (zipStream, zipFileNameOpt) =
               resultExportService.exportOperatorsAsZip(user.user, request)
 
@@ -740,7 +741,8 @@ class WorkflowExecutionsResource {
           }
           val singleOpId = request.operatorIds.head
 
-          val resultExportService = new ResultExportService(WorkflowIdentity(request.workflowId))
+          val resultExportService =
+            new ResultExportService(WorkflowIdentity(request.workflowId), request.computingUnitId)
           val (streamingOutput, fileNameOpt) =
             resultExportService.exportOperatorResultAsStream(request, singleOpId)
 
@@ -759,7 +761,8 @@ class WorkflowExecutionsResource {
             .build()
         case _ =>
           // destination = "dataset" by default
-          val resultExportService = new ResultExportService(WorkflowIdentity(request.workflowId))
+          val resultExportService =
+            new ResultExportService(WorkflowIdentity(request.workflowId), request.computingUnitId)
           val exportResponse = resultExportService.exportResultToDataset(user.user, request)
           Response.ok(exportResponse).build()
       }
