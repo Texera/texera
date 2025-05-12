@@ -129,8 +129,9 @@ export class DownloadService {
     columnIndex: number,
     filename: string,
     destination: "local" | "dataset" = "dataset", // "local" or "dataset" => default to "dataset"
-    unit: DashboardWorkflowComputingUnit | null = null // computing unit for cluster setting
+    unit: DashboardWorkflowComputingUnit // computing unit for cluster setting
   ): Observable<HttpResponse<Blob> | HttpResponse<ExportWorkflowJsonResponse>> {
+    const computingUnitId = unit.computingUnit.cuid;
     const requestBody = {
       exportType,
       workflowId,
@@ -141,6 +142,7 @@ export class DownloadService {
       columnIndex,
       filename,
       destination,
+      computingUnitId,
     };
     const urlPath =
       unit && unit.computingUnit.type == "kubernetes" && unit.computingUnit?.cuid
