@@ -325,32 +325,14 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
    * Restores the workflow to its state before the preview
    */
   private restoreWorkflowState(): void {
-    if (!this.workflowBeforePreview) return;
-
-    // Clear the current workflow
-    this.workflowActionService.clearWorkflow();
-
-    // Restore operators and links from the saved workflow state
-    if (this.workflowBeforePreview.content) {
-      const content = this.workflowBeforePreview.content;
-
-      // Create array of operators with positions
-      const operatorsAndPositions = content.operators.map(op => {
-        const position = content.operatorPositions[op.operatorID];
-        return {
-          op: op,
-          pos: position,
-        };
-      });
-
-      // Add all operators and links back to the workflow
-      this.workflowActionService.addOperatorsAndLinks(operatorsAndPositions, content.links, content.commentBoxes);
-    }
-
-    // Reset the saved workflow state
+    // Reload the entire workflow snapshot to fully restore metadata and shared model
+    const snapshot = this.workflowBeforePreview;
     this.workflowBeforePreview = null;
 
-    // Clear data structures
+    if (snapshot) {
+      this.workflowActionService.reloadWorkflow(cloneDeep(snapshot));
+    }
+
     this.propertyStyleMaps.clear();
     this.originalOperatorProperties.clear();
   }
