@@ -34,6 +34,7 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
   public intentionText = "";
   // Store the workflow state before a preview is applied
   private workflowBeforePreview: Workflow | null = null;
+  private viewStateBeforeRestore: { zoom: number; tx: number; ty: number } | null = null;
 
   // Store original operator properties to compare with changed properties
   private originalOperatorProperties: Map<string, object> = new Map();
@@ -317,8 +318,27 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
     // Notify the suggestion service that preview is no longer active
     this.workflowSuggestionService.setPreviewActive(false);
 
+    // Save current view zoom and offset before any reload resets them
+    const wrapper = this.workflowActionService.getJointGraphWrapper();
+    try {
+      const paper = wrapper.getMainJointPaper();
+      const translate = paper.translate();
+      this.viewStateBeforeRestore = { zoom: wrapper.getZoomRatio(), tx: translate.tx, ty: translate.ty };
+    } catch {
+      this.viewStateBeforeRestore = null;
+    }
+
     // Restore the workflow to its state before the preview
     this.restoreWorkflowState();
+
+    // Restore previous view if captured
+    if (this.viewStateBeforeRestore) {
+      const wrapper2 = this.workflowActionService.getJointGraphWrapper();
+      const paper2 = wrapper2.getMainJointPaper();
+      wrapper2.setZoomProperty(this.viewStateBeforeRestore.zoom);
+      paper2.translate(this.viewStateBeforeRestore.tx, this.viewStateBeforeRestore.ty);
+      this.viewStateBeforeRestore = null;
+    }
   }
 
   /**
