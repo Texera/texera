@@ -67,6 +67,20 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
       .getWorkflowModificationEnabledStream()
       .pipe(untilDestroyed(this))
       .subscribe(canModify => (this.canModify = canModify));
+
+    // Subscribe to global suggestion updates so that this frame reflects the latest results
+    this.workflowSuggestionService
+      .getSuggestionsListStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(list => {
+        this.suggestions = list.suggestions;
+      });
+
+    // Track loading state
+    this.workflowSuggestionService
+      .getLoadingStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(isLoading => (this.loadingSuggestions = isLoading));
   }
 
   ngOnDestroy(): void {
@@ -136,7 +150,6 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
     const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
     if (operators.length === 0) return;
 
-    this.loadingSuggestions = true;
     const focusedOperatorIDs = this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs();
     const intention = this.intentionText.trim();
 
@@ -152,7 +165,6 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
       .subscribe((suggestionList: WorkflowSuggestionList) => {
         console.log("Received suggestions:", suggestionList);
         this.suggestions = suggestionList.suggestions;
-        this.loadingSuggestions = false;
       });
   }
 
@@ -359,17 +371,24 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
 
       if (isExisting) {
         if (options.preview) {
+          // Apply the property changes so users can preview new settings.
+          this.workflowActionService.setOperatorProperty(op.operatorID, {
+            ...op.operatorProperties,
+          });
+
+          // Highlight the operator with a blue stroke and light yellow fill.
           const cell = jointGraph.getCell(op.operatorID);
           if (cell) {
             cell.attr({
               rect: {
-                fill: "rgba(255, 200, 200, 0.6)",
-                stroke: "rgba(255, 0, 0, 0.6)",
+                fill: "rgba(255, 255, 204, 0.6)",
+                stroke: "#1890ff",
                 "stroke-width": 2,
               },
             });
           }
         } else {
+          // Permanently apply property changes when user accepts.
           this.workflowActionService.setOperatorProperty(op.operatorID, {
             ...op.operatorProperties,
           });

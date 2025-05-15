@@ -67,6 +67,7 @@ import QuillCursors from "quill-cursors";
 import * as Y from "yjs";
 import { OperatorSchema } from "src/app/workspace/types/operator-schema.interface";
 import { AttributeType, PortInputSchema } from "../../../types/workflow-compiling.interface";
+import { WorkflowSuggestionService } from "../../../service/workflow-suggestion/workflow-suggestion.service";
 
 Quill.register("modules/cursors", QuillCursors);
 
@@ -144,6 +145,15 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
   // used to tear down subscriptions that takeUntil(teardownObservable)
   private teardownObservable: Subject<void> = new Subject();
 
+  /**
+   * Text typed by user that describes the intention for the highlighted operator.  It will be sent
+   * to the backend suggestion service when the user clicks the "Fill" button.
+   */
+  intentionText: string = "";
+
+  /** Whether we are currently waiting for the backend to return suggestions. */
+  loadingSuggestions = false;
+
   constructor(
     private formlyJsonschema: FormlyJsonschema,
     private workflowActionService: WorkflowActionService,
@@ -153,7 +163,8 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
     private notificationService: NotificationService,
     private changeDetectorRef: ChangeDetectorRef,
     private workflowVersionService: WorkflowVersionService,
-    private workflowStatusSerivce: WorkflowStatusService
+    private workflowStatusSerivce: WorkflowStatusService,
+    private workflowSuggestionService: WorkflowSuggestionService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -780,5 +791,40 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
       placeholder: "Start collaborating...",
       theme: "snow",
     });
+  }
+
+  /**
+   * Trigger the workflow suggestion service using the user-provided intention text.  The
+   * SuggestionFrameComponent is subscribed to the global suggestion stream and will update
+   * automatically when the result comes back.
+   */
+  fillSuggestions(): void {
+    if (this.loadingSuggestions) {
+      return;
+    }
+
+    // There might be no operators in the graph or no highlighted operator; in such cases we
+    // simply do nothing.
+    const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
+    if (operators.length === 0) {
+      return;
+    }
+
+    this.loadingSuggestions = true;
+
+    this.workflowSuggestionService
+      .getSuggestions(
+        this.workflowActionService.getWorkflow(),
+        this.workflowCompilingService.getWorkflowCompilationStateInfo(),
+        this.executeWorkflowService.getExecutionState(),
+        this.intentionText.trim(),
+        this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs()
+      )
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        // The SuggestionFrameComponent will be updated via the shared service stream, we only need
+        // to clear the loading flag here.
+        this.loadingSuggestions = false;
+      });
   }
 }

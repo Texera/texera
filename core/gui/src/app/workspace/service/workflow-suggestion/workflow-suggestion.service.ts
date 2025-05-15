@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { Injectable, OnDestroy } from "@angular/core";
 import { Observable, of, BehaviorSubject, pipe, timer } from "rxjs";
-import { catchError, map } from "rxjs/operators";
+import { catchError, map, tap, finalize } from "rxjs/operators";
 import { AppSettings } from "../../../common/app-setting";
 import { Workflow } from "../../../common/type/workflow";
 import { ExecutionStateInfo } from "../../types/execute-workflow.interface";
@@ -23,6 +23,10 @@ export const WORKFLOW_SUGGESTION_ENDPOINT = "workflow-suggestion";
 export class WorkflowSuggestionService implements OnDestroy {
   // Stream that indicates whether a preview is currently active - initialized to false
   private previewActiveStream = new BehaviorSubject<boolean>(false);
+  // Stream that always holds the latest list of suggestions returned from the backend.
+  private suggestionsListSubject = new BehaviorSubject<WorkflowSuggestionList>({ suggestions: [] });
+  // Stream indicating whether a request is in flight so that components can show loading states.
+  private suggestionsLoadingSubject = new BehaviorSubject<boolean>(false);
   // Flag to ignore workflow changes during preview activation/deactivation
   private mock = false; // Set to true to enable mock mode
 
@@ -34,6 +38,24 @@ export class WorkflowSuggestionService implements OnDestroy {
   ngOnDestroy(): void {
     // Make sure preview state is reset when service is destroyed
     this.resetPreviewState();
+  }
+
+  /**
+   * Observable stream of the latest workflow suggestion list.  Components that want to
+   * reactively display suggestions (for example the SuggestionFrameComponent) should subscribe
+   * to this stream instead of (or in addition to) directly calling getSuggestions().  Whenever
+   * getSuggestions() successfully receives a response from the backend this stream will emit
+   * the same suggestion list so that every interested component stays in sync.
+   */
+  public getSuggestionsListStream(): Observable<WorkflowSuggestionList> {
+    return this.suggestionsListSubject.asObservable();
+  }
+
+  /**
+   * Observable stream indicating whether suggestions are currently being fetched.
+   */
+  public getLoadingStream(): Observable<boolean> {
+    return this.suggestionsLoadingSubject.asObservable();
   }
 
   /**
@@ -50,13 +72,25 @@ export class WorkflowSuggestionService implements OnDestroy {
     intention: string,
     focusingOperatorIDs: readonly string[]
   ): Observable<WorkflowSuggestionList> {
+    // indicate loading started
+    this.suggestionsLoadingSubject.next(true);
+
+    // Helper to mark request finished
+    const done = () => this.suggestionsLoadingSubject.next(false);
+
     // Skip if preview is active
     if (this.previewActiveStream.getValue()) {
-      return of({ suggestions: [] });
+      return of({ suggestions: [] }).pipe(
+        tap(list => this.suggestionsListSubject.next(list)),
+        finalize(done)
+      );
     }
 
     if (this.mock) {
-      return of(this.MOCK_SUGGESTIONS);
+      return of(this.MOCK_SUGGESTIONS).pipe(
+        tap(list => this.suggestionsListSubject.next(list)),
+        finalize(done)
+      );
     }
 
     return this.httpClient
@@ -74,10 +108,16 @@ export class WorkflowSuggestionService implements OnDestroy {
           });
           return suggestionList;
         }),
+        // Publish the suggestion list so that other components (e.g. the suggestion frame)
+        // can react to the new data even if they did not initiate the request.
+        tap(suggestionList => this.suggestionsListSubject.next(suggestionList)),
         catchError((error: unknown) => {
           console.error("Error getting workflow suggestions:", error);
+          // publish empty list on error
+          this.suggestionsListSubject.next({ suggestions: [] });
           return of({ suggestions: [] });
-        })
+        }),
+        finalize(done)
       );
   }
 
