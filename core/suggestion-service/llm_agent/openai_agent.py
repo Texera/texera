@@ -5,6 +5,8 @@ from typing import Dict, Any, List, Optional
 from openai import OpenAI
 from llm_agent.base import LLMAgent, LLMAgentFactory
 from llm_agent.utils.operator_metadata_converter import extract_json_schemas
+from model.llm import Prompt
+from model.llm.interpretation import BaseInterpretation, WorkflowInterpretation
 from model.llm.sanitizor import OperatorSchema, SuggestionSanitization
 from model.llm.suggestion import SuggestionList, Suggestion
 
@@ -79,7 +81,7 @@ class OpenAIAgent(LLMAgent):
 
     def generate_suggestions(
         self,
-        prompt: str,
+        prompt: Prompt,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs,
@@ -106,11 +108,12 @@ class OpenAIAgent(LLMAgent):
             A list of sanitized suggestion dicts.
         """
         try:
+            prompt_json: str = prompt.model_dump_json(indent=2)
             # Step 1: Generate raw suggestions
             raw_response = self.client.responses.create(
                 model=self.model,
                 instructions=self.instruction_for_suggestion,
-                input=prompt,
+                input=prompt_json,
                 tools=self.tools,
                 # text_format=SuggestionList
                 text={
@@ -127,7 +130,9 @@ class OpenAIAgent(LLMAgent):
             with open("raw_suggestions_debug.json", "w") as f:
                 json.dump(raw_suggestions, f, indent=2)
             # Step 2: Sanitize the suggestions
-            sanitized_suggestions = self._sanitize_suggestions(raw_suggestions)
+            sanitized_suggestions = self._sanitize_suggestions(
+                raw_suggestions, prompt.workflowInterpretation
+            )
 
             return sanitized_suggestions
 
@@ -135,79 +140,119 @@ class OpenAIAgent(LLMAgent):
             print(f"Error generating suggestions: {e}")
             return SuggestionList(suggestions=[])
 
+    def _id_set_from_workflow(self, workflow_json: Dict[str, Any]):
+        """
+        Return the sets of operator IDs and link IDs that already exist
+        in the workflow (after .model_dump()).
+
+        * operators  – dict mapping id → details
+        * links      – list of link objects, each MAY contain linkID
+        """
+        # Operators: keys of the dict
+        ops = set(workflow_json.get("operators", {}).keys())
+
+        # Links: collect linkID if present (model_dump() may omit it)
+        links = set()
+        for link in workflow_json.get("links", []):
+            if isinstance(link, dict):
+                lid = link.get("linkID")
+                if lid:  # skip if missing / None
+                    links.add(lid)
+
+        return ops, links
+
+    def _valid_suggestion_structure(self, s: Dict[str, Any]) -> bool:
+        """Quick structural check before deeper validation."""
+        return (
+            isinstance(s.get("suggestion"), str)
+            and s.get("suggestionType") in {"fix", "improve"}
+            and isinstance(s.get("changes"), dict)
+            and all(
+                k in s["changes"]
+                for k in (
+                    "operatorsToAdd",
+                    "linksToAdd",
+                    "operatorsToDelete",
+                    "linksToDelete",
+                )
+            )
+        )
+
     def _sanitize_suggestions(
-        self, suggestions: List[Dict[str, Any]]
+        self,
+        suggestions: List[Dict[str, Any]],
+        workflow_intp: BaseInterpretation,
     ) -> SuggestionList:
         """
-        Internal method to sanitize raw suggestions. Optionally uses LLM
-        if enabled, otherwise just validates and returns structured output.
-
-        Args:
-            suggestions: The raw suggestions to sanitize
-
-        Returns:
-            A sanitized list of suggestions
+        Validate / repair suggestions according to the project rules.
+        Invalid suggestions are dropped.
         """
         try:
-            # Filter valid suggestions based on operator type
-            valid_suggestions = []
-            operator_types_seen = set()
+            workflow_dict = (
+                workflow_intp.get_base_workflow_interpretation().model_dump()
+            )
 
-            for suggestion in suggestions:
-                operator_types = {
-                    op["operatorType"] for op in suggestion["changes"]["operatorsToAdd"]
-                }
-                try:
-                    for op_type in operator_types:
-                        # Check validity by attempting schema extraction
-                        extract_json_schemas([op_type])
-                        operator_types_seen.add(op_type)
+            existing_ops, existing_links = self._id_set_from_workflow(workflow_dict)
+            cleaned: List[Suggestion] = []
+            operator_types_cache: Dict[str, Any] = {}
 
-                    # Fix missing linkIDs
-                    for link in suggestion["changes"]["linksToAdd"]:
-                        if "linkID" not in link or not link["linkID"]:
+            for raw in suggestions:
+                # 0) basic shape & enums -------------------------------------------------
+                if not self._valid_suggestion_structure(raw):
+                    continue
+
+                ch = raw["changes"]
+
+                # 1) operatorsToAdd / updates ------------------------------------------
+                for op in ch["operatorsToAdd"]:
+                    # schema check (and cache)
+                    optype = op["operatorType"]
+                    if optype not in operator_types_cache:
+                        try:
+                            operator_types_cache[optype] = extract_json_schemas(
+                                [optype]
+                            )[0]
+                        except ValueError:
+                            break  # invalid operator type -> drop suggestion
+
+                    # if updating an existing op, ID must exist in workflow
+                    if op["operatorID"] in existing_ops:
+                        pass  # allowed – treated as in-place update
+                else:
+                    # 2) linksToAdd ------------------------------------------------------
+                    valid_link_add = True
+                    for link in ch["linksToAdd"]:
+                        # ensure linkID exists (generate if missing)
+                        if not link.get("linkID"):
                             link["linkID"] = f"link-{uuid.uuid4()}"
+                        # ensure endpoints refer to real or newly-added ops
+                        src_ok = link["source"]["operatorID"] in existing_ops or any(
+                            op["operatorID"] == link["source"]["operatorID"]
+                            for op in ch["operatorsToAdd"]
+                        )
+                        tgt_ok = link["target"]["operatorID"] in existing_ops or any(
+                            op["operatorID"] == link["target"]["operatorID"]
+                            for op in ch["operatorsToAdd"]
+                        )
+                        if not (src_ok and tgt_ok):
+                            valid_link_add = False
+                            break
+                    if not valid_link_add:
+                        continue  # invalid suggestion
 
-                    valid_suggestions.append(suggestion)
-                except ValueError:
-                    continue  # Skip suggestion if operatorType is invalid
+                    # 3) deletions ------------------------------------------------------
+                    if not set(ch["operatorsToDelete"]).issubset(existing_ops):
+                        continue
+                    if not set(ch["linksToDelete"]).issubset(existing_links):
+                        continue
 
-            # If LLM sanitization is disabled, directly parse into Pydantic models
-            if not self.enable_llm_sanitizor:
-                structured = [Suggestion(**s) for s in valid_suggestions]
-                return SuggestionList(suggestions=structured)
+                    # 4) final parse to pydantic ---------------------------------------
+                    try:
+                        cleaned.append(Suggestion(**raw))
+                    except Exception:
+                        continue  # any remaining schema errors – drop
 
-            # Otherwise: Use LLM for further validation/sanitization
-            operator_schemas = [
-                OperatorSchema(**extract_json_schemas([op_type])[0])
-                for op_type in operator_types_seen
-            ]
-            sanitization_input = SuggestionSanitization(
-                suggestions=SuggestionList(
-                    suggestions=[Suggestion(**s) for s in valid_suggestions]
-                ),
-                schemas=operator_schemas,
-            )
-
-            sanitize_response = self.client.responses.create(
-                model=self.model,
-                instructions=self.instruction_for_sanitizor,
-                input=sanitization_input.model_dump_json(),
-                tools=self.tools,
-                text={
-                    "format": {
-                        "type": "json_schema",
-                        "name": "workflow_suggestions",
-                        "schema": SuggestionList.model_json_schema(),
-                        "strict": False,
-                    }
-                },
-            )
-
-            sanitized_result = json.loads(sanitize_response.output_text)
-            return SuggestionList(
-                suggestions=[Suggestion(**s) for s in sanitized_result["suggestions"]]
-            )
+            return SuggestionList(suggestions=cleaned)
 
         except Exception as e:
             print(f"Error sanitizing suggestions: {e}")
@@ -220,7 +265,7 @@ class OpenAIAgent(LLMAgent):
             raise ValueError(f"Unknown function: {name}")
 
     def _generate_suggestions_with_function_calls(
-        self, prompt: str, temperature: float, max_tokens: Optional[int]
+        self, prompt: Prompt, temperature: float, max_tokens: Optional[int]
     ) -> SuggestionList:
         """
         Two‑step approach:
@@ -229,7 +274,8 @@ class OpenAIAgent(LLMAgent):
           2) Execute those calls locally, hand results back, let the model
              produce the final SuggestionList JSON.
         """
-        input_messages = [{"role": "user", "content": prompt}]
+        prompt_json: str = prompt.model_dump_json(indent=2)
+        input_messages = [{"role": "user", "content": prompt_json}]
         # -- 1️⃣  first turn: let the model issue tool calls ------------------
         first_resp = self.client.responses.create(
             model=self.model,
@@ -283,6 +329,8 @@ class OpenAIAgent(LLMAgent):
         with open("raw_suggestions_debug.json", "w") as f:
             json.dump(raw_suggestions, f, indent=2)
 
-        sanitized_suggestions = self._sanitize_suggestions(raw_suggestions)
+        sanitized_suggestions = self._sanitize_suggestions(
+            raw_suggestions, prompt.workflowInterpretation
+        )
 
         return sanitized_suggestions

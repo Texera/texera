@@ -41,6 +41,7 @@ class LinkEndInterpretation(BaseModel):
 
 
 class LinkInterpretation(BaseModel):
+    linkID: str
     source: LinkEndInterpretation
     target: LinkEndInterpretation
 

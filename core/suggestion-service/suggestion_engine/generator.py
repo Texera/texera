@@ -24,6 +24,8 @@ from distutils.util import strtobool  # stdlib helper
 # Load environment variables from .env file if present
 load_dotenv()
 
+logs_directory = "logs"
+
 
 # helper that treats 1/true/yes/y (case‑insensitive) as True
 def env_bool(key: str, default: bool = False) -> bool:
@@ -97,6 +99,7 @@ class SuggestionGenerator:
         execution_state: ExecutionStateInfo,
         intention: str,
         focusing_operator_ids: List[str],
+        enable_logging: bool = True,
     ) -> SuggestionList:
         """
         Generate workflow suggestions based on the current workflow, compilation state, execution state, and result tables.
@@ -141,11 +144,34 @@ class SuggestionGenerator:
         # Serialize prompt to JSON string to feed into LLM
         workflow_description = prompt_obj.model_dump_json(indent=2)
 
+        log_id: Optional[str] = None
+        # Save the workflow description to a log file if logging is enabled
+        if enable_logging:
+            try:
+                os.makedirs(logs_directory, exist_ok=True)
+                log_id = str(uuid.uuid4())
+                file_name = f"{log_id}.json"
+                file_path = os.path.join(logs_directory, file_name)
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(workflow_description)
+            except Exception as e:
+                print(f"Failed to log workflow description: {e}")
+
         # Get suggestions from the LLM agent
         suggestions = self.llm_agent.generate_suggestions(
-            prompt=workflow_description,
+            prompt=prompt_obj,
             temperature=0.7,  # Lower temperature for more focused suggestions
         )
+        if enable_logging and log_id:
+            try:
+                with open(
+                    os.path.join(logs_directory, f"response-{log_id}.json"),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    f.write(suggestions.model_dump_json(indent=2))
+            except Exception as e:
+                print(f"Failed to log suggestions: {e}")
         return suggestions
 
     def _enhance_prompt_with_state_info(

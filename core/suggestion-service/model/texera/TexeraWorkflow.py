@@ -18,7 +18,8 @@ from model.texera.TexeraOperator import TexeraOperator
 class Link:
     """Simple class to represent a link between operators."""
 
-    def __init__(self, src_id, src_port, target_id, target_port):
+    def __init__(self, link_id, src_id, src_port, target_id, target_port):
+        self.link_id = link_id
         self.source = type(
             "obj", (object,), {"operator_id": src_id, "port_id": src_port}
         )
@@ -111,6 +112,7 @@ class TexeraWorkflow(Workflow):
         # Add links to DAG
         links_dict = self.workflow_dict.get("content", {}).get("links", [])
         for link in links_dict:
+            link_id = link.get("linkID")
             source_op_id = link.get("source", {}).get("operatorID")
             src_port_id = link.get("source", {}).get("portID")
             target_op_id = link.get("target", {}).get("operatorID")
@@ -119,7 +121,9 @@ class TexeraWorkflow(Workflow):
             if source_op_id and target_op_id:
                 # Add link to links list
                 self.links.append(
-                    Link(source_op_id, src_port_id, target_op_id, target_port_id)
+                    Link(
+                        link_id, source_op_id, src_port_id, target_op_id, target_port_id
+                    )
                 )
 
                 # Add edge to DAG
@@ -415,6 +419,7 @@ class TexeraWorkflow(Workflow):
                     target=LinkEndInterpretation(
                         operatorID=link.target.operator_id, portID=link.target.port_id
                     ),
+                    linkID=link.link_id,
                 )
                 for link in self.links
             ],

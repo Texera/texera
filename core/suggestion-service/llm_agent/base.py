@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Type
 import os
 
+from model.llm import Prompt
 from model.llm.suggestion import SuggestionList
 
 
@@ -27,7 +28,7 @@ class LLMAgent(ABC):
     @abstractmethod
     def generate_suggestions(
         self,
-        prompt: str,
+        prompt: Prompt,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs,
