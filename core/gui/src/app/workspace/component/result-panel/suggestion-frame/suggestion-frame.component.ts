@@ -267,7 +267,7 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Removes a suggestion from the list
+   * Removes a suggestion from the list via service so all subscribers update
    */
   public dislikeSuggestion(suggestion: WorkflowSuggestion): void {
     // If this is the active suggestion, restore the workflow first
@@ -275,8 +275,8 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
       this.clearPreviewAndRestoreWorkflow();
     }
 
-    // Remove the suggestion from the list
-    this.suggestions = this.suggestions.filter(s => s.suggestionID !== suggestion.suggestionID);
+    // Remove the suggestion from the list via service so all subscribers update
+    this.workflowSuggestionService.removeSuggestionById(suggestion.suggestionID);
 
     // Show a message to confirm the action
     this.messageService.info("Suggestion removed from the list.");
@@ -470,7 +470,7 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
         .pipe(untilDestroyed(this))
         .subscribe(() => {
           this.messageService.success("Successfully applied and saved the suggestion!");
-          this.suggestions = this.suggestions.filter(s => s.suggestionID !== suggestion.suggestionID);
+          this.workflowSuggestionService.removeSuggestionById(suggestion.suggestionID);
         });
     } catch (error) {
       console.error("Error applying suggestion:", error);
