@@ -46,7 +46,9 @@ export class WorkflowSuggestionService implements OnDestroy {
   public getSuggestions(
     workflow: Workflow,
     compilationState: CompilationStateInfo,
-    executionState: ExecutionStateInfo
+    executionState: ExecutionStateInfo,
+    intention: string,
+    focusingOperatorIDs: readonly string[]
   ): Observable<WorkflowSuggestionList> {
     // Skip if preview is active
     if (this.previewActiveStream.getValue()) {
@@ -58,14 +60,13 @@ export class WorkflowSuggestionService implements OnDestroy {
     }
 
     return this.httpClient
-      .post<WorkflowSuggestionList>(
-        `${AppSettings.getApiEndpoint()}/${WORKFLOW_SUGGESTION_ENDPOINT}`,
-        {
-          workflow: JSON.stringify(workflow),
-          compilationState: compilationState,
-          executionState: executionState,
-        }
-      )
+      .post<WorkflowSuggestionList>(`${AppSettings.getApiEndpoint()}/${WORKFLOW_SUGGESTION_ENDPOINT}`, {
+        workflow: JSON.stringify(workflow),
+        compilationState: compilationState,
+        executionState: executionState,
+        intention: intention,
+        focusingOperatorIDs: focusingOperatorIDs,
+      })
       .pipe(
         map(suggestionList => {
           suggestionList.suggestions.forEach(suggestion => {

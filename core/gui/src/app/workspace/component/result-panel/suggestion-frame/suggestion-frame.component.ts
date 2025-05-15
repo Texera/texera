@@ -12,10 +12,7 @@ import { ExecutionState } from "../../../types/execute-workflow.interface";
 import { filter } from "rxjs/operators";
 import { WorkflowCompilingService } from "../../../service/compile-workflow/workflow-compiling.service";
 import { Subscription, interval } from "rxjs";
-import {
-  WorkflowSuggestion,
-  WorkflowSuggestionList,
-} from "../../../types/workflow-suggestion.interface";
+import { WorkflowSuggestion, WorkflowSuggestionList } from "../../../types/workflow-suggestion.interface";
 import { OperatorPredicate } from "../../../types/workflow-common.interface";
 
 /**
@@ -34,7 +31,7 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
   public activePreviewId: string | null = null;
   public canModify = true;
   public loadingSuggestions = false;
-
+  public intentionText = "";
   // Store the workflow state before a preview is applied
   private workflowBeforePreview: Workflow | null = null;
 
@@ -140,14 +137,20 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
     if (operators.length === 0) return;
 
     this.loadingSuggestions = true;
+    const focusedOperatorIDs = this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs();
+    const intention = this.intentionText.trim();
+
     this.workflowSuggestionService
       .getSuggestions(
         this.workflowActionService.getWorkflow(),
         this.workflowCompilingService.getWorkflowCompilationStateInfo(),
-        this.workflowExecuteService.getExecutionState()
+        this.workflowExecuteService.getExecutionState(),
+        this.intentionText.trim(),
+        this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs()
       )
       .pipe(untilDestroyed(this))
       .subscribe((suggestionList: WorkflowSuggestionList) => {
+        console.log("Received suggestions:", suggestionList);
         this.suggestions = suggestionList.suggestions;
         this.loadingSuggestions = false;
       });

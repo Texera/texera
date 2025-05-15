@@ -3,8 +3,18 @@
   [ngClass]="{'preview-active': activePreviewId !== null, 'preview-inactive': activePreviewId === null}">
   <div class="suggestion-container">
     <div class="header">
-      <h3>Workflow Suggestions</h3>
+      <h3>Workflow Copilot</h3>
       <p>Click on a suggestion to preview</p>
+    </div>
+
+    <div
+      class="intention-box"
+      *ngIf="!activePreviewId">
+      <input
+        nz-input
+        placeholder="Describe what you’d like help with (optional)…"
+        [(ngModel)]="intentionText"
+        [disabled]="loadingSuggestions || isInPreviewMode" />
     </div>
 
     <div class="suggestions-list">
