@@ -35,9 +35,17 @@ class Changes(BaseModel):
     operatorsToAdd: List[Operator]
     linksToAdd: List[Link]
     operatorsToDelete: List[str]
+    linksToDelete: List[str]
 
     class Config:
-        json_schema_extra = {"required": ["operatorsToAdd", "linksToAdd"]}
+        json_schema_extra = {
+            "required": [
+                "operatorsToAdd",
+                "linksToAdd",
+                "operatorsToDelete",
+                "linksToDelete",
+            ]
+        }
 
 
 class Suggestion(BaseModel):
