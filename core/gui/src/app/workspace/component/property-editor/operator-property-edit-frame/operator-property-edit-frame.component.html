@@ -88,7 +88,17 @@
   (focusout)="disconnectQuillFromText()"
   (keyup.enter)="disconnectQuillFromText()"></div>
 
+<!-- Copilot toggle -->
+<div style="margin-top: 4px; display: flex; align-items: center; gap: 6px">
+  <nz-switch
+    [(ngModel)]="copilotEnabled"
+    [ngModelOptions]="{standalone: true}"
+    [disabled]="loadingSuggestions"></nz-switch>
+  <span>Use Copilot</span>
+</div>
+
 <div
+  *ngIf="copilotEnabled"
   class="operator-intention-box"
   style="margin-top: 4px; margin-bottom: 8px; display: flex; gap: 4px; align-items: flex-start">
   <textarea
