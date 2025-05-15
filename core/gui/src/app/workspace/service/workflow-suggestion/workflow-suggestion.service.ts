@@ -153,6 +153,13 @@ export class WorkflowSuggestionService implements OnDestroy {
     this.setPreviewActive(false);
   }
 
+  /** Remove a suggestion with given ID from current list and notify subscribers. */
+  public removeSuggestionById(id: string): void {
+    const current = this.suggestionsListSubject.getValue();
+    const newList = { suggestions: current.suggestions.filter(s => s.suggestionID !== id) };
+    this.suggestionsListSubject.next(newList);
+  }
+
   MOCK_SUGGESTIONS: WorkflowSuggestionList = {
     suggestions: [
       {
