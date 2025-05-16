@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, OnDestroy } from "@angular/core";
+import { Component, OnInit, HostListener, OnDestroy, ChangeDetectorRef, NgZone } from "@angular/core";
 import { UntilDestroy, untilDestroyed } from "@ngneat/until-destroy";
 import { WorkflowActionService } from "../../../service/workflow-graph/model/workflow-action.service";
 import { WorkflowSuggestionService } from "../../../service/workflow-suggestion/workflow-suggestion.service";
@@ -57,7 +57,9 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
     private messageService: NzMessageService,
     private workflowPersistService: WorkflowPersistService,
     private workflowSuggestionService: WorkflowSuggestionService,
-    private executeWorkflowService: ExecuteWorkflowService
+    private executeWorkflowService: ExecuteWorkflowService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
   ) {
     this.boundHandleDocumentClick = this.handleDocumentClick.bind(this);
   }
@@ -170,31 +172,36 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
   }
 
   public togglePreview(suggestion: WorkflowSuggestion): void {
+    // Case 1: the clicked suggestion is the one currently in preview –> cancel preview.
+    if (this.activePreviewId === suggestion.suggestionID) {
+      this.clearPreviewAndRestoreWorkflow();
+      return;
+    }
+
+    // Case 2: a different suggestion is already in preview –> restore workflow first.
     if (this.activePreviewId) {
       this.clearPreviewAndRestoreWorkflow();
     }
 
-    if (this.activePreviewId === suggestion.suggestionID) {
-      this.activePreviewId = null;
-      this.isInPreviewMode = false;
-      this.workflowSuggestionService.setPreviewActive(false);
-      this.removeDocumentClickListener();
-      if (this.tabFocusInterval) {
-        this.tabFocusInterval.unsubscribe();
-        this.tabFocusInterval = null;
-      }
-    } else {
-      this.saveWorkflowState();
-      this.propertyStyleMaps.clear();
-      this.originalOperatorProperties.clear();
-      this.isInPreviewMode = true;
-      this.addDocumentClickListener();
-      this.workflowSuggestionService.setPreviewActive(true);
-      this.activePreviewId = suggestion.suggestionID;
-      this.createPreview(suggestion);
-      this.focusSuggestionTab();
-      this.messageService.info("Preview mode active. Any compilation errors will be ignored.");
-    }
+    // Case 3: no preview is active –> start preview for the newly-clicked suggestion.
+    this.saveWorkflowState();
+    this.propertyStyleMaps.clear();
+    this.originalOperatorProperties.clear();
+    this.isInPreviewMode = true;
+    this.addDocumentClickListener();
+    this.workflowSuggestionService.setPreviewActive(true);
+    this.activePreviewId = suggestion.suggestionID;
+    this.cdr.detectChanges();
+
+    // Defer the heavy preview creation so the view (and action buttons) can render first.
+    // Using a micro-task ensures users immediately see the buttons on the first click.
+    this.ngZone.runOutsideAngular(() => {
+      setTimeout(() => {
+        this.createPreview(suggestion);
+      });
+    });
+    this.focusSuggestionTab();
+    this.messageService.info("Preview mode active. Any compilation errors will be ignored.");
   }
 
   /**
