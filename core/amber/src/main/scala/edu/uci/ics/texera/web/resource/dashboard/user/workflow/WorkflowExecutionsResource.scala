@@ -664,7 +664,7 @@ class WorkflowExecutionsResource {
           if (request.operatorIds.size > 1) {
             val resultExportService = new ResultExportService(WorkflowIdentity(request.workflowId))
             val (zipStream, zipFileNameOpt) =
-              resultExportService.exportOperatorsAsZip(user.user, request)
+              resultExportService.exportOperatorsAsZip(request)
 
             if (zipStream == null) {
               throw new RuntimeException("Zip stream is null")
@@ -707,7 +707,8 @@ class WorkflowExecutionsResource {
         case _ =>
           // destination = "dataset" by default
           val resultExportService = new ResultExportService(WorkflowIdentity(request.workflowId))
-          val exportResponse = resultExportService.exportResultToDataset(user.user, request)
+          val exportResponse =
+            resultExportService.exportAllOperatorsResultToDataset(user.user, request)
           Response.ok(exportResponse).build()
       }
     } catch {
