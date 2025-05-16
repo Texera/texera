@@ -25,8 +25,6 @@ import com.fasterxml.jackson.module.noctordeser.NoCtorDeserModule
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.LazyLogging
 import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.WorkflowAggregatedState
-import org.jooq.DSLContext
-import org.jooq.impl.DSL
 
 import java.nio.file.{Files, Path, Paths}
 import java.text.SimpleDateFormat
@@ -150,16 +148,5 @@ object Utils extends LazyLogging {
     } finally {
       lock.unlock()
     }
-  }
-
-  def withTransaction[T](dsl: DSLContext)(block: DSLContext => T): T = {
-    var result: Option[T] = None
-
-    dsl.transaction(configuration => {
-      val ctx = DSL.using(configuration)
-      result = Some(block(ctx))
-    })
-
-    result.getOrElse(throw new RuntimeException("Transaction failed without result!"))
   }
 }

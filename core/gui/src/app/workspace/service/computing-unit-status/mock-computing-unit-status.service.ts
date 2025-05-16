@@ -17,27 +17,31 @@
  * under the License.
  */
 
-export interface WorkflowExecutionsEntry {
-  eId: number;
-  vId: number;
-  cuId: number;
-  sId: number;
-  userName: string;
-  googleAvatar: string;
-  name: string;
-  startingTime: number;
-  completionTime: number;
-  status: number;
-  result: string;
-  bookmarked: boolean;
-  logLocation: string;
-}
+import { Injectable } from "@angular/core";
+import { DashboardWorkflowComputingUnit } from "../../types/workflow-computing-unit";
+import { Observable, of } from "rxjs";
 
-export const EXECUTION_STATUS_CODE: Record<number, string> = {
-  0: "initializing",
-  1: "running",
-  2: "paused",
-  3: "completed",
-  4: "failed",
-  5: "killed",
-};
+@Injectable()
+export class MockComputingUnitStatusService {
+  listComputingUnits(): Observable<DashboardWorkflowComputingUnit[]> {
+    return of([]);
+  }
+
+  getSelectedComputingUnit(): Observable<DashboardWorkflowComputingUnit | null> {
+    return of(null);
+  }
+
+  getSelectedComputingUnitValue(): DashboardWorkflowComputingUnit | null {
+    return null;
+  }
+
+  getAllComputingUnits(): Observable<DashboardWorkflowComputingUnit[]> {
+    return of([]);
+  }
+
+  selectComputingUnit(): void {}
+
+  startPolling(): void {}
+
+  stopPolling(): void {}
+}

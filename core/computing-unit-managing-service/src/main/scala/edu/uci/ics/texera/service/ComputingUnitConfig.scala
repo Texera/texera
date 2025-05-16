@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,27 +17,13 @@
  * under the License.
  */
 
-export interface WorkflowExecutionsEntry {
-  eId: number;
-  vId: number;
-  cuId: number;
-  sId: number;
-  userName: string;
-  googleAvatar: string;
-  name: string;
-  startingTime: number;
-  completionTime: number;
-  status: number;
-  result: string;
-  bookmarked: boolean;
-  logLocation: string;
-}
+package edu.uci.ics.texera.service
 
-export const EXECUTION_STATUS_CODE: Record<number, string> = {
-  0: "initializing",
-  1: "running",
-  2: "paused",
-  3: "completed",
-  4: "failed",
-  5: "killed",
-};
+import com.typesafe.config.{Config, ConfigFactory}
+
+object ComputingUnitConfig {
+
+  private val conf: Config = ConfigFactory.parseResources("computing-unit.conf").resolve()
+
+  val localComputingUnitEnabled: Boolean = conf.getBoolean("computing-unit.local.enabled")
+}

@@ -20,7 +20,7 @@
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { AppSettings } from "../../../../common/app-setting";
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { WorkflowExecutionsEntry } from "../../../type/workflow-executions-entry";
 import { WorkflowRuntimeStatistics } from "../../../type/workflow-runtime-statistics";
 
@@ -33,10 +33,32 @@ export class WorkflowExecutionsService {
   constructor(private http: HttpClient) {}
 
   /**
-   * retrieves a list of execution for a particular workflow from backend database
+   * Retrieves the latest execution entry (latest VID, latest start-time)
+   * for the given workflow ID.
    */
-  retrieveWorkflowExecutions(wid: number): Observable<WorkflowExecutionsEntry[]> {
-    return this.http.get<WorkflowExecutionsEntry[]>(`${WORKFLOW_EXECUTIONS_API_BASE_URL}/${wid}`);
+  retrieveLatestWorkflowExecution(wid: number): Observable<WorkflowExecutionsEntry> {
+    return this.http.get<WorkflowExecutionsEntry>(`${WORKFLOW_EXECUTIONS_API_BASE_URL}/${wid}/latest`);
+  }
+
+  /**
+   * retrieves a list of executions for a particular workflow from the back-end
+   * database.
+   *
+   * @param wid       workflow ID
+   * @param statuses  optional list of status strings
+   *                  (e.g. ["running", "completed"]).  If the array is empty or
+   *                  omitted, no status filter is applied.
+   */
+  retrieveWorkflowExecutions(wid: number, statuses?: string[]): Observable<WorkflowExecutionsEntry[]> {
+    /* -------------------------------------------------------------------- */
+    /* build query-string ?status=running,completed …                        */
+    /* -------------------------------------------------------------------- */
+    let params = new HttpParams();
+    if (statuses && statuses.length > 0) {
+      params = params.set("status", statuses.join(","));
+    }
+
+    return this.http.get<WorkflowExecutionsEntry[]>(`${WORKFLOW_EXECUTIONS_API_BASE_URL}/${wid}`, { params });
   }
 
   groupSetIsBookmarked(wid: number, eIds: number[], isBookmarked: boolean): Observable<Object> {
@@ -62,7 +84,10 @@ export class WorkflowExecutionsService {
     });
   }
 
-  retrieveWorkflowRuntimeStatistics(wid: number, eId: number): Observable<WorkflowRuntimeStatistics[]> {
-    return this.http.get<WorkflowRuntimeStatistics[]>(`${WORKFLOW_EXECUTIONS_API_BASE_URL}/${wid}/${eId}`);
+  retrieveWorkflowRuntimeStatistics(wid: number, eId: number, cuid: number): Observable<WorkflowRuntimeStatistics[]> {
+    const params = new HttpParams().set("cuid", cuid.toString());
+    return this.http.get<WorkflowRuntimeStatistics[]>(`${WORKFLOW_EXECUTIONS_API_BASE_URL}/${wid}/stats/${eId}`, {
+      params,
+    });
   }
 }

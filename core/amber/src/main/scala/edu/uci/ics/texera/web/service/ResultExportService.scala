@@ -83,7 +83,7 @@ object ResultExportService {
       .trim
 }
 
-class ResultExportService(workflowIdentity: WorkflowIdentity) {
+class ResultExportService(workflowIdentity: WorkflowIdentity, computingUnitId: Int) {
 
   import ResultExportService._
 
@@ -95,7 +95,7 @@ class ResultExportService(workflowIdentity: WorkflowIdentity) {
     // By now the workflow should finish running
     // Only supports external port 0 for now. TODO: support multiple ports
     val storageUri = WorkflowExecutionsResource.getResultUriByLogicalPortId(
-      getLatestExecutionId(workflowIdentity).get,
+      getLatestExecutionId(workflowIdentity, computingUnitId).get,
       OperatorIdentity(operatorId),
       PortIdentity()
     )
@@ -145,7 +145,7 @@ class ResultExportService(workflowIdentity: WorkflowIdentity) {
       operatorId: String
   ): (Option[String], Option[String]) = {
 
-    val execIdOpt = getLatestExecutionId(workflowIdentity)
+    val execIdOpt = getLatestExecutionId(workflowIdentity, computingUnitId)
     if (execIdOpt.isEmpty) {
       return (None, Some(s"Workflow ${request.workflowId} has no execution result"))
     }
@@ -437,7 +437,7 @@ class ResultExportService(workflowIdentity: WorkflowIdentity) {
       request: ResultExportRequest,
       operatorId: String
   ): (StreamingOutput, Option[String]) = {
-    val execIdOpt = getLatestExecutionId(workflowIdentity)
+    val execIdOpt = getLatestExecutionId(workflowIdentity, computingUnitId)
     if (execIdOpt.isEmpty) {
       return (null, None)
     }
@@ -536,7 +536,7 @@ class ResultExportService(workflowIdentity: WorkflowIdentity) {
       override def write(outputStream: OutputStream): Unit = {
         Using.resource(new ZipOutputStream(outputStream)) { zipOut =>
           request.operatorIds.foreach { opId =>
-            val execIdOpt = getLatestExecutionId(workflowIdentity)
+            val execIdOpt = getLatestExecutionId(workflowIdentity, computingUnitId)
             if (execIdOpt.isEmpty) {
               throw new WebApplicationException(
                 s"No execution result for workflow ${request.workflowId}"
