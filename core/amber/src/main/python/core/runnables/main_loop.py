@@ -82,6 +82,7 @@ class MainLoop(StoppableQueueBlockingRunnable):
         self._output_queue: InternalQueue = output_queue
 
         self.context = Context(worker_id, input_queue)
+        self.context.input_manager.set_input_queue(self._input_queue)
         self._async_rpc_server = AsyncRPCServer(output_queue, context=self.context)
         self._async_rpc_client = AsyncRPCClient(output_queue, context=self.context)
 
@@ -308,6 +309,9 @@ class MainLoop(StoppableQueueBlockingRunnable):
 
         :param _: EndOfOutputPorts
         """
+        # Special case for the hack of input port dependency.
+        if self.context.output_manager.is_missing_output_ports():
+            return
         self.context.output_manager.close_port_storage_writers()
 
         for to, batch in self.context.output_manager.emit_marker(EndOfInputChannel()):

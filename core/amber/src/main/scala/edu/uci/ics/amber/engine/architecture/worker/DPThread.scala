@@ -54,6 +54,9 @@ class DPThread(
 
   var backpressureStatus = false
 
+  // Pass internal queue to input manager for reader threads to use
+  dp.inputManager.inputMessageQueue = internalQueue
+
   def getThreadName: String = "DP-thread"
 
   private val endFuture = new CompletableFuture[Unit]()

@@ -110,7 +110,7 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
     (adaptiveBatchingMonitor.stopAdaptiveBatching _).expects().once()
     (executor.close _).expects().once()
     (outputHandler.apply _).expects(*).anyNumberOfTimes()
-    dp.inputManager.addPort(inputPortId, schema)
+    dp.inputManager.addPort(inputPortId, schema, List.empty, List.empty)
     dp.inputGateway
       .getChannel(ChannelIdentity(senderWorkerId, testWorkerId, isControl = false))
       .setPortId(inputPortId)
@@ -169,7 +169,7 @@ class DataProcessorSpec extends AnyFlatSpec with MockFactory with BeforeAndAfter
     )
       .expects(0)
     (adaptiveBatchingMonitor.startAdaptiveBatching _).expects().anyNumberOfTimes()
-    dp.inputManager.addPort(inputPortId, schema)
+    dp.inputManager.addPort(inputPortId, schema, List.empty, List.empty)
     dp.inputGateway
       .getChannel(ChannelIdentity(senderWorkerId, testWorkerId, isControl = false))
       .setPortId(inputPortId)

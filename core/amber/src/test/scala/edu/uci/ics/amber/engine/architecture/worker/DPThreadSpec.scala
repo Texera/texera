@@ -66,7 +66,7 @@ class DPThreadSpec extends AnyFlatSpec with MockFactory {
     val dp = new DataProcessor(workerId, x => {})
     dp.executor = executor
     val inputQueue = new LinkedBlockingQueue[DPInputQueueElement]()
-    dp.inputManager.addPort(mockInputPortId, schema)
+    dp.inputManager.addPort(mockInputPortId, schema, List.empty, List.empty)
     dp.inputGateway.getChannel(dataChannelId).setPortId(mockInputPortId)
     dp.adaptiveBatchingMonitor = mock[WorkerTimerService]
     (dp.adaptiveBatchingMonitor.resumeAdaptiveBatching _).expects().anyNumberOfTimes()
@@ -104,7 +104,7 @@ class DPThreadSpec extends AnyFlatSpec with MockFactory {
   "DP Thread" should "handle pause/resume using fifo messages" in {
     val dp = new DataProcessor(workerId, x => {})
     val inputQueue = new LinkedBlockingQueue[DPInputQueueElement]()
-    dp.inputManager.addPort(mockInputPortId, schema)
+    dp.inputManager.addPort(mockInputPortId, schema, List.empty, List.empty)
     dp.inputGateway.getChannel(dataChannelId).setPortId(mockInputPortId)
     dp.adaptiveBatchingMonitor = mock[WorkerTimerService]
     (dp.adaptiveBatchingMonitor.resumeAdaptiveBatching _).expects().anyNumberOfTimes()
@@ -150,7 +150,7 @@ class DPThreadSpec extends AnyFlatSpec with MockFactory {
     dp.executor = executor
     val inputQueue = new LinkedBlockingQueue[DPInputQueueElement]()
     val anotherSenderWorkerId = ActorVirtualIdentity("another")
-    dp.inputManager.addPort(mockInputPortId, schema)
+    dp.inputManager.addPort(mockInputPortId, schema, List.empty, List.empty)
     dp.inputGateway.getChannel(dataChannelId).setPortId(mockInputPortId)
     dp.inputGateway
       .getChannel(ChannelIdentity(anotherSenderWorkerId, workerId, isControl = false))
@@ -190,7 +190,7 @@ class DPThreadSpec extends AnyFlatSpec with MockFactory {
     dp.executor = executor
     val inputQueue = new LinkedBlockingQueue[DPInputQueueElement]()
     val anotherSenderWorkerId = ActorVirtualIdentity("another")
-    dp.inputManager.addPort(mockInputPortId, schema)
+    dp.inputManager.addPort(mockInputPortId, schema, List.empty, List.empty)
     dp.inputGateway.getChannel(dataChannelId).setPortId(mockInputPortId)
     dp.inputGateway
       .getChannel(ChannelIdentity(anotherSenderWorkerId, workerId, isControl = false))
