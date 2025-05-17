@@ -32,8 +32,10 @@ import org.slf4j.LoggerFactory
 import javax.annotation.security.RolesAllowed
 import javax.mail.internet.{InternetAddress, MimeMessage}
 import javax.mail.{Message, PasswordAuthentication, Session, Transport}
+import javax.servlet.http.HttpServletRequest
 import javax.ws.rs._
 import scala.util.{Failure, Success, Try}
+import javax.ws.rs.core.Context
 
 case class EmailMessage(receiver: String, subject: String, content: String)
 
@@ -116,6 +118,23 @@ object GmailResource {
     val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".r
     email != null && emailRegex.matches(email)
   }
+
+  def withDomain(
+      message: EmailMessage,
+      request: HttpServletRequest
+  ): EmailMessage = {
+    val hostHeader = Option(request.getHeader("Host"))
+      .getOrElse(request.getServerName)
+
+    val newContent =
+      s"""${message.content}
+         |
+         |—
+         |Sent from: $hostHeader
+         |""".stripMargin
+
+    message.copy(content = newContent)
+  }
 }
 
 @Path("/gmail")
@@ -123,9 +142,14 @@ class GmailResource {
   @PUT
   @RolesAllowed(Array("REGULAR", "ADMIN"))
   @Path("/send")
-  def sendEmailRequest(emailMessage: EmailMessage, @Auth user: SessionUser): Unit = {
+  def sendEmailRequest(
+      @Context request: HttpServletRequest,
+      emailMessage: EmailMessage,
+      @Auth user: SessionUser
+  ): Unit = {
     val recipientEmail = if (emailMessage.receiver.isEmpty) user.getEmail else emailMessage.receiver
-    sendEmail(emailMessage, recipientEmail)
+    val wrapped = GmailResource.withDomain(emailMessage, request)
+    sendEmail(wrapped, recipientEmail)
   }
 
   @GET
@@ -135,7 +159,10 @@ class GmailResource {
 
   @POST
   @Path("/notify-unauthorized")
-  def notifyUnauthorizedUser(emailMessage: EmailMessage): Unit = {
+  def notifyUnauthorizedUser(
+      @Context request: HttpServletRequest,
+      emailMessage: EmailMessage
+  ): Unit = {
     val logger = LoggerFactory.getLogger(this.getClass)
 
     if (!isValidEmail(emailMessage.receiver)) {
@@ -151,10 +178,13 @@ class GmailResource {
 
       try {
         sendEmail(
-          userRegistrationNotification(
-            receiverEmail = adminEmail,
-            userEmail = Some(emailMessage.receiver),
-            toAdmin = true
+          GmailResource.withDomain(
+            userRegistrationNotification(
+              receiverEmail = adminEmail,
+              userEmail = Some(emailMessage.receiver),
+              toAdmin = true
+            ),
+            request
           ),
           adminEmail
         )
@@ -166,10 +196,13 @@ class GmailResource {
 
     try {
       sendEmail(
-        userRegistrationNotification(
-          receiverEmail = emailMessage.receiver,
-          userEmail = None,
-          toAdmin = false
+        GmailResource.withDomain(
+          userRegistrationNotification(
+            receiverEmail = emailMessage.receiver,
+            userEmail = None,
+            toAdmin = false
+          ),
+          request
         ),
         emailMessage.receiver
       )
