@@ -310,17 +310,6 @@ class MainLoop(StoppableQueueBlockingRunnable):
         """
         self.context.output_manager.close_port_storage_writers()
 
-        for to, batch in self.context.output_manager.emit_marker(EndOfInputChannel()):
-            self._output_queue.put(
-                DataElement(
-                    tag=ChannelIdentity(
-                        ActorVirtualIdentity(self.context.worker_id), to, False
-                    ),
-                    payload=batch,
-                )
-            )
-            self._check_and_process_control()
-
         # Need to send port completed even if there is no downstream link
         for port_id in self.context.output_manager.get_port_ids():
             self._async_rpc_client.controller_stub().port_completed(
