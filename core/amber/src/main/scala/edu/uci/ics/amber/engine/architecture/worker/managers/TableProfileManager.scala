@@ -24,5 +24,5 @@ import edu.uci.ics.amber.engine.architecture.worker.tableprofile.TableProfile
 class TableProfileManager {
   def updateTableProfile(tuple: Tuple): Unit = {}
 
-  def getTableProfile(): TableProfile = TableProfile(List())
+  def getTableProfile: TableProfile = TableProfile(globalProfile = None, columnProfiles = List())
 }
