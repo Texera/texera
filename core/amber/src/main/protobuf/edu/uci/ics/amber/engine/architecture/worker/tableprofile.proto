@@ -28,36 +28,6 @@ option (scalapb.options) = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  ENUMS                                                             */
-/* ------------------------------------------------------------------ */
-
-enum LabelType {
-  UNKNOWN          = 0;
-  ADDRESS          = 1;
-  BAN              = 2;  // Bank-account number
-  CREDIT_CARD      = 3;
-  EMAIL_ADDRESS    = 4;
-  UUID             = 5;
-  HASH_OR_KEY      = 6;
-  IPV4             = 7;
-  IPV6             = 8;
-  MAC_ADDRESS      = 9;
-  PERSON           = 10;
-  PHONE_NUMBER     = 11;
-  SSN              = 12;
-  URL              = 13;
-  US_STATE         = 14;
-  DRIVERS_LICENSE  = 15;
-  DATE             = 16;
-  TIME             = 17;
-  DATETIME         = 18;
-  INTEGER          = 19;
-  FLOAT            = 20;
-  QUANTITY         = 21;
-  ORDINAL          = 22;
-}
-
-/* ------------------------------------------------------------------ */
 /*  GENERIC MATRIX (row-major flat array)                             */
 /* ------------------------------------------------------------------ */
 
@@ -107,15 +77,6 @@ message ColumnIndexList {
   repeated uint32 indices = 1;
 }
 
-/* ------------------------------------------------------------------ */
-/*  COLUMN-LEVEL PROFILE                                             */
-/* ------------------------------------------------------------------ */
-
-message ColumnLabel {
-  LabelType label  = 1;
-  double    weight = 2;   // confidence or vote weight
-}
-
 message ColumnStatistics {
 
   // ---- numeric summaries (nullable when not applicable) ----
@@ -159,16 +120,13 @@ message ColumnProfile {
   // identity
   string column_name = 1;
   string data_type   = 2;     // “string”, “int”, “float”, …
-
+  string data_label  = 3;
   // quick hints
-  bool categorical   = 3;
-  string order       = 4;     // “random”, “ascending”, “constant value”
+  bool categorical   = 4;
+  string order       = 5;     // “random”, “ascending”, “constant value”
 
   // examples
-  repeated string samples = 5;  // a few raw sample strings
-
-  // semantic labels
-  repeated ColumnLabel column_labels = 6;
+  repeated string samples = 6;  // a few raw sample strings
 
   // heavy stats
   ColumnStatistics statistics = 7;
