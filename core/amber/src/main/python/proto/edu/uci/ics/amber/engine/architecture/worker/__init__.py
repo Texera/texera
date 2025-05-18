@@ -22,6 +22,7 @@
 
 from dataclasses import dataclass
 from typing import (
+    Dict,
     List,
 )
 
@@ -36,6 +37,32 @@ class WorkerState(betterproto.Enum):
     RUNNING = 2
     PAUSED = 3
     COMPLETED = 4
+
+
+class LabelType(betterproto.Enum):
+    UNKNOWN = 0
+    ADDRESS = 1
+    BAN = 2
+    CREDIT_CARD = 3
+    EMAIL_ADDRESS = 4
+    UUID = 5
+    HASH_OR_KEY = 6
+    IPV4 = 7
+    IPV6 = 8
+    MAC_ADDRESS = 9
+    PERSON = 10
+    PHONE_NUMBER = 11
+    SSN = 12
+    URL = 13
+    US_STATE = 14
+    DRIVERS_LICENSE = 15
+    DATE = 16
+    TIME = 17
+    DATETIME = 18
+    INTEGER = 19
+    FLOAT = 20
+    QUANTITY = 21
+    ORDINAL = 22
 
 
 @dataclass(eq=False, repr=False)
@@ -66,17 +93,120 @@ class WorkerMetrics(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class NumericMatrix(betterproto.Message):
+    values: List[float] = betterproto.double_field(1)
+    rows: int = betterproto.uint32_field(2)
+    cols: int = betterproto.uint32_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class GlobalProfile(betterproto.Message):
+    samples_used: int = betterproto.uint64_field(1)
+    """---- basic counts ----"""
+
+    column_count: int = betterproto.uint64_field(2)
+    row_count: int = betterproto.uint64_field(3)
+    row_has_null_ratio: float = betterproto.double_field(4)
+    """---- row null / uniqueness ----"""
+
+    row_is_null_ratio: float = betterproto.double_field(5)
+    unique_row_ratio: float = betterproto.double_field(6)
+    duplicate_row_count: int = betterproto.uint64_field(7)
+    file_type: str = betterproto.string_field(8)
+    """---- metadata ----"""
+
+    encoding: str = betterproto.string_field(9)
+    correlation_matrix: "NumericMatrix" = betterproto.message_field(10)
+    """---- pairwise stats ----"""
+
+    chi2_matrix: "NumericMatrix" = betterproto.message_field(11)
+    profile_schema: Dict[str, "ColumnIndexList"] = betterproto.map_field(
+        12, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
+    )
+    """---- schema map: column-name -> indices (to mirror DataProfiler) ---"""
+
+    times: "GlobalProfileTimes" = betterproto.message_field(13)
+
+
+@dataclass(eq=False, repr=False)
+class GlobalProfileTimes(betterproto.Message):
+    """---- timing ----"""
+
+    row_stats_ms: float = betterproto.double_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ColumnIndexList(betterproto.Message):
+    """helper for profile_schema"""
+
+    indices: List[int] = betterproto.uint32_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class ColumnLabel(betterproto.Message):
-    label: str = betterproto.string_field(1)
+    label: "LabelType" = betterproto.enum_field(1)
     weight: float = betterproto.double_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class ColumnStatistics(betterproto.Message):
+    min: float = betterproto.double_field(1)
+    """---- numeric summaries (nullable when not applicable) ----"""
+
+    max: float = betterproto.double_field(2)
+    median: float = betterproto.double_field(3)
+    mean: float = betterproto.double_field(4)
+    variance: float = betterproto.double_field(5)
+    stddev: float = betterproto.double_field(6)
+    skewness: float = betterproto.double_field(7)
+    kurtosis: float = betterproto.double_field(8)
+    sum: float = betterproto.double_field(9)
+    quantiles: List[float] = betterproto.double_field(10)
+    """---- distribution ----"""
+
+    num_zeros: int = betterproto.uint64_field(11)
+    num_negatives: int = betterproto.uint64_field(12)
+    unique_count: int = betterproto.uint64_field(13)
+    """---- uniqueness / cardinality ----"""
+
+    unique_ratio: float = betterproto.double_field(14)
+    categorical: bool = betterproto.bool_field(15)
+    """---- categorical helpers ----"""
+
+    categorical_count: Dict[str, int] = betterproto.map_field(
+        16, betterproto.TYPE_STRING, betterproto.TYPE_UINT64
+    )
+    null_count: int = betterproto.uint64_field(17)
+    """---- nulls ----"""
+
+    null_types: List[str] = betterproto.string_field(18)
+    data_type_representation: Dict[str, float] = betterproto.map_field(
+        19, betterproto.TYPE_STRING, betterproto.TYPE_DOUBLE
+    )
+    """---- data-type representation share (DataProfiler style) ----"""
 
 
 @dataclass(eq=False, repr=False)
 class ColumnProfile(betterproto.Message):
     column_name: str = betterproto.string_field(1)
-    column_labels: List["ColumnLabel"] = betterproto.message_field(2)
+    """identity"""
+
+    data_type: str = betterproto.string_field(2)
+    categorical: bool = betterproto.bool_field(3)
+    """quick hints"""
+
+    order: str = betterproto.string_field(4)
+    samples: List[str] = betterproto.string_field(5)
+    """examples"""
+
+    column_labels: List["ColumnLabel"] = betterproto.message_field(6)
+    """semantic labels"""
+
+    statistics: "ColumnStatistics" = betterproto.message_field(7)
+    """heavy stats"""
 
 
 @dataclass(eq=False, repr=False)
 class TableProfile(betterproto.Message):
-    column_profiles: List["ColumnProfile"] = betterproto.message_field(1)
+    global_profile: "GlobalProfile" = betterproto.message_field(1)
+    column_profiles: List["ColumnProfile"] = betterproto.message_field(2)
