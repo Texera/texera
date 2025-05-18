@@ -39,32 +39,6 @@ class WorkerState(betterproto.Enum):
     COMPLETED = 4
 
 
-class LabelType(betterproto.Enum):
-    UNKNOWN = 0
-    ADDRESS = 1
-    BAN = 2
-    CREDIT_CARD = 3
-    EMAIL_ADDRESS = 4
-    UUID = 5
-    HASH_OR_KEY = 6
-    IPV4 = 7
-    IPV6 = 8
-    MAC_ADDRESS = 9
-    PERSON = 10
-    PHONE_NUMBER = 11
-    SSN = 12
-    URL = 13
-    US_STATE = 14
-    DRIVERS_LICENSE = 15
-    DATE = 16
-    TIME = 17
-    DATETIME = 18
-    INTEGER = 19
-    FLOAT = 20
-    QUANTITY = 21
-    ORDINAL = 22
-
-
 @dataclass(eq=False, repr=False)
 class PortTupleMetricsMapping(betterproto.Message):
     port_id: "___core__.PortIdentity" = betterproto.message_field(1)
@@ -143,12 +117,6 @@ class ColumnIndexList(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class ColumnLabel(betterproto.Message):
-    label: "LabelType" = betterproto.enum_field(1)
-    weight: float = betterproto.double_field(2)
-
-
-@dataclass(eq=False, repr=False)
 class ColumnStatistics(betterproto.Message):
     min: float = betterproto.double_field(1)
     """---- numeric summaries (nullable when not applicable) ----"""
@@ -192,15 +160,13 @@ class ColumnProfile(betterproto.Message):
     """identity"""
 
     data_type: str = betterproto.string_field(2)
-    categorical: bool = betterproto.bool_field(3)
+    data_label: str = betterproto.string_field(3)
+    categorical: bool = betterproto.bool_field(4)
     """quick hints"""
 
-    order: str = betterproto.string_field(4)
-    samples: List[str] = betterproto.string_field(5)
+    order: str = betterproto.string_field(5)
+    samples: List[str] = betterproto.string_field(6)
     """examples"""
-
-    column_labels: List["ColumnLabel"] = betterproto.message_field(6)
-    """semantic labels"""
 
     statistics: "ColumnStatistics" = betterproto.message_field(7)
     """heavy stats"""
