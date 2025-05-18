@@ -27,16 +27,158 @@ option (scalapb.options) = {
   no_default_values_in_constructor: true
 };
 
-message ColumnLabel {
-  string label = 1;      // e.g., "DATETIME", "ADDRESS", etc.
-  double weight = 2;     // e.g., 0.9
+/* ------------------------------------------------------------------ */
+/*  ENUMS                                                             */
+/* ------------------------------------------------------------------ */
+
+enum LabelType {
+  UNKNOWN          = 0;
+  ADDRESS          = 1;
+  BAN              = 2;  // Bank-account number
+  CREDIT_CARD      = 3;
+  EMAIL_ADDRESS    = 4;
+  UUID             = 5;
+  HASH_OR_KEY      = 6;
+  IPV4             = 7;
+  IPV6             = 8;
+  MAC_ADDRESS      = 9;
+  PERSON           = 10;
+  PHONE_NUMBER     = 11;
+  SSN              = 12;
+  URL              = 13;
+  US_STATE         = 14;
+  DRIVERS_LICENSE  = 15;
+  DATE             = 16;
+  TIME             = 17;
+  DATETIME         = 18;
+  INTEGER          = 19;
+  FLOAT            = 20;
+  QUANTITY         = 21;
+  ORDINAL          = 22;
 }
+
+/* ------------------------------------------------------------------ */
+/*  GENERIC MATRIX (row-major flat array)                             */
+/* ------------------------------------------------------------------ */
+
+message NumericMatrix {
+  repeated double values = 1;  // length = rows * cols (row-major)
+  uint32 rows           = 2;
+  uint32 cols           = 3;
+}
+
+/* ------------------------------------------------------------------ */
+/*  GLOBAL PROFILE (dataset-wide)                                     */
+/* ------------------------------------------------------------------ */
+
+message GlobalProfile {
+
+  // ---- basic counts ----
+  uint64 samples_used        = 1;  // how many rows were sampled
+  uint64 column_count        = 2;
+  uint64 row_count           = 3;
+
+  // ---- row null / uniqueness ----
+  double row_has_null_ratio  = 4;
+  double row_is_null_ratio   = 5;
+  double unique_row_ratio    = 6;
+  uint64 duplicate_row_count = 7;
+
+  // ---- metadata ----
+  string file_type = 8;   // “csv”, “parquet”, …
+  string encoding  = 9;   // e.g. “utf-8”
+
+  // ---- pairwise stats ----
+  NumericMatrix correlation_matrix = 10;
+  NumericMatrix chi2_matrix        = 11;
+
+  // ---- schema map: column-name -> indices (to mirror DataProfiler) ---
+  map<string, ColumnIndexList> profile_schema = 12;
+
+  // ---- timing ----
+  message Times {
+    double row_stats_ms = 1;
+  }
+  Times times = 13;
+}
+
+// helper for profile_schema
+message ColumnIndexList {
+  repeated uint32 indices = 1;
+}
+
+/* ------------------------------------------------------------------ */
+/*  COLUMN-LEVEL PROFILE                                             */
+/* ------------------------------------------------------------------ */
+
+message ColumnLabel {
+  LabelType label  = 1;
+  double    weight = 2;   // confidence or vote weight
+}
+
+message ColumnStatistics {
+
+  // ---- numeric summaries (nullable when not applicable) ----
+  double min                   = 1;
+  double max                   = 2;
+  double median                = 3;
+  double mean                  = 4;
+  double variance              = 5;
+  double stddev                = 6;
+  double skewness              = 7;
+  double kurtosis              = 8;
+  double sum                   = 9;
+
+  // ---- distribution ----
+  repeated double quantiles    = 10; // e.g. [q0, q0.5, q1]
+  uint64 num_zeros             = 11;
+  uint64 num_negatives         = 12;
+
+  // ---- uniqueness / cardinality ----
+  uint64 unique_count          = 13;
+  double unique_ratio          = 14;
+
+  // ---- categorical helpers ----
+  bool categorical             = 15;
+  map<string, uint64> categorical_count = 16;
+
+  // ---- nulls ----
+  uint64 null_count            = 17;
+  repeated string null_types   = 18;
+
+  // ---- data-type representation share (DataProfiler style) ----
+  map<string, double> data_type_representation = 19;
+}
+
+/* ------------------------------------------------------------------ */
+/*  FULL COLUMN PROFILE                                               */
+/* ------------------------------------------------------------------ */
 
 message ColumnProfile {
-  string column_name = 1;                     // or use int32 column_index
-  repeated ColumnLabel column_labels = 2;     // label-weight pairs
+
+  // identity
+  string column_name = 1;
+  string data_type   = 2;     // “string”, “int”, “float”, …
+
+  // quick hints
+  bool categorical   = 3;
+  string order       = 4;     // “random”, “ascending”, “constant value”
+
+  // examples
+  repeated string samples = 5;  // a few raw sample strings
+
+  // semantic labels
+  repeated ColumnLabel column_labels = 6;
+
+  // heavy stats
+  ColumnStatistics statistics = 7;
 }
 
+/* ------------------------------------------------------------------ */
+/*  TOP-LEVEL CONTAINER                                              */
+/* ------------------------------------------------------------------ */
+
 message TableProfile {
-  repeated ColumnProfile column_profiles = 1; // all columns
+  GlobalProfile global_profile            = 1;
+  repeated ColumnProfile column_profiles  = 2;
 }
