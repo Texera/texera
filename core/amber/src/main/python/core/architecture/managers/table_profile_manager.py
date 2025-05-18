@@ -19,9 +19,8 @@ from proto.edu.uci.ics.amber.engine.architecture.worker import (
     TableProfile, GlobalProfile, NumericMatrix, ColumnProfile, ColumnIndexList
 )
 from typing import List, Dict, Any
-import json
 import pandas as pd
-from dataprofiler import Profiler, ProfilerOptions  # pip install dataprofiler
+from dataprofiler import Profiler, ProfilerOptions
 
 # --------------------------------------------------------------------------- #
 # Helpers to convert DataProfiler dict ---------------> protobuf TableProfile #
@@ -64,6 +63,7 @@ def _dp_column_to_proto(cjs: Dict[str, Any]) -> ColumnProfile:
     cp = ColumnProfile(
         column_name=cjs["column_name"],
         data_type=cjs.get("data_type", ""),
+        data_label=cjs.get("data_label", ""),
         categorical=bool(cjs.get("categorical")),
         order=cjs.get("order", "")
     )
@@ -153,9 +153,9 @@ class TableProfileManager:
 
         df = pd.DataFrame(self._rows)
 
-        profile = Profiler(data=df, options=self.profiler_options)
+        profile = Profiler(df, options=self.profiler_options, profiler_type="structured")
 
-        report = profile.report(report_options={"output_format": "pretty"})
+        report = profile.report(report_options={"output_format": "compact"})
         return dp_report_to_tableprofile(report)
 
     def to_bytes(self) -> bytes:
