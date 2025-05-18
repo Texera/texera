@@ -188,6 +188,7 @@ class MainLoop(StoppableQueueBlockingRunnable):
                 self.context.tuple_processing_manager.current_input_port_id,
                 self.context.tuple_processing_manager.current_input_tuple.in_mem_size(),
             )
+            self.context.table_profile_manager.update_table_profile(self.context.tuple_processing_manager.current_input_tuple)
 
         for output_tuple in self.process_tuple_with_udf():
             self._check_and_process_control()
