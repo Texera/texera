@@ -30,6 +30,6 @@ trait QueryTableProfileHandler {
       request: EmptyRequest,
       ctx: AsyncRPCContext
   ): Future[TableProfileResponse] = {
-    TableProfileResponse(dp.tableProfileManager.getTableProfile())
+    TableProfileResponse(dp.tableProfileManager.getTableProfile)
   }
 }
