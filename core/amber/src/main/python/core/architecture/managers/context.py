@@ -23,6 +23,7 @@ from .channel_marker_manager import ChannelMarkerManager
 from .debug_manager import DebugManager
 from .exception_manager import ExceptionManager
 from .marker_processing_manager import MarkerProcessingManager
+from .table_profile_manager import TableProfileManager
 from .tuple_processing_manager import TupleProcessingManager
 from .executor_manager import ExecutorManager
 from .pause_manager import PauseManager
@@ -62,6 +63,7 @@ class Context:
         )
 
         self.statistics_manager = StatisticsManager()
+        self.table_profile_manager = TableProfileManager()
         self.pause_manager = PauseManager(
             self.input_queue, state_manager=self.state_manager
         )
