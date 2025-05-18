@@ -140,6 +140,9 @@ class ControlRequest(betterproto.Message):
     query_statistics_request: "QueryStatisticsRequest" = betterproto.message_field(
         58, group="sealed_value"
     )
+    query_table_profile_request: "QueryTableProfileRequest" = betterproto.message_field(
+        59, group="sealed_value"
+    )
     ping: "Ping" = betterproto.message_field(100, group="sealed_value")
     """request for testing"""
 
@@ -400,6 +403,11 @@ class QueryStatisticsRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class QueryTableProfileRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
 class ControlReturn(betterproto.Message):
     """The generic return message"""
 
@@ -527,6 +535,11 @@ class WorkerStateResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class WorkerMetricsResponse(betterproto.Message):
     metrics: "_worker__.WorkerMetrics" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class TableProfileResponse(betterproto.Message):
+    table_profiles: "_worker__.TableProfile" = betterproto.message_field(1)
 
 
 class RpcTesterStub(betterproto.ServiceStub):
@@ -867,6 +880,23 @@ class WorkerServiceStub(betterproto.ServiceStub):
             "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/QueryStatistics",
             empty_request,
             WorkerMetricsResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def query_table_profile(
+        self,
+        empty_request: "EmptyRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "TableProfileResponse":
+        return await self._unary_unary(
+            "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/QueryTableProfile",
+            empty_request,
+            TableProfileResponse,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -1231,6 +1261,23 @@ class ControllerServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def controller_initiate_query_table_profile(
+        self,
+        query_table_profile_request: "QueryTableProfileRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "EmptyReturn":
+        return await self._unary_unary(
+            "/edu.uci.ics.amber.engine.architecture.rpc.ControllerService/ControllerInitiateQueryTableProfile",
+            query_table_profile_request,
+            EmptyReturn,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def retry_workflow(
         self,
         retry_workflow_request: "RetryWorkflowRequest",
@@ -1470,6 +1517,11 @@ class WorkerServiceBase(ServiceBase):
     ) -> "WorkerMetricsResponse":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def query_table_profile(
+        self, empty_request: "EmptyRequest"
+    ) -> "TableProfileResponse":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def resume_worker(
         self, empty_request: "EmptyRequest"
     ) -> "WorkerStateResponse":
@@ -1568,6 +1620,13 @@ class WorkerServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.query_statistics(request)
+        await stream.send_message(response)
+
+    async def __rpc_query_table_profile(
+        self, stream: "grpclib.server.Stream[EmptyRequest, TableProfileResponse]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.query_table_profile(request)
         await stream.send_message(response)
 
     async def __rpc_resume_worker(
@@ -1682,6 +1741,12 @@ class WorkerServiceBase(ServiceBase):
                 EmptyRequest,
                 WorkerMetricsResponse,
             ),
+            "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/QueryTableProfile": grpclib.const.Handler(
+                self.__rpc_query_table_profile,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                EmptyRequest,
+                TableProfileResponse,
+            ),
             "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/ResumeWorker": grpclib.const.Handler(
                 self.__rpc_resume_worker,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1795,6 +1860,11 @@ class ControllerServiceBase(ServiceBase):
     ) -> "EmptyReturn":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def controller_initiate_query_table_profile(
+        self, query_table_profile_request: "QueryTableProfileRequest"
+    ) -> "EmptyReturn":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def retry_workflow(
         self, retry_workflow_request: "RetryWorkflowRequest"
     ) -> "EmptyReturn":
@@ -1903,6 +1973,13 @@ class ControllerServiceBase(ServiceBase):
         response = await self.controller_initiate_query_statistics(request)
         await stream.send_message(response)
 
+    async def __rpc_controller_initiate_query_table_profile(
+        self, stream: "grpclib.server.Stream[QueryTableProfileRequest, EmptyReturn]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.controller_initiate_query_table_profile(request)
+        await stream.send_message(response)
+
     async def __rpc_retry_workflow(
         self, stream: "grpclib.server.Stream[RetryWorkflowRequest, EmptyReturn]"
     ) -> None:
@@ -1994,6 +2071,12 @@ class ControllerServiceBase(ServiceBase):
                 self.__rpc_controller_initiate_query_statistics,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 QueryStatisticsRequest,
+                EmptyReturn,
+            ),
+            "/edu.uci.ics.amber.engine.architecture.rpc.ControllerService/ControllerInitiateQueryTableProfile": grpclib.const.Handler(
+                self.__rpc_controller_initiate_query_table_profile,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                QueryTableProfileRequest,
                 EmptyReturn,
             ),
             "/edu.uci.ics.amber.engine.architecture.rpc.ControllerService/RetryWorkflow": grpclib.const.Handler(
