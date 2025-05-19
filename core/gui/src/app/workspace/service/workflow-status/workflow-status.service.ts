@@ -33,12 +33,14 @@ export class WorkflowStatusService {
   private currentStatus: Record<string, OperatorStatistics> = {};
 
   private tableProfileSubject = new Subject<Record<string, TableProfile>>();
-  private currentTableProfile: Record<string, TableProfile> = {};
+  private currentTableProfiles: Record<string, TableProfile> = {};
 
   constructor(private workflowWebsocketService: WorkflowWebsocketService) {
-    this.getStatusUpdateStream().subscribe(event => (this.currentStatus = event));
-    this.getTableProfileUpdateStream().subscribe(event => {
-      console.log(event); this.currentTableProfile = event;
+    this.getStatusUpdateStream().subscribe(event => {
+      this.currentStatus = event;
+    });
+    this.getTableProfilesUpdateStream().subscribe(event => {
+      this.currentTableProfiles = event;
     });
 
     this.workflowWebsocketService.websocketEvent().subscribe(event => {
@@ -46,11 +48,11 @@ export class WorkflowStatusService {
         return;
       }
       this.statusSubject.next(event.operatorStatistics);
-      this.tableProfileSubject.next(event.operatorResultTableProfile);
+      this.tableProfileSubject.next(event.operatorResultTableProfiles);
     });
   }
 
-  public getTableProfileUpdateStream(): Observable<Record<string, TableProfile>> {
+  public getTableProfilesUpdateStream(): Observable<Record<string, TableProfile>> {
     return this.tableProfileSubject.asObservable();
   }
 
@@ -62,8 +64,8 @@ export class WorkflowStatusService {
     return this.currentStatus;
   }
 
-  public getCurrentTableProfile(): Record<string, TableProfile> {
-    return this.currentTableProfile;
+  public getCurrentTableProfiles(): Record<string, TableProfile> {
+    return this.currentTableProfiles;
   }
 
   public resetStatus(): void {
@@ -86,7 +88,7 @@ export class WorkflowStatusService {
     this.currentStatus = {};
     this.statusSubject.next({});
 
-    this.currentTableProfile = {};
+    this.currentTableProfiles = {};
     this.tableProfileSubject.next({});
   }
 }

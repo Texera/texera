@@ -88,7 +88,7 @@ export interface OperatorStatistics
 export interface OperatorStatsUpdate
   extends Readonly<{
     operatorStatistics: Record<string, OperatorStatistics>;
-    operatorResultTableProfile: Record<string, TableProfile>;
+    operatorResultTableProfiles: Record<string, TableProfile>;
   }> {}
 
 export type PaginationMode = { type: "PaginationMode" };
