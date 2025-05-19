@@ -40,10 +40,10 @@ trait QueryWorkerStatisticsHandler {
   this: ControllerAsyncRPCHandlerInitializer =>
 
   override def controllerInitiateQueryStatistics(
-      msg: QueryStatisticsRequest,
-      ctx: AsyncRPCContext
-  ): Future[EmptyReturn] = {
-    // send to specified workers (or all workers by default)
+                                                  msg: QueryStatisticsRequest,
+                                                  ctx: AsyncRPCContext
+                                                ): Future[EmptyReturn] = {
+    // Determine which workers to query
     val workers = if (msg.filterByWorkers.nonEmpty) {
       msg.filterByWorkers
     } else {
@@ -52,26 +52,28 @@ trait QueryWorkerStatisticsHandler {
         .flatMap(_.getWorkerIds)
     }
 
-    // send QueryStatistics message
-    val requests = workers
-      .map(workerId =>
-        // must immediately update worker state and stats after reply
-        workerInterface
-          .queryStatistics(EmptyRequest(), workerId)
-          .map(resp => {
-            val workerExecution =
-              cp.workflowExecution
-                .getLatestOperatorExecution(VirtualIdentityUtils.getPhysicalOpId(workerId))
-                .getWorkerExecution(workerId)
-            workerExecution.setState(resp.metrics.workerState)
-            workerExecution.setStats(resp.metrics.workerStatistics)
-          })
-      )
-      .toSeq
+    // For each worker, query both statistics and table profile in parallel
+    val requests = workers.map { workerId =>
+      val workerExecution =
+        cp.workflowExecution
+          .getLatestOperatorExecution(VirtualIdentityUtils.getPhysicalOpId(workerId))
+          .getWorkerExecution(workerId)
 
-    // wait for all workers to reply before notifying frontend
+      val statFut = workerInterface.queryStatistics(EmptyRequest(), workerId)
+      val profileFut = workerInterface.queryTableProfile(EmptyRequest(), workerId)
+
+      for {
+        statResp <- statFut
+        profileResp <- profileFut
+      } yield {
+        workerExecution.setState(statResp.metrics.workerState)
+        workerExecution.setStats(statResp.metrics.workerStatistics)
+        workerExecution.setTableProfile(profileResp.tableProfiles)
+      }
+    }
+
     Future
-      .collect(requests)
+      .collect(requests.toSeq)
       .map(_ =>
         sendToClient(
           ExecutionStatsUpdate(
@@ -79,6 +81,7 @@ trait QueryWorkerStatisticsHandler {
           )
         )
       )
+
     EmptyReturn()
   }
 
