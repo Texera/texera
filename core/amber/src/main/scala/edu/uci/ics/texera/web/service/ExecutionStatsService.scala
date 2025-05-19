@@ -103,7 +103,8 @@ class ExecutionStatsService(
       // Update operator stats if any operator updates its stat
       if (newState.operatorInfo.toSet != oldState.operatorInfo.toSet) {
         Iterable(
-          OperatorStatisticsUpdateEvent(newState.operatorInfo.collect {
+          OperatorStatisticsUpdateEvent(
+            newState.operatorInfo.collect {
             case x =>
               val metrics = x._2
               val res = OperatorAggregatedMetrics(
@@ -115,10 +116,12 @@ class ExecutionStatsService(
                 metrics.operatorStatistics.numWorkers,
                 metrics.operatorStatistics.dataProcessingTime,
                 metrics.operatorStatistics.controlProcessingTime,
-                metrics.operatorStatistics.idleTime
+                metrics.operatorStatistics.idleTime,
               )
               (x._1, res)
-          })
+            },
+            newState.operatorTableProfile,
+          )
         )
       } else {
         Iterable.empty
@@ -178,6 +181,7 @@ class ExecutionStatsService(
         .registerCallback[ExecutionStatsUpdate]((evt: ExecutionStatsUpdate) => {
           stateStore.statsStore.updateState { statsStore =>
             statsStore.withOperatorInfo(evt.operatorMetrics)
+            statsStore.withOperatorTableProfile(evt.operatorTableProfiles)
           }
           metricsPersistThread.foreach { thread =>
             thread.execute(() => {
