@@ -19,4 +19,4 @@ from proto.edu.uci.ics.amber.engine.architecture.rpc import (EmptyRequest, Table
 
 class QueryTableProfileHandler(ControlHandler):
     async def query_table_profile(self, req: EmptyRequest) -> TableProfileResponse:
-        return self.context.table_profile_manager.get_table_profile()
+        return TableProfileResponse(self.context.table_profile_manager.get_table_profile())
