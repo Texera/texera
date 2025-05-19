@@ -101,7 +101,7 @@ class ExecutionStatsService(
   addSubscription(
     stateStore.statsStore.registerDiffHandler((oldState, newState) => {
       // Update operator stats if any operator updates its stat
-      if (newState.operatorInfo.toSet != oldState.operatorInfo.toSet) {
+      if (newState.operatorInfo.toSet != oldState.operatorInfo.toSet || newState.operatorTableProfile != oldState.operatorTableProfile) {
         Iterable(
           OperatorStatisticsUpdateEvent(
             newState.operatorInfo.collect {
