@@ -128,6 +128,7 @@ class TableProfileManager:
     def __init__(self):
         self._rows: List[Dict[str, Any]] = []
         self._profile_proto: TableProfile | None = None
+        self._dirty: bool = False                      # ← tracks if buffer changed
 
         profiler_options = ProfilerOptions()
         profiler_options.set({
@@ -136,27 +137,43 @@ class TableProfileManager:
         self.profiler_options = profiler_options
 
     def update_table_profile(self, tup: Tuple):
-        if self._profile_proto is not None:
-            return
-
         row_dict = tup.as_dict()
         self._rows.append(row_dict)
+        self._dirty = True
 
     def get_table_profile(self) -> TableProfile:
-        if self._profile_proto is None:
+        """
+        Return the protobuf `TableProfile`.
+
+        It is rebuilt iff (a) we do not have one yet, or (b) new rows were
+        appended since the last build (`_dirty` is True).
+        """
+        if self._profile_proto is None or self._dirty:
             self._profile_proto = self._build_profile()
         return self._profile_proto
 
     def _build_profile(self) -> TableProfile:
-        if not self._rows:
-            return TableProfile()
+        """
+        Build (or rebuild) the profile from the current buffer.
+        Called only by `get_table_profile`.
+        """
+        try:
+            if not self._rows:
+                # no data yet – return an empty proto
+                return TableProfile()
 
-        df = pd.DataFrame(self._rows)
-
-        profile = Profiler(df, options=self.profiler_options, profiler_type="structured")
-
-        report = profile.report(report_options={"output_format": "compact"})
-        return dp_report_to_tableprofile(report)
+            df = pd.DataFrame(self._rows)
+            profile = Profiler(
+                df,
+                options=self.profiler_options,
+                profiler_type="structured",
+            )
+            report = profile.report(report_options={"output_format": "compact"})
+            return dp_report_to_tableprofile(report)
+        finally:
+            # whether succeeded or failed, mark buffer as clean so that we
+            # don’t rebuild until new tuples arrive
+            self._dirty = False
 
     def to_bytes(self) -> bytes:
         return self.get_table_profile().SerializeToString()
