@@ -149,7 +149,7 @@ class TableProfileManager:
 
     def _build_profile(self) -> TableProfile:
         if not self._rows:
-            raise RuntimeError("No tuples have been ingested; cannot profile.")
+            return TableProfile()
 
         df = pd.DataFrame(self._rows)
 
