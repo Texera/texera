@@ -37,7 +37,6 @@ class ControllerAsyncRPCHandlerInitializer(
     with WorkerStateUpdatedHandler
     with PauseHandler
     with QueryWorkerStatisticsHandler
-    with QueryTableProfileHandler
     with ResumeHandler
     with StartWorkflowHandler
     with PortCompletedHandler
