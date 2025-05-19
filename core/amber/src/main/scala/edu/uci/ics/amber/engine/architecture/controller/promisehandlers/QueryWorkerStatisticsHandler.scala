@@ -40,9 +40,9 @@ trait QueryWorkerStatisticsHandler {
   this: ControllerAsyncRPCHandlerInitializer =>
 
   override def controllerInitiateQueryStatistics(
-                                                  msg: QueryStatisticsRequest,
-                                                  ctx: AsyncRPCContext
-                                                ): Future[EmptyReturn] = {
+      msg: QueryStatisticsRequest,
+      ctx: AsyncRPCContext
+  ): Future[EmptyReturn] = {
     // Determine which workers to query
     val workers = if (msg.filterByWorkers.nonEmpty) {
       msg.filterByWorkers
@@ -77,7 +77,8 @@ trait QueryWorkerStatisticsHandler {
       .map(_ =>
         sendToClient(
           ExecutionStatsUpdate(
-            cp.workflowExecution.getAllRegionExecutionsStats
+            cp.workflowExecution.getAllRegionExecutionsStats,
+            cp.workflowExecution.getAllRegionExecutionTableProfiles
           )
         )
       )
