@@ -180,8 +180,7 @@ class ExecutionStatsService(
       client
         .registerCallback[ExecutionStatsUpdate]((evt: ExecutionStatsUpdate) => {
           stateStore.statsStore.updateState { statsStore =>
-            statsStore.withOperatorInfo(evt.operatorMetrics)
-            statsStore.withOperatorTableProfile(evt.operatorTableProfiles)
+            statsStore.withOperatorInfo(evt.operatorMetrics).withOperatorTableProfile(evt.operatorTableProfiles)
           }
           metricsPersistThread.foreach { thread =>
             thread.execute(() => {
