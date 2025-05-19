@@ -20,15 +20,9 @@
 package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
-import edu.uci.ics.amber.engine.architecture.controller.{
-  ControllerAsyncRPCHandlerInitializer,
-  ExecutionStatsUpdate
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AsyncRPCContext,
-  EmptyRequest,
-  QueryStatisticsRequest
-}
+import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
+import edu.uci.ics.amber.engine.architecture.controller.{ControllerAsyncRPCHandlerInitializer, ExecutionStatsUpdate}
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest, QueryStatisticsRequest}
 import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
 import edu.uci.ics.amber.util.VirtualIdentityUtils
 
@@ -36,54 +30,46 @@ import edu.uci.ics.amber.util.VirtualIdentityUtils
   *
   * possible sender: controller(by statusUpdateAskHandle)
   */
-trait QueryWorkerStatisticsHandler {
-  this: ControllerAsyncRPCHandlerInitializer =>
+trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer =>
 
   override def controllerInitiateQueryStatistics(
-      msg: QueryStatisticsRequest,
-      ctx: AsyncRPCContext
-  ): Future[EmptyReturn] = {
-    // Determine which workers to query
-    val workers = if (msg.filterByWorkers.nonEmpty) {
-      msg.filterByWorkers
-    } else {
-      cp.workflowExecution.getAllRegionExecutions
-        .flatMap(_.getAllOperatorExecutions.map(_._2))
-        .flatMap(_.getWorkerIds)
-    }
+                                                  msg: QueryStatisticsRequest,
+                                                  ctx: AsyncRPCContext
+                                                ): Future[EmptyReturn] = {
 
-    // For each worker, query both statistics and table profile in parallel
-    val requests = workers.map { workerId =>
-      val workerExecution =
-        cp.workflowExecution
-          .getLatestOperatorExecution(VirtualIdentityUtils.getPhysicalOpId(workerId))
-          .getWorkerExecution(workerId)
+    // decide whom to contact
+    val workers: Iterable[ActorVirtualIdentity] =
+      if (msg.filterByWorkers.nonEmpty) msg.filterByWorkers
+      else
+        cp.workflowExecution.getAllRegionExecutions
+          .flatMap(_.getAllOperatorExecutions.map(_._2))
+          .flatMap(_.getWorkerIds)
 
-      val statFut = workerInterface.queryStatistics(EmptyRequest(), workerId)
-      val profileFut = workerInterface.queryTableProfile(EmptyRequest(), workerId)
+    // kick off both RPCs for every worker in parallel
+    val requests: Seq[Future[Unit]] = workers.map { wid =>
+      val exec = cp.workflowExecution
+        .getLatestOperatorExecution(VirtualIdentityUtils.getPhysicalOpId(wid))
+        .getWorkerExecution(wid)
 
-      for {
-        statResp <- statFut
-        profileResp <- profileFut
-      } yield {
-        workerExecution.setState(statResp.metrics.workerState)
-        workerExecution.setStats(statResp.metrics.workerStatistics)
-        workerExecution.setTableProfile(profileResp.tableProfiles)
+      val statF   = workerInterface.queryStatistics(EmptyRequest(), wid)
+      val profF   = workerInterface.queryTableProfile(EmptyRequest(), wid)
+
+      statF.join(profF).map { case (stat, prof) =>
+        exec.setState(stat.metrics.workerState)
+        exec.setStats(stat.metrics.workerStatistics)
+        exec.setTableProfile(prof.tableProfiles)
       }
-    }
+    }.toSeq
 
-    Future
-      .collect(requests.toSeq)
-      .map(_ =>
-        sendToClient(
-          ExecutionStatsUpdate(
-            cp.workflowExecution.getAllRegionExecutionsStats,
-            cp.workflowExecution.getAllRegionExecutionTableProfiles
-          )
+    // after everyone replied, push aggregated view to the UI
+    Future.collect(requests).map { _ =>
+      sendToClient(
+        ExecutionStatsUpdate(
+          cp.workflowExecution.getAllRegionExecutionsStats,
+          cp.workflowExecution.getAllRegionExecutionTableProfiles,
         )
       )
-
-    EmptyReturn()
+      EmptyReturn()            // reply to whoever asked the controller
+    }
   }
-
 }
