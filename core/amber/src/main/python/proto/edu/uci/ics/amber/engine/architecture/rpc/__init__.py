@@ -439,6 +439,9 @@ class ControlReturn(betterproto.Message):
     finalize_checkpoint_response: "FinalizeCheckpointResponse" = (
         betterproto.message_field(52, group="sealed_value")
     )
+    table_profile_response: "TableProfileResponse" = betterproto.message_field(
+        53, group="sealed_value"
+    )
     control_error: "ControlError" = betterproto.message_field(101, group="sealed_value")
     """common responses"""
 
