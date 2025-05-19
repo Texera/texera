@@ -1261,23 +1261,6 @@ class ControllerServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
-    async def controller_initiate_query_table_profile(
-        self,
-        query_table_profile_request: "QueryTableProfileRequest",
-        *,
-        timeout: Optional[float] = None,
-        deadline: Optional["Deadline"] = None,
-        metadata: Optional["MetadataLike"] = None
-    ) -> "EmptyReturn":
-        return await self._unary_unary(
-            "/edu.uci.ics.amber.engine.architecture.rpc.ControllerService/ControllerInitiateQueryTableProfile",
-            query_table_profile_request,
-            EmptyReturn,
-            timeout=timeout,
-            deadline=deadline,
-            metadata=metadata,
-        )
-
     async def retry_workflow(
         self,
         retry_workflow_request: "RetryWorkflowRequest",
@@ -1860,11 +1843,6 @@ class ControllerServiceBase(ServiceBase):
     ) -> "EmptyReturn":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
-    async def controller_initiate_query_table_profile(
-        self, query_table_profile_request: "QueryTableProfileRequest"
-    ) -> "EmptyReturn":
-        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
-
     async def retry_workflow(
         self, retry_workflow_request: "RetryWorkflowRequest"
     ) -> "EmptyReturn":
@@ -1973,13 +1951,6 @@ class ControllerServiceBase(ServiceBase):
         response = await self.controller_initiate_query_statistics(request)
         await stream.send_message(response)
 
-    async def __rpc_controller_initiate_query_table_profile(
-        self, stream: "grpclib.server.Stream[QueryTableProfileRequest, EmptyReturn]"
-    ) -> None:
-        request = await stream.recv_message()
-        response = await self.controller_initiate_query_table_profile(request)
-        await stream.send_message(response)
-
     async def __rpc_retry_workflow(
         self, stream: "grpclib.server.Stream[RetryWorkflowRequest, EmptyReturn]"
     ) -> None:
@@ -2071,12 +2042,6 @@ class ControllerServiceBase(ServiceBase):
                 self.__rpc_controller_initiate_query_statistics,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 QueryStatisticsRequest,
-                EmptyReturn,
-            ),
-            "/edu.uci.ics.amber.engine.architecture.rpc.ControllerService/ControllerInitiateQueryTableProfile": grpclib.const.Handler(
-                self.__rpc_controller_initiate_query_table_profile,
-                grpclib.const.Cardinality.UNARY_UNARY,
-                QueryTableProfileRequest,
                 EmptyReturn,
             ),
             "/edu.uci.ics.amber.engine.architecture.rpc.ControllerService/RetryWorkflow": grpclib.const.Handler(
