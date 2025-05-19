@@ -44,6 +44,7 @@ message ControlReturn {
     WorkerStateResponse workerStateResponse = 50;
     WorkerMetricsResponse workerMetricsResponse = 51;
     FinalizeCheckpointResponse finalizeCheckpointResponse = 52;
+    TableProfileResponse tableProfileResponse = 53;
 
     // common responses
     ControlError controlError = 101;
