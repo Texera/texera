@@ -22,6 +22,7 @@ import { Observable, Subject } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import { OperatorState, OperatorStatistics } from "../../types/execute-workflow.interface";
 import { WorkflowWebsocketService } from "../workflow-websocket/workflow-websocket.service";
+import {TableProfile} from "../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
 
 @Injectable({
   providedIn: "root",
@@ -31,15 +32,26 @@ export class WorkflowStatusService {
   private statusSubject = new Subject<Record<string, OperatorStatistics>>();
   private currentStatus: Record<string, OperatorStatistics> = {};
 
+  private tableProfileSubject = new Subject<Record<string, TableProfile>>();
+  private currentTableProfile: Record<string, TableProfile> = {};
+
   constructor(private workflowWebsocketService: WorkflowWebsocketService) {
     this.getStatusUpdateStream().subscribe(event => (this.currentStatus = event));
+    this.getTableProfileUpdateStream().subscribe(event => {
+      console.log(event); this.currentTableProfile = event;
+    });
 
     this.workflowWebsocketService.websocketEvent().subscribe(event => {
       if (event.type !== "OperatorStatisticsUpdateEvent") {
         return;
       }
       this.statusSubject.next(event.operatorStatistics);
+      this.tableProfileSubject.next(event.operatorResultTableProfile);
     });
+  }
+
+  public getTableProfileUpdateStream(): Observable<Record<string, TableProfile>> {
+    return this.tableProfileSubject.asObservable();
   }
 
   public getStatusUpdateStream(): Observable<Record<string, OperatorStatistics>> {
@@ -48,6 +60,10 @@ export class WorkflowStatusService {
 
   public getCurrentStatus(): Record<string, OperatorStatistics> {
     return this.currentStatus;
+  }
+
+  public getCurrentTableProfile(): Record<string, TableProfile> {
+    return this.currentTableProfile;
   }
 
   public resetStatus(): void {
@@ -63,10 +79,14 @@ export class WorkflowStatusService {
       {} as Record<string, OperatorStatistics>
     );
     this.statusSubject.next(initStatus);
+    this.tableProfileSubject.next({});
   }
 
   public clearStatus(): void {
     this.currentStatus = {};
     this.statusSubject.next({});
+
+    this.currentTableProfile = {};
+    this.tableProfileSubject.next({});
   }
 }
