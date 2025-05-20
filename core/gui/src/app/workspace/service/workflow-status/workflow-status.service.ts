@@ -18,11 +18,11 @@
  */
 
 import { Injectable } from "@angular/core";
-import { Observable, Subject } from "rxjs";
+import { BehaviorSubject, Observable, Subject } from "rxjs";
 import { environment } from "../../../../environments/environment";
 import { OperatorState, OperatorStatistics } from "../../types/execute-workflow.interface";
 import { WorkflowWebsocketService } from "../workflow-websocket/workflow-websocket.service";
-import {TableProfile} from "../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
+import { TableProfile } from "../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
 
 @Injectable({
   providedIn: "root",
@@ -32,7 +32,7 @@ export class WorkflowStatusService {
   private statusSubject = new Subject<Record<string, OperatorStatistics>>();
   private currentStatus: Record<string, OperatorStatistics> = {};
 
-  private tableProfileSubject = new Subject<Record<string, TableProfile>>();
+  private tableProfileSubject = new BehaviorSubject<Record<string, TableProfile>>({} as Record<string, TableProfile>);
   private currentTableProfiles: Record<string, TableProfile> = {};
 
   constructor(private workflowWebsocketService: WorkflowWebsocketService) {
