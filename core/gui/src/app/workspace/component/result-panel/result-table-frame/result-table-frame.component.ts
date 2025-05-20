@@ -398,7 +398,9 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
 
     // Always show Null Count and Unique Count
     this.columnNumericStatsForTable.push({ metric: "Null Count", value: stats.nullCount });
-    if (stats.uniqueCount !== undefined) {
+    if (stats.uniqueCount !== undefined && typeof stats.uniqueCount === 'number') {
+      this.columnNumericStatsForTable.push({ metric: "Unique Count", value: stats.uniqueCount.toLocaleString() });
+    } else if (stats.uniqueCount !== undefined) {
       this.columnNumericStatsForTable.push({ metric: "Unique Count", value: stats.uniqueCount });
     }
 
@@ -410,14 +412,31 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
       });
     }
 
-    // Show Min, Max, Mean, Std Dev only for numeric types
+    // Show Min, Max, Mean, Std Dev only for numeric types and if the value is a number
     if (numericTypes.includes(dataType)) {
-      if (stats.min !== undefined) this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min });
-      if (stats.max !== undefined) this.columnNumericStatsForTable.push({ metric: "Max", value: stats.max });
-      if (stats.mean !== undefined)
+      if (stats.min !== undefined && typeof stats.min === 'number') {
+        this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min.toLocaleString() });
+      } else if (stats.min !== undefined) {
+         this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min });
+      }
+
+      if (stats.max !== undefined && typeof stats.max === 'number') {
+        this.columnNumericStatsForTable.push({ metric: "Max", value: stats.max.toLocaleString() });
+      } else if (stats.max !== undefined) {
+        this.columnNumericStatsForTable.push({ metric: "Max", value: stats.max });
+      }
+
+      if (stats.mean !== undefined && typeof stats.mean === 'number') {
         this.columnNumericStatsForTable.push({ metric: "Mean", value: stats.mean.toFixed(2) });
-      if (stats.stddev !== undefined)
+      } else if (stats.mean !== undefined) {
+         this.columnNumericStatsForTable.push({ metric: "Mean", value: stats.mean });
+      }
+
+      if (stats.stddev !== undefined && typeof stats.stddev === 'number') {
         this.columnNumericStatsForTable.push({ metric: "Std Dev", value: stats.stddev.toFixed(2) });
+      } else if (stats.stddev !== undefined) {
+        this.columnNumericStatsForTable.push({ metric: "Std Dev", value: stats.stddev });
+      }
     }
   }
 
