@@ -63,13 +63,9 @@
             nzWidth="widthPercent">
             <div
               class="column-header"
-              (click)="showColumnDetails(column.header, $event)">
+              (click)="showColumnDetails(column.header, $event)"
+              title="View column details for {{ column.header }}">
               {{ column.header }}
-              <i
-                nz-icon
-                nzType="info-circle"
-                nzTheme="outline"
-                class="info-icon"></i>
             </div>
           </th>
         </tr>
@@ -139,7 +135,7 @@
     </nz-descriptions>
 
     <h4
-      *ngIf="profile.statistics"
+      *ngIf="profile.statistics && columnNumericStatsForTable.length > 0"
       style="margin-top: 20px">
       Statistics
     </h4>
@@ -182,18 +178,6 @@
         [yAxisLabel]="yAxisLabel">
       </ngx-charts-bar-vertical>
     </div>
-
-    <h4
-      *ngIf="profile.samples && profile.samples.length > 0"
-      style="margin-top: 20px">
-      Sample Values (up to 5)
-    </h4>
-    <nz-list
-      *ngIf="profile.samples && profile.samples.length > 0"
-      nzBordered
-      nzSize="small">
-      <nz-list-item *ngFor="let sample of profile.samples.slice(0, 5)">{{ sample }}</nz-list-item>
-    </nz-list>
   </div>
 </ng-template>
 

@@ -388,19 +388,37 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
     return profile;
   }
 
-  prepareColumnNumericStats(stats: ColumnStatistics | undefined): void {
+  prepareColumnNumericStats(profile: ColumnProfile | undefined): void {
     this.columnNumericStatsForTable = [];
-    if (!stats) return;
+    if (!profile || !profile.statistics) return;
 
+    const stats = profile.statistics;
+    const dataType = profile.dataType.toLowerCase();
+    const numericTypes = ["int", "integer", "float", "double", "numeric", "long"];
+
+    // Always show Null Count and Unique Count
     this.columnNumericStatsForTable.push({ metric: "Null Count", value: stats.nullCount });
-    if (stats.min !== undefined) this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min });
-    if (stats.max !== undefined) this.columnNumericStatsForTable.push({ metric: "Max", value: stats.max });
-    if (stats.mean !== undefined)
-      this.columnNumericStatsForTable.push({ metric: "Mean", value: stats.mean.toFixed(2) });
-    if (stats.stddev !== undefined)
-      this.columnNumericStatsForTable.push({ metric: "Std Dev", value: stats.stddev.toFixed(2) });
-    if (stats.uniqueCount !== undefined)
+    if (stats.uniqueCount !== undefined) {
       this.columnNumericStatsForTable.push({ metric: "Unique Count", value: stats.uniqueCount });
+    }
+
+    // Add total row count from global profile if available
+    if (this.tableProfile && this.tableProfile.globalProfile) {
+      this.columnNumericStatsForTable.push({
+        metric: "Total Rows in Table",
+        value: this.tableProfile.globalProfile.rowCount.toLocaleString(),
+      });
+    }
+
+    // Show Min, Max, Mean, Std Dev only for numeric types
+    if (numericTypes.includes(dataType)) {
+      if (stats.min !== undefined) this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min });
+      if (stats.max !== undefined) this.columnNumericStatsForTable.push({ metric: "Max", value: stats.max });
+      if (stats.mean !== undefined)
+        this.columnNumericStatsForTable.push({ metric: "Mean", value: stats.mean.toFixed(2) });
+      if (stats.stddev !== undefined)
+        this.columnNumericStatsForTable.push({ metric: "Std Dev", value: stats.stddev.toFixed(2) });
+    }
   }
 
   prepareBarChartData(categoricalCount: { [key: string]: number } | undefined): void {
@@ -419,7 +437,7 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
 
     if (!this.selectedColumnProfileForModal) return;
 
-    this.prepareColumnNumericStats(this.selectedColumnProfileForModal.statistics);
+    this.prepareColumnNumericStats(this.selectedColumnProfileForModal);
     if (this.selectedColumnProfileForModal.categorical && this.selectedColumnProfileForModal.statistics) {
       this.prepareBarChartData(this.selectedColumnProfileForModal.statistics.categoricalCount);
     } else {
