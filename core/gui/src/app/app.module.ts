@@ -168,6 +168,8 @@ import { NzProgressModule } from "ng-zorro-antd/progress";
 import { ComputingUnitSelectionComponent } from "./workspace/component/power-button/computing-unit-selection.component";
 import { NzSliderModule } from "ng-zorro-antd/slider";
 import { SuggestionFrameComponent } from "./workspace/component/result-panel/suggestion-frame/suggestion-frame.component";
+import { NzDescriptionsModule } from "ng-zorro-antd/descriptions";
+import { NgxChartsModule } from "@swimlane/ngx-charts";
 
 registerLocaleData(en);
 
@@ -324,6 +326,8 @@ registerLocaleData(en);
     NzEmptyModule,
     NzDividerModule,
     NzProgressModule,
+    NzDescriptionsModule,
+    NgxChartsModule,
   ],
   providers: [
     provideNzI18n(en_US),

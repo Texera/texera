@@ -24,7 +24,7 @@
  */
 
 import { WorkflowFatalError, OperatorCurrentTuples } from "./workflow-websocket.interface";
-import {TableProfile} from "../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
+import { TableProfile } from "../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
 export interface PortIdentity
   extends Readonly<{
     id: number;
