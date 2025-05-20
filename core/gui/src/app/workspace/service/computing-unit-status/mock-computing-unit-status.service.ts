@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,18 +17,31 @@
  * under the License.
  */
 
-package edu.uci.ics.texera.web.model.http.request.result
+import { Injectable } from "@angular/core";
+import { DashboardWorkflowComputingUnit } from "../../types/workflow-computing-unit";
+import { Observable, of } from "rxjs";
 
-case class ResultExportRequest(
-    exportType: String, // e.g. "csv", "google_sheet", "arrow", "data"
-    workflowId: Int,
-    workflowName: String,
-    operatorIds: List[String], // changed from single operatorId: String -> List of strings
-    datasetIds: List[Int],
-    rowIndex: Int, // used by "data" export
-    columnIndex: Int, // used by "data" export
-    filename: String, // optional filename override
-    destination: String, // "dataset" or "local"
-    // TODO: remove it once the lifecycle of result and compute are unbundled
-    computingUnitId: Int // the id of the computing unit
-)
+@Injectable()
+export class MockComputingUnitStatusService {
+  listComputingUnits(): Observable<DashboardWorkflowComputingUnit[]> {
+    return of([]);
+  }
+
+  getSelectedComputingUnit(): Observable<DashboardWorkflowComputingUnit | null> {
+    return of(null);
+  }
+
+  getSelectedComputingUnitValue(): DashboardWorkflowComputingUnit | null {
+    return null;
+  }
+
+  getAllComputingUnits(): Observable<DashboardWorkflowComputingUnit[]> {
+    return of([]);
+  }
+
+  selectComputingUnit(): void {}
+
+  startPolling(): void {}
+
+  stopPolling(): void {}
+}
