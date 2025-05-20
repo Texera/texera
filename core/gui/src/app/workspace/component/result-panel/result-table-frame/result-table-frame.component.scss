@@ -153,15 +153,14 @@ th.header-size {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding: 8px 4px;
+  transition:
+    background-color 0.2s ease-in-out,
+    color 0.2s ease-in-out;
 
-  .info-icon {
-    margin-left: 5px;
-    font-size: 14px;
-    opacity: 0.7;
-
-    &:hover {
-      opacity: 1;
-    }
+  &:hover {
+    background-color: #e6f7ff;
+    color: #096dd9;
   }
 }
 
