@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from model.llm.suggestion import SuggestionList
-from model.web.input import SuggestionRequest
+from model.llm.suggestion import SuggestionList, Suggestion, Changes
+from model.web.input import SuggestionRequest, TableProfileSuggestionRequest
 from model.llm.interpretation import InterpretationMethod
 from suggestion_engine.generator import SuggestionGenerator
 
@@ -60,6 +60,49 @@ async def generate_suggestions(request: SuggestionRequest):
 
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid workflow JSON format")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error generating suggestions: {str(e)}"
+        )
+
+
+@app.post("/api/data-cleaning-suggestion", response_model=SuggestionList)
+async def generate_table_profile_suggestions(request: TableProfileSuggestionRequest):
+    """
+    Generate suggestions based on table profile and a target column.
+    """
+    try:
+        # Log the received data
+        print(f"Received table profile for column: {request.targetColumnName}")
+        print(f"Received the table profile: {request.tableProfile}")
+
+        # Create mock suggestions
+        empty_changes = Changes(
+            operatorsToAdd=[], linksToAdd=[], operatorsToDelete=[], linksToDelete=[]
+        )
+
+        suggestions = SuggestionList(
+            suggestions=[
+                Suggestion(
+                    suggestion="Consider normalizing this column to improve data quality",
+                    suggestionType="fix",
+                    changes=empty_changes,
+                ),
+                Suggestion(
+                    suggestion="Check for outliers in this column's data distribution",
+                    suggestionType="fix",
+                    changes=empty_changes,
+                ),
+                Suggestion(
+                    suggestion="Fill missing values in this column with mean/median values",
+                    suggestionType="fix",
+                    changes=empty_changes,
+                ),
+            ]
+        )
+
+        return suggestions
+
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error generating suggestions: {str(e)}"

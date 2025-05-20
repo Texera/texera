@@ -1,8 +1,22 @@
 # Input models
-from pydantic import BaseModel, Field
+import json
+import re
+
+from pydantic import BaseModel, Field, validator, field_validator
 from typing import List
 
 from typing import Dict, List, Any, Optional
+
+# Import all relevant classes from the proto definition
+from model.proto.edu.uci.ics.amber.engine.architecture.worker import (
+    TableProfile,
+    GlobalProfile,
+    ColumnProfile,
+    NumericMatrix,
+    ColumnIndexList,
+    GlobalProfileTimes,
+    ColumnStatistics,
+)
 
 
 class SchemaAttribute(BaseModel):
@@ -44,3 +58,51 @@ class SuggestionRequest(BaseModel):
     focusingOperatorIDs: Optional[List[str]] = Field(
         default_factory=list, description="Operator IDs that the user wants to focus on"
     )
+
+
+def _camel_to_snake(name: str) -> str:
+    """
+    fooBar  → foo_bar
+    rowStatsMs → row_stats_ms
+    """
+    s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
+
+def _deep_snake(d: Any) -> Any:
+    """
+    Recursively convert all dict keys from camelCase to snake_case.
+    Lists / scalars are left untouched.
+    """
+    if isinstance(d, dict):
+        return {_camel_to_snake(k): _deep_snake(v) for k, v in d.items()}
+    if isinstance(d, list):
+        return [_deep_snake(x) for x in d]
+    return d
+
+
+class TableProfileSuggestionRequest(BaseModel):
+    tableProfile: TableProfile
+    targetColumnName: str
+
+    # 🔑 custom validator
+    @field_validator("tableProfile", mode="before")
+    def _coerce_table_profile(cls, v):
+        """
+        Accept:
+        • dict (parsed JSON)  → snake_case → betterproto
+        • JSON string         → same
+        • TableProfile        → pass through
+        """
+        if isinstance(v, TableProfile):
+            return v
+
+        if isinstance(v, (dict, str)):
+            data_dict: Dict[str, Any] = v if isinstance(v, dict) else json.loads(v)
+            snake = _deep_snake(data_dict)
+            return TableProfile().from_json(json.dumps(snake))
+
+        raise TypeError("tableProfile must be a TableProfile, dict, or JSON string.")
+
+    class Config:
+        arbitrary_types_allowed = True
