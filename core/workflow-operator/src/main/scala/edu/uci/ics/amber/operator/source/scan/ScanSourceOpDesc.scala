@@ -40,6 +40,12 @@ abstract class ScanSourceOpDesc extends SourceOperatorDescriptor {
   var INFER_READ_LIMIT: Int = 100
 
   @JsonIgnore
+  var readAll: Boolean = true
+
+  @JsonIgnore
+  var sampleEveryN: Int = 10
+
+  @JsonIgnore
   var originalFileName: String = ""
 
   @JsonProperty(required = true)
