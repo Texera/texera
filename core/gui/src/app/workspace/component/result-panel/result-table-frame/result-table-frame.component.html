@@ -178,6 +178,53 @@
         [yAxisLabel]="yAxisLabel">
       </ngx-charts-bar-vertical>
     </div>
+
+    <!-- Data Cleaning Suggestions Section -->
+    <div
+      style="margin-top: 20px"
+      class="data-cleaning-suggestions-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+        <h4>Data Cleaning Suggestions</h4>
+        <button
+          nz-button
+          nzType="default"
+          nzSize="small"
+          (click)="refreshDataCleaningSuggestions()"
+          [nzLoading]="isLoadingDataCleaningSuggestions">
+          <i
+            nz-icon
+            nzType="sync"
+            [nzSpin]="isLoadingDataCleaningSuggestions"></i>
+          Refresh
+        </button>
+      </div>
+
+      <div
+        *ngIf="isLoadingDataCleaningSuggestions && dataCleaningSuggestions.length === 0"
+        style="padding: 10px; text-align: center">
+        Loading data cleaning suggestions...
+      </div>
+
+      <div
+        *ngIf="!isLoadingDataCleaningSuggestions && dataCleaningSuggestions.length === 0 && lastFetchedSuggestionsForColumn"
+        class="no-suggestions-message">
+        No data cleaning suggestions available for this column.
+      </div>
+
+      <ul
+        *ngIf="dataCleaningSuggestions.length > 0"
+        class="suggestions-list">
+        <li
+          *ngFor="let suggestion of dataCleaningSuggestions"
+          class="suggestion-item"
+          (click)="handleDataCleaningSuggestionClick(suggestion)"
+          title="Click to act on this suggestion (action TBD)">
+          {{ suggestion.suggestion }}
+          <span class="suggestion-type">({{suggestion.suggestionType}})</span>
+        </li>
+      </ul>
+    </div>
+    <!-- End of Data Cleaning Suggestions Section -->
   </div>
 </ng-template>
 

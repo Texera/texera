@@ -27,7 +27,6 @@ import { isWebPaginationUpdate } from "../../../types/execute-workflow.interface
 import { IndexableObject, TableColumn } from "../../../types/result-table.interface";
 import { RowModalComponent } from "../result-panel-modal.component";
 import { UntilDestroy, untilDestroyed } from "@ngneat/until-destroy";
-import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { ResultExportationComponent } from "../../result-exportation/result-exportation.component";
 import { ChangeDetectorRef } from "@angular/core";
 import { SchemaAttribute } from "../../../types/workflow-compiling.interface";
@@ -37,6 +36,9 @@ import {
   ColumnProfile,
   ColumnStatistics,
 } from "../../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
+import { WorkflowSuggestionService } from "../../../service/workflow-suggestion/workflow-suggestion.service";
+import { finalize } from "rxjs";
+import { WorkflowSuggestion, WorkflowSuggestionList } from "../../../types/workflow-suggestion.interface";
 
 /**
  * The Component will display the result in an excel table format,
@@ -99,13 +101,21 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
   // For Global Stats Modal
   @ViewChild("globalStatsModalContent") globalStatsModalContent!: TemplateRef<any>;
 
+  // For Data Cleaning Suggestions
+  dataCleaningSuggestions: WorkflowSuggestion[] = [];
+  isLoadingDataCleaningSuggestions: boolean = false;
+  dataCleaningSuggestionsCache: Map<string, WorkflowSuggestion[]> = new Map();
+  // Keep track of the column for which suggestions were last fetched to avoid redundant calls if modal isn't fully closed/reopened.
+  lastFetchedSuggestionsForColumn: string | null = null;
+
   constructor(
     private modalService: NzModalService,
     private workflowActionService: WorkflowActionService,
     private workflowResultService: WorkflowResultService,
     private resizeService: PanelResizeService,
     private changeDetectorRef: ChangeDetectorRef,
-    private workflowStatusService: WorkflowStatusService
+    private workflowStatusService: WorkflowStatusService,
+    private workflowSuggestionService: WorkflowSuggestionService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -398,7 +408,7 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
 
     // Always show Null Count and Unique Count
     this.columnNumericStatsForTable.push({ metric: "Null Count", value: stats.nullCount });
-    if (stats.uniqueCount !== undefined && typeof stats.uniqueCount === 'number') {
+    if (stats.uniqueCount !== undefined && typeof stats.uniqueCount === "number") {
       this.columnNumericStatsForTable.push({ metric: "Unique Count", value: stats.uniqueCount.toLocaleString() });
     } else if (stats.uniqueCount !== undefined) {
       this.columnNumericStatsForTable.push({ metric: "Unique Count", value: stats.uniqueCount });
@@ -414,25 +424,25 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
 
     // Show Min, Max, Mean, Std Dev only for numeric types and if the value is a number
     if (numericTypes.includes(dataType)) {
-      if (stats.min !== undefined && typeof stats.min === 'number') {
+      if (stats.min !== undefined && typeof stats.min === "number") {
         this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min.toLocaleString() });
       } else if (stats.min !== undefined) {
-         this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min });
+        this.columnNumericStatsForTable.push({ metric: "Min", value: stats.min });
       }
 
-      if (stats.max !== undefined && typeof stats.max === 'number') {
+      if (stats.max !== undefined && typeof stats.max === "number") {
         this.columnNumericStatsForTable.push({ metric: "Max", value: stats.max.toLocaleString() });
       } else if (stats.max !== undefined) {
         this.columnNumericStatsForTable.push({ metric: "Max", value: stats.max });
       }
 
-      if (stats.mean !== undefined && typeof stats.mean === 'number') {
+      if (stats.mean !== undefined && typeof stats.mean === "number") {
         this.columnNumericStatsForTable.push({ metric: "Mean", value: stats.mean.toFixed(2) });
       } else if (stats.mean !== undefined) {
-         this.columnNumericStatsForTable.push({ metric: "Mean", value: stats.mean });
+        this.columnNumericStatsForTable.push({ metric: "Mean", value: stats.mean });
       }
 
-      if (stats.stddev !== undefined && typeof stats.stddev === 'number') {
+      if (stats.stddev !== undefined && typeof stats.stddev === "number") {
         this.columnNumericStatsForTable.push({ metric: "Std Dev", value: stats.stddev.toFixed(2) });
       } else if (stats.stddev !== undefined) {
         this.columnNumericStatsForTable.push({ metric: "Std Dev", value: stats.stddev });
@@ -463,18 +473,94 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
       this.barChartData = [];
     }
 
+    // Handle Data Cleaning Suggestions
+    this.dataCleaningSuggestions = []; // Clear previous suggestions
+    const cachedSuggestions = this.dataCleaningSuggestionsCache.get(this.selectedColumnProfileForModal.columnName);
+    if (cachedSuggestions) {
+      this.dataCleaningSuggestions = cachedSuggestions;
+      this.lastFetchedSuggestionsForColumn = this.selectedColumnProfileForModal.columnName; // Mark as fetched from cache
+      // Optionally, you might still want to trigger a background refresh or rely on the refresh button
+    } else {
+      this.fetchDataCleaningSuggestions(this.selectedColumnProfileForModal);
+    }
+
     this.modalService.create({
       nzTitle: `Column Details: ${this.selectedColumnProfileForModal.columnName}`,
       nzContent: this.columnDetailModalContent,
-      nzWidth: "700px", // Adjusted width for chart
+      nzWidth: "700px",
       nzFooter: [
         {
           label: "OK",
           type: "primary",
-          onClick: () => this.modalService.closeAll(),
+          onClick: () => {
+            this.modalService.closeAll();
+            this.lastFetchedSuggestionsForColumn = null; // Reset when modal closes
+            this.dataCleaningSuggestions = []; // Clear suggestions on modal close
+          },
         },
       ],
+      nzOnCancel: () => {
+        // Also handle if modal is closed via ESC or 'x' button
+        this.lastFetchedSuggestionsForColumn = null;
+        this.dataCleaningSuggestions = [];
+      },
     });
+  }
+
+  handleDataCleaningSuggestionClick(suggestion: WorkflowSuggestion): void {
+    console.log("Clicked data cleaning suggestion:", suggestion);
+    // Placeholder for future action:
+    // - Apply changes described in suggestion.changes
+    // - Open a new dialog for confirmation
+    // - Trigger another service call
+    // For now, we just log it.
+    // You might want to close the modal or keep it open depending on the action.
+    // this.modalService.closeAll();
+  }
+
+  fetchDataCleaningSuggestions(columnProfile: ColumnProfile | undefined) {
+    if (!columnProfile || !this.tableProfile) {
+      this.dataCleaningSuggestions = [];
+      return;
+    }
+
+    // Simplified logic for fetching, always clear and fetch if not from cache immediately
+    // The `lastFetchedSuggestionsForColumn` and the more complex conditional
+    // were making it hard to ensure a refresh always happens when `fetchData...` is called directly.
+    // Cache is still used in `showColumnDetails`.
+
+    this.isLoadingDataCleaningSuggestions = true;
+    this.dataCleaningSuggestions = []; // Clear previous before fetching new
+    this.workflowSuggestionService
+      .getDataCleaningSuggestions(this.tableProfile, columnProfile.columnName)
+      .pipe(
+        finalize(() => {
+          this.isLoadingDataCleaningSuggestions = false;
+          this.changeDetectorRef.detectChanges(); // Ensure UI updates
+        }),
+        untilDestroyed(this)
+      )
+      .subscribe(
+        (response: WorkflowSuggestionList) => {
+          this.dataCleaningSuggestions = response.suggestions;
+          this.dataCleaningSuggestionsCache.set(columnProfile.columnName, response.suggestions);
+          this.lastFetchedSuggestionsForColumn = columnProfile.columnName;
+        },
+        (error: unknown) => {
+          console.error("Error fetching data cleaning suggestions:", error);
+          this.dataCleaningSuggestions = []; // Clear on error
+        }
+      );
+  }
+
+  refreshDataCleaningSuggestions(): void {
+    if (this.selectedColumnProfileForModal) {
+      // No need to set lastFetchedSuggestionsForColumn to null here,
+      // as fetchDataCleaningSuggestions will be called directly.
+      // Clearing the cache ensures a fresh fetch.
+      this.dataCleaningSuggestionsCache.delete(this.selectedColumnProfileForModal.columnName);
+      this.fetchDataCleaningSuggestions(this.selectedColumnProfileForModal);
+    }
   }
 
   showGlobalStats(): void {

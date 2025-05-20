@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders } from "@angular/common/http";
 import { Injectable, OnDestroy } from "@angular/core";
-import { Observable, of, BehaviorSubject, pipe, timer } from "rxjs";
+import { Observable, of, BehaviorSubject, pipe, timer, delay } from "rxjs";
 import { catchError, map, tap, finalize } from "rxjs/operators";
 import { AppSettings } from "../../../common/app-setting";
 import { Workflow } from "../../../common/type/workflow";
@@ -8,9 +8,18 @@ import { ExecutionStateInfo } from "../../types/execute-workflow.interface";
 import { WorkflowSuggestionList } from "../../types/workflow-suggestion.interface";
 import { v4 as uuid } from "uuid";
 import { CompilationStateInfo } from "../../types/workflow-compiling.interface";
+import { TableProfile } from "../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
 
 // endpoint for workflow suggestions
 export const WORKFLOW_SUGGESTION_ENDPOINT = "workflow-suggestion";
+// new endpoint for data cleaning suggestions
+export const DATA_CLEANING_SUGGESTION_ENDPOINT = "data-cleaning-suggestion";
+
+// Define the request interface if not already globally available
+export interface TableProfileSuggestionRequest {
+  tableProfile: TableProfile;
+  targetColumnName: string;
+}
 
 /**
  * WorkflowSuggestionService is responsible for communicating with the backend suggestion service.
@@ -158,6 +167,43 @@ export class WorkflowSuggestionService implements OnDestroy {
     const current = this.suggestionsListSubject.getValue();
     const newList = { suggestions: current.suggestions.filter(s => s.suggestionID !== id) };
     this.suggestionsListSubject.next(newList);
+  }
+
+  /**
+   * Requests data cleaning suggestions from the backend service based on table profile and target column.
+   * @param tableProfile The complete table profile.
+   * @param targetColumnName The name of the column for which to get suggestions.
+   * @returns Observable of SuggestionList
+   */
+  public getDataCleaningSuggestions(
+    tableProfile: TableProfile,
+    targetColumnName: string
+  ): Observable<WorkflowSuggestionList> {
+    const requestPayload: TableProfileSuggestionRequest = {
+      tableProfile: tableProfile,
+      targetColumnName: targetColumnName,
+    };
+
+    return this.httpClient
+      .post<WorkflowSuggestionList>(
+        `${AppSettings.getApiEndpoint()}/${DATA_CLEANING_SUGGESTION_ENDPOINT}`,
+        requestPayload
+      )
+      .pipe(
+        map(suggestionList => {
+          // Ensure suggestionIDs are unique if backend doesn't guarantee it
+          suggestionList.suggestions.forEach(suggestion => {
+            if (!suggestion.suggestionID) {
+              suggestion.suggestionID = `dcsuggestion-${uuid()}`;
+            }
+          });
+          return suggestionList;
+        }),
+        catchError((error: unknown) => {
+          console.error("Error getting data cleaning suggestions:", error);
+          return of({ suggestions: [] } as WorkflowSuggestionList); // Return empty list on error
+        })
+      );
   }
 
   MOCK_SUGGESTIONS: WorkflowSuggestionList = {
