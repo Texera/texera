@@ -39,6 +39,9 @@ abstract class ScanSourceOpDesc extends SourceOperatorDescriptor {
   @JsonIgnore
   var INFER_READ_LIMIT: Int = 100
 
+  @JsonIgnore
+  var originalFileName: String = ""
+
   @JsonProperty(required = true)
   @JsonSchemaTitle("File")
   @JsonDeserialize(contentAs = classOf[java.lang.String])
@@ -77,6 +80,7 @@ abstract class ScanSourceOpDesc extends SourceOperatorDescriptor {
   }
 
   def setResolvedFileName(uri: URI): Unit = {
+    originalFileName = fileName.get
     fileName = Some(uri.toASCIIString)
   }
 

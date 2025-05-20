@@ -1,0 +1,175 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package edu.uci.ics.amber.operator.source.scan.csv
+
+import com.fasterxml.jackson.annotation.{JsonInclude, JsonProperty, JsonPropertyDescription}
+import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
+import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
+import edu.uci.ics.amber.core.executor.OpExecWithCode
+import edu.uci.ics.amber.core.storage.DocumentFactory
+import edu.uci.ics.amber.core.tuple.AttributeTypeUtils.inferSchemaFromRows
+import edu.uci.ics.amber.core.tuple.{AttributeType, Schema}
+import edu.uci.ics.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
+import edu.uci.ics.amber.core.workflow.{OutputPort, PhysicalOp, SchemaPropagationFunc}
+import edu.uci.ics.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo}
+import edu.uci.ics.amber.operator.source.scan.ScanSourceOpDesc
+
+import java.io.InputStreamReader
+import java.net.URI
+
+class PythonBasedCSVReaderOpDesc extends ScanSourceOpDesc {
+  @JsonProperty(defaultValue = ",")
+  @JsonSchemaTitle("Delimiter")
+  @JsonPropertyDescription("delimiter to separate each line into fields")
+  @JsonInclude(JsonInclude.Include.NON_ABSENT)
+  var customDelimiter: Option[String] = None
+
+  @JsonProperty(defaultValue = "true")
+  @JsonSchemaTitle("Header")
+  @JsonPropertyDescription("whether the CSV file contains a header line")
+  var hasHeader: Boolean = true
+
+  fileTypeName = Option("CSV")
+
+  // ---------- main physical-plan construction ----------
+  override def getPhysicalOp(
+                              workflowId: WorkflowIdentity,
+                              executionId: ExecutionIdentity
+                            ): PhysicalOp = {
+
+    // ▶︎ Generate the Python script on the fly
+    val code: String = generatePythonCode(
+      originalFileName,          // full Texera dataset path
+      customDelimiter,       // optional delimiter
+      hasHeader              // header flag
+    )
+
+    val physicalOp = PhysicalOp
+      .sourcePhysicalOp(workflowId, executionId, operatorIdentifier, OpExecWithCode(code, "python"))
+      .withInputPorts(operatorInfo.inputPorts)
+      .withOutputPorts(operatorInfo.outputPorts)
+      .withIsOneToManyOp(true)
+      .withPropagateSchema(
+        SchemaPropagationFunc(_ => Map(operatorInfo.outputPorts.head.id -> sourceSchema()))
+      )
+      .withLocationPreference(Option.empty)
+      .withParallelizable(false)      // CSV reader is single-threaded for now
+
+    physicalOp
+  }
+
+  // ------------ helper: build Python code string ------------
+  /** Creates a self-contained Python UDFSourceOperator script. */
+  private def generatePythonCode(
+                                  fullPath: String,
+                                  delimiterOpt: Option[String],
+                                  header: Boolean
+                                ): String = {
+    // Build the kwargs line for read_as_table(...)
+    val sepKwarg    = delimiterOpt.map(d => s"sep='$d'").getOrElse("")
+    val headerKwarg = if (header) "header=0" else "header=None"
+    val kwargs      = Seq(sepKwarg, headerKwarg).filter(_.nonEmpty).mkString(", ")
+
+    val userJwtToken: String =
+      Option(System.getProperty("USER_JWT_TOKEN"))
+        .orElse(Option(System.getenv("USER_JWT_TOKEN")))
+        .getOrElse("")
+    val tokenLine =
+      if (userJwtToken.nonEmpty)
+        s"""os.environ["USER_JWT_TOKEN"] = '${userJwtToken}'"""
+      else
+        "" // leave blank if token missing
+
+    s"""
+       |from pytexera import *
+       |import os
+       |
+       |# make the JWT available to DatasetFileDocument
+       |$tokenLine
+       |class GenerateOperator(UDFSourceOperator):
+       |
+       |    def produce(self) -> Iterator[Union[TupleLike, TableLike, None]]:
+       |        doc   = DatasetFileDocument("$fullPath")
+       |        table = doc.read_as_table($kwargs)
+       |
+       |        # Stream each record downstream as a tuple-like dict
+       |        for _, row in table.iterrows():
+       |            yield row.to_dict()
+       |
+       |""".stripMargin
+  }
+
+  // ------------- static operator metadata -------------------
+  override def operatorInfo: OperatorInfo = {
+    OperatorInfo(
+      "CSV Reader with Table Profile support",
+      "User-defined (Python) CSV source that streams rows downstream",
+      OperatorGroupConstants.PYTHON_GROUP,
+      List.empty,                     // source → no inputs
+      List(OutputPort()),             // single output
+      supportReconfiguration = true
+    )
+  }
+
+  override def sourceSchema(): Schema = {
+    if (customDelimiter.isEmpty || !fileResolved()) {
+      return null
+    }
+    val stream = DocumentFactory.openReadonlyDocument(new URI(fileName.get)).asInputStream()
+    val inputReader =
+      new InputStreamReader(stream, fileEncoding.getCharset)
+
+    val csvFormat = new CsvFormat()
+    csvFormat.setDelimiter(customDelimiter.get.charAt(0))
+    csvFormat.setLineSeparator("\n")
+    val csvSetting = new CsvParserSettings()
+    csvSetting.setMaxCharsPerColumn(-1)
+    csvSetting.setFormat(csvFormat)
+    csvSetting.setHeaderExtractionEnabled(hasHeader)
+    csvSetting.setNullValue("")
+    val parser = new CsvParser(csvSetting)
+    parser.beginParsing(inputReader)
+
+    var data: Array[Array[String]] = Array()
+    val readLimit = limit.getOrElse(INFER_READ_LIMIT).min(INFER_READ_LIMIT)
+    for (i <- 0 until readLimit) {
+      val row = parser.parseNext()
+      if (row != null) {
+        data = data :+ row
+      }
+    }
+    parser.stopParsing()
+    inputReader.close()
+
+    val attributeTypeList: Array[AttributeType] = inferSchemaFromRows(
+      data.iterator.asInstanceOf[Iterator[Array[Any]]]
+    )
+
+    val header: Array[String] =
+      if (hasHeader)
+        Option(parser.getContext.headers())
+          .getOrElse((1 to attributeTypeList.length).map(i => "column-" + i).toArray)
+      else (1 to attributeTypeList.length).map(i => "column-" + i).toArray
+
+    header.indices.foldLeft(Schema()) { (schema, i) =>
+      schema.add(header(i), attributeTypeList(i))
+    }
+
+  }
+}

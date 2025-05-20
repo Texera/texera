@@ -19,6 +19,9 @@ import os
 import io
 import requests
 import urllib.parse
+import pandas as pd
+
+from core.models import TableLike
 
 
 class DatasetFileDocument:
@@ -96,3 +99,46 @@ class DatasetFileDocument:
             )
 
         return io.BytesIO(response.content)
+
+    def read_as_table(self, **pandas_kwargs) -> "TableLike":
+        """
+        Download the file and materialise it as a pandas DataFrame.
+
+        Parameters
+        ----------
+        **pandas_kwargs :
+            Extra keyword arguments forwarded to the relevant
+            ``pandas.read_*`` function (e.g., ``read_csv``).
+
+        Returns
+        -------
+        TableLike  (currently a pandas.DataFrame)
+            The tabular representation of the file’s contents.
+
+        Notes
+        -----
+        This is a *hacky* helper—intended only for local Python-side
+        experimentation.  For production use, push the logic into a
+        proper service layer.
+        """
+
+        # Pull the bytes from object storage
+        file_bytes = self.read_file()
+
+        # Infer file format from the extension
+        ext = self.file_relative_path.rsplit(".", 1)[-1].lower()
+
+        if ext in {"csv", "tsv", "txt"}:
+            # default separator if caller didn't pass one
+            if "sep" not in pandas_kwargs:
+                pandas_kwargs["sep"] = "," if ext == "csv" else "\t"
+            df = pd.read_csv(file_bytes, **pandas_kwargs)
+        elif ext in {"json", "ndjson"}:
+            df = pd.read_json(file_bytes, lines=(ext == "ndjson"), **pandas_kwargs)
+        elif ext in {"parquet"}:
+            df = pd.read_parquet(file_bytes, **pandas_kwargs)
+        else:
+            raise ValueError(f"Unsupported file type: .{ext}")
+
+        # Return as pandas.DataFrame (which is accepted as TableLike)
+        return df
