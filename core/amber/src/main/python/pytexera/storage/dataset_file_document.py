@@ -21,8 +21,12 @@ import requests
 import urllib.parse
 import pandas as pd
 
-from core.models import TableLike
-
+from core.models import TableLike, Table
+from pandas.api.types import (
+    is_float_dtype,
+    is_integer_dtype,
+    is_datetime64_any_dtype,
+)
 
 class DatasetFileDocument:
     def __init__(self, file_path: str):
@@ -100,7 +104,7 @@ class DatasetFileDocument:
 
         return io.BytesIO(response.content)
 
-    def read_as_table(self, **pandas_kwargs) -> "TableLike":
+    def read_as_table(self, schema: dict[str, str] | None = None, **pandas_kwargs) -> "TableLike":
         """
         Download the file and materialise it as a pandas DataFrame.
 
@@ -140,5 +144,32 @@ class DatasetFileDocument:
         else:
             raise ValueError(f"Unsupported file type: .{ext}")
 
-        # Return as pandas.DataFrame (which is accepted as TableLike)
-        return df
+        # # --- tidy up numeric / datetime heuristics  -----------------
+        # for col in df.columns:
+        #     if is_float_dtype(df[col]):
+        #         mask = df[col].notna()
+        #         if mask.any() and (df.loc[mask, col] % 1).abs().lt(1e-12).all():
+        #             df[col] = df[col].astype("Int64")
+        #     elif is_datetime64_any_dtype(df[col]):
+        #         df[col] = df[col].astype(str)
+
+        # --- hard-cast according to Amber schema --------------------
+        if schema:
+            for col, amber_type in schema.items():
+                if col not in df.columns:
+                    continue
+                if amber_type in ("INTEGER", "LONG"):
+                    df[col] = df[col].astype("Int64")
+                elif amber_type == "DOUBLE":
+                    df[col] = df[col].astype("float64")
+                elif amber_type == "BOOLEAN":
+                    df[col] = df[col].astype("boolean")
+                elif amber_type == "STRING":
+                    df[col] = df[col].astype(str)
+                elif amber_type == "TIMESTAMP":
+                    # keep as ISO string for Amber compatibility
+                    df[col] = pd.to_datetime(df[col], errors="coerce").astype(str)
+                else:                       # BINARY, ANY, or unknown
+                    df[col] = df[col].astype(str)
+
+        return Table(df)

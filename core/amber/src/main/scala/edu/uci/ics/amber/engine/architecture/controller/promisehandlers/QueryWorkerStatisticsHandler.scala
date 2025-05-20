@@ -21,8 +21,15 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
-import edu.uci.ics.amber.engine.architecture.controller.{ControllerAsyncRPCHandlerInitializer, ExecutionStatsUpdate}
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest, QueryStatisticsRequest}
+import edu.uci.ics.amber.engine.architecture.controller.{
+  ControllerAsyncRPCHandlerInitializer,
+  ExecutionStatsUpdate
+}
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+  AsyncRPCContext,
+  EmptyRequest,
+  QueryStatisticsRequest
+}
 import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
 import edu.uci.ics.amber.util.VirtualIdentityUtils
 
@@ -33,9 +40,9 @@ import edu.uci.ics.amber.util.VirtualIdentityUtils
 trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer =>
 
   override def controllerInitiateQueryStatistics(
-                                                  msg: QueryStatisticsRequest,
-                                                  ctx: AsyncRPCContext
-                                                ): Future[EmptyReturn] = {
+      msg: QueryStatisticsRequest,
+      ctx: AsyncRPCContext
+  ): Future[EmptyReturn] = {
 
     // decide whom to contact
     val workers: Iterable[ActorVirtualIdentity] =
@@ -51,13 +58,14 @@ trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer 
         .getLatestOperatorExecution(VirtualIdentityUtils.getPhysicalOpId(wid))
         .getWorkerExecution(wid)
 
-      val statF   = workerInterface.queryStatistics(EmptyRequest(), wid)
-      val profF   = workerInterface.queryTableProfile(EmptyRequest(), wid)
+      val statF = workerInterface.queryStatistics(EmptyRequest(), wid)
+      val profF = workerInterface.queryTableProfile(EmptyRequest(), wid)
 
-      statF.join(profF).map { case (stat, prof) =>
-        exec.setState(stat.metrics.workerState)
-        exec.setStats(stat.metrics.workerStatistics)
-        exec.setTableProfile(prof.tableProfiles)
+      statF.join(profF).map {
+        case (stat, prof) =>
+          exec.setState(stat.metrics.workerState)
+          exec.setStats(stat.metrics.workerStatistics)
+          exec.setTableProfile(prof.tableProfiles)
       }
     }.toSeq
 
@@ -66,10 +74,10 @@ trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer 
       sendToClient(
         ExecutionStatsUpdate(
           cp.workflowExecution.getAllRegionExecutionsStats,
-          cp.workflowExecution.getAllRegionExecutionTableProfiles,
+          cp.workflowExecution.getAllRegionExecutionTableProfiles
         )
       )
-      EmptyReturn()            // reply to whoever asked the controller
+      EmptyReturn() // reply to whoever asked the controller
     }
   }
 }
