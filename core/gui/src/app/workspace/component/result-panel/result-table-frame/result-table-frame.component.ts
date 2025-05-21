@@ -86,33 +86,8 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
   private schema: ReadonlyArray<SchemaAttribute> = [];
   tableProfile: TableProfile | undefined;
 
-  // For Column Details Modal
-  @ViewChild("columnDetailModalContent") columnDetailModalContent!: TemplateRef<any>;
-  selectedColumnProfileForModal: ColumnProfile | undefined;
-  columnNumericStatsForTable: Array<{ metric: string; value: string | number | undefined }> = [];
-  barChartData: Array<{ name: string; value: number }> = [];
-  // ngx-charts options
-  view: [number, number] = [550, 300];
-  showXAxis = true;
-  showYAxis = true;
-  gradient = false;
-  showLegend = false;
-  showXAxisLabel = true;
-  xAxisLabel = "Category";
-  showYAxisLabel = true;
-  yAxisLabel = "Count";
-  colorScheme = {
-    domain: ["#5AA454", "#A10A28", "#C7B42C", "#AAAAAA"],
-  };
-
   // For Global Stats Modal
   @ViewChild("globalStatsModalContent") globalStatsModalContent!: TemplateRef<any>;
-
-  // For Data Cleaning Suggestions
-  dataCleaningSuggestions: WorkflowDataCleaningSuggestion[] = [];
-  isLoadingDataCleaningSuggestions: boolean = false;
-  // Keep track of the column for which suggestions were last fetched to avoid redundant calls if modal isn't fully closed/reopened.
-  lastFetchedSuggestionsForColumn: string | null = null;
 
   constructor(
     private modalService: NzModalService,
@@ -418,16 +393,16 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
       return;
     }
 
-    // Announce the selected column. LeftPanelComponent will listen to this.
+    // Announce the selected column, now including the schema
     this.columnProfileService.selectColumn({
       operatorId: this.operatorId,
       columnProfile: columnProfile,
       tableProfile: this.tableProfile,
+      schema: this.schema,
     });
 
     // The LeftPanelComponent is responsible for opening the correct frame
     // when it detects a change from columnProfileService.
-    // No direct call to open a panel from here is needed.
   }
 
   showGlobalStats(): void {

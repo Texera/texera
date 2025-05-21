@@ -218,23 +218,11 @@ class SuggestionGenerator:
         if target_profile is None:
             return DataCleaningSuggestionList(suggestions=[])
 
-        # -------------------- 2️⃣  derive a SchemaInterpretation --------------
-        # We expose the *entire* table schema (name + inferred type for each col)
-        attributes = []
-        for col in tp.column_profiles:
-            attr = AttributeInterpretation(
-                attributeName=getattr(col, "column_name"),
-                attributeType=getattr(col, "data_type"),
-            )
-            attributes.append(attr)
-
-        schema_interp = SchemaInterpretation(attributes=attributes)
-
         # -------------------- 3️⃣  compose the cleaning prompt ----------------
         prompt_obj = DataCleaningSuggestionPrompt(
             focusingOperatorID=request.focusingOperatorID,  # not available in this request
             columnProfile=target_profile,
-            tableSchema=schema_interp,
+            tableSchema=SchemaInterpretation(attributes=request.tableSchema),
         )
 
         prompt_json = prompt_obj.model_dump_json(indent=2)

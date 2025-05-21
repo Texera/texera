@@ -13,6 +13,7 @@ import {
   WorkflowDataCleaningSuggestion,
   WorkflowDataCleaningSuggestionList,
 } from "src/app/workspace/types/workflow-suggestion.interface";
+import { SchemaAttribute } from "src/app/workspace/types/workflow-compiling.interface";
 
 interface DisplayableDataCleaningSuggestion extends WorkflowDataCleaningSuggestion {
   isExpanded?: boolean;
@@ -28,7 +29,8 @@ interface DisplayableDataCleaningSuggestion extends WorkflowDataCleaningSuggesti
 export class ColumnProfileFrameComponent implements OnInit {
   public selectedColumnInfo: SelectedColumnInfo | null = null;
   public columnProfile: ColumnProfile | undefined;
-  public tableProfile: TableProfile | undefined; // To access global stats like total row count
+  public tableProfile: TableProfile | undefined;
+  public tableSchema: ReadonlyArray<SchemaAttribute> | undefined;
 
   public columnNumericStatsForTable: Array<{ metric: string; value: string | number | undefined }> = [];
   public barChartData: Array<{ name: string; value: number }> = [];
@@ -69,10 +71,12 @@ export class ColumnProfileFrameComponent implements OnInit {
         if (selectedInfo) {
           this.columnProfile = selectedInfo.columnProfile;
           this.tableProfile = selectedInfo.tableProfile;
+          this.tableSchema = selectedInfo.schema;
           this.loadDisplayData();
         } else {
           this.columnProfile = undefined;
           this.tableProfile = undefined;
+          this.tableSchema = undefined;
           this.resetDisplayData();
         }
         this.changeDetectorRef.detectChanges();
@@ -132,6 +136,7 @@ export class ColumnProfileFrameComponent implements OnInit {
     this.dataCleaningSuggestions = [];
     this.isLoadingDataCleaningSuggestions = false;
     this.lastFetchedSuggestionsForColumn = null;
+    this.tableSchema = undefined;
   }
 
   public prepareColumnNumericStats(profile: ColumnProfile | undefined): void {
@@ -204,7 +209,7 @@ export class ColumnProfileFrameComponent implements OnInit {
   }
 
   public fetchDataCleaningSuggestions(columnProfile: ColumnProfile | undefined) {
-    if (!columnProfile || !this.tableProfile || !this.selectedColumnInfo?.operatorId) {
+    if (!columnProfile || !this.tableProfile || !this.selectedColumnInfo?.operatorId || !this.tableSchema) {
       this.dataCleaningSuggestions = [];
       this.isLoadingDataCleaningSuggestions = false;
       return;
@@ -213,7 +218,12 @@ export class ColumnProfileFrameComponent implements OnInit {
     this.isLoadingDataCleaningSuggestions = true;
     this.dataCleaningSuggestions = [];
     this.workflowSuggestionService
-      .getDataCleaningSuggestions(this.selectedColumnInfo.operatorId, this.tableProfile, columnProfile.columnName)
+      .getDataCleaningSuggestions(
+        this.selectedColumnInfo.operatorId,
+        this.tableSchema,
+        this.tableProfile,
+        columnProfile.columnName
+      )
       .pipe(
         finalize(() => {
           this.isLoadingDataCleaningSuggestions = false;

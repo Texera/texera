@@ -4,11 +4,13 @@ import {
   ColumnProfile,
   TableProfile,
 } from "../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
+import { SchemaAttribute } from "../../types/workflow-compiling.interface";
 
 export interface SelectedColumnInfo {
   operatorId: string;
   columnProfile: ColumnProfile;
   tableProfile: TableProfile; // Pass the whole table profile for context (e.g. global row count)
+  schema: ReadonlyArray<SchemaAttribute>;
 }
 
 @Injectable({
