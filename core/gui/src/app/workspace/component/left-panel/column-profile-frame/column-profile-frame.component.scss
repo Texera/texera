@@ -46,22 +46,30 @@
     }
 
     .suggestions-list {
-      background-color: #fffbe6;
-      border: 1px solid #ffe58f;
-      padding: 10px;
+      // Remove background and border from the list container itself
+      // background-color: #fffbe6;
+      // border: 1px solid #ffe58f;
+      padding: 0; // Remove padding if items will have their own
       border-radius: 4px;
       list-style-type: none;
       margin: 0;
 
       .suggestion-item {
-        padding: 6px 10px;
-        margin-bottom: 4px;
+        padding: 8px 12px; // Adjusted padding for better spacing within item
+        margin-bottom: 6px; // Space between items
         color: #333;
         border-radius: 3px;
         cursor: pointer;
         transition:
           background-color 0.2s ease-in-out,
-          color 0.2s ease-in-out;
+          color 0.2s ease-in-out,
+          border-color 0.2s ease-in-out; // Added border-color transition
+        display: flex;
+        flex-direction: column;
+
+        // Default state - yellow background for each item
+        background-color: #fffbe6;
+        border: 1px solid #ffe58f;
 
         &:last-child {
           margin-bottom: 0;
@@ -69,13 +77,78 @@
 
         &:hover {
           background-color: #ffe58f;
+          border-color: #ffd700; // Darker border on hover
           color: #000;
         }
 
         .suggestion-type {
+          // This style was outside .suggestion-item before, moved in
           font-size: 0.85em;
           color: #777;
           margin-left: 4px;
+        }
+
+        .suggestion-summary {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+        }
+
+        .expand-icon {
+          margin-left: 8px;
+          font-size: 0.8em;
+          color: #555;
+        }
+
+        // Styles when expanded
+        &.expanded {
+          background-color: #fff9e0; // Slightly lighter or different yellow for expanded
+          border-color: #ffecb3; // Lighter border for expanded
+
+          &:hover {
+            background-color: #fff0b3; // Hover for expanded item
+            border-color: #ffe58f;
+          }
+        }
+
+        .suggestion-details-wrapper {
+          padding-top: 10px; // Increased padding
+          margin-top: 10px; // Increased margin
+          border-top: 1px dashed #dcdcdc; // Slightly darker dashed line
+        }
+
+        .suggestion-details-area {
+          width: 100%;
+          min-height: 80px; // Increased min-height for the textarea
+          // Consider adding max-height or using 'rows' attribute if needed
+          // max-height: 150px;
+          // overflow-y: auto; // if max-height is set
+          font-family: monospace;
+          font-size: 0.85em;
+          padding: 8px; // Increased padding
+          border: 1px solid #ccc;
+          border-radius: 3px;
+          resize: vertical;
+          background-color: #fdfdfd; // Slightly off-white background for textarea
+          color: #333;
+          margin-bottom: 10px; // Increased margin
+        }
+
+        .suggestion-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+
+          .action-btn {
+            &.accept-btn {
+              // Default primary button style is usually fine
+            }
+
+            &.reject-btn {
+              // Default danger button style is usually fine
+            }
+          }
         }
       }
     }

@@ -107,7 +107,7 @@ export class LeftPanelComponent implements OnDestroy, OnInit, AfterViewInit {
         if (selectedInfo && this.columnProfilePanelIndex !== -1) {
           const columnProfileItem = this.items[this.columnProfilePanelIndex];
           if (columnProfileItem) {
-            columnProfileItem.title = `Profile: ${selectedInfo.columnProfile.columnName.substring(0, 10)}${selectedInfo.columnProfile.columnName.length > 10 ? "..." : ""}`;
+            columnProfileItem.title = `Profile: ${selectedInfo.columnProfile.columnName}`;
           }
           this.openFrame(this.columnProfilePanelIndex, true);
         } else if (!selectedInfo && this.currentIndex === this.columnProfilePanelIndex) {
