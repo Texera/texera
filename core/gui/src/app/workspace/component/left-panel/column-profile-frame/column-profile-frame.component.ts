@@ -14,6 +14,11 @@ import {
   WorkflowDataCleaningSuggestionList,
 } from "src/app/workspace/types/workflow-suggestion.interface";
 
+interface DisplayableDataCleaningSuggestion extends WorkflowDataCleaningSuggestion {
+  isExpanded?: boolean;
+  details: string; // To store a string representation of changes or other details
+}
+
 @UntilDestroy()
 @Component({
   selector: "texera-column-profile-frame",
@@ -43,10 +48,9 @@ export class ColumnProfileFrameComponent implements OnInit {
   };
 
   // For Data Cleaning Suggestions
-  public dataCleaningSuggestions: WorkflowDataCleaningSuggestion[] = [];
+  public dataCleaningSuggestions: DisplayableDataCleaningSuggestion[] = [];
   public isLoadingDataCleaningSuggestions: boolean = false;
-  // Cache can be managed here or in the service if suggestions are more global
-  private dataCleaningSuggestionsCache: Map<string, WorkflowDataCleaningSuggestion[]> = new Map();
+  private dataCleaningSuggestionsCache: Map<string, DisplayableDataCleaningSuggestion[]> = new Map();
   public lastFetchedSuggestionsForColumn: string | null = null;
 
   constructor(
@@ -74,7 +78,7 @@ export class ColumnProfileFrameComponent implements OnInit {
         this.changeDetectorRef.detectChanges();
       });
 
-    this.updateChartViewWidth(); // Initial set
+    this.updateChartViewWidth();
   }
 
   // Add AfterViewChecked to update chart width if panel resizes
@@ -191,7 +195,7 @@ export class ColumnProfileFrameComponent implements OnInit {
   private fetchOrGetCachedDataCleaningSuggestions(columnProfile: ColumnProfile): void {
     const cached = this.dataCleaningSuggestionsCache.get(columnProfile.columnName);
     if (cached) {
-      this.dataCleaningSuggestions = cached;
+      this.dataCleaningSuggestions = cached.map(s => ({ ...s, isExpanded: s.isExpanded || false }));
       this.lastFetchedSuggestionsForColumn = columnProfile.columnName;
       this.isLoadingDataCleaningSuggestions = false;
     } else {
@@ -219,8 +223,12 @@ export class ColumnProfileFrameComponent implements OnInit {
       )
       .subscribe(
         (response: WorkflowDataCleaningSuggestionList) => {
-          this.dataCleaningSuggestions = response.suggestions;
-          this.dataCleaningSuggestionsCache.set(columnProfile.columnName, response.suggestions);
+          this.dataCleaningSuggestions = response.suggestions.map(s => ({
+            ...s,
+            isExpanded: false,
+            details: s.details || "No specific changes detailed.",
+          }));
+          this.dataCleaningSuggestionsCache.set(columnProfile.columnName, this.dataCleaningSuggestions);
           this.lastFetchedSuggestionsForColumn = columnProfile.columnName;
         },
         (error: unknown) => {
@@ -237,8 +245,42 @@ export class ColumnProfileFrameComponent implements OnInit {
     }
   }
 
-  public handleDataCleaningSuggestionClick(suggestion: WorkflowDataCleaningSuggestion): void {
-    console.log("Clicked data cleaning suggestion in ColumnProfileFrameComponent:", suggestion);
-    // Implement actual handling logic here
+  public toggleSuggestionExpansion(suggestion: DisplayableDataCleaningSuggestion): void {
+    suggestion.isExpanded = !suggestion.isExpanded;
+    this.changeDetectorRef.detectChanges();
+  }
+
+  public acceptSuggestion(suggestion: DisplayableDataCleaningSuggestion, event: MouseEvent): void {
+    event.stopPropagation();
+    console.log("Suggestion accepted (placeholder):", suggestion);
+  }
+
+  public rejectSuggestion(suggestion: DisplayableDataCleaningSuggestion, event: MouseEvent): void {
+    event.stopPropagation();
+    console.log("Suggestion rejected:", suggestion);
+    this.dataCleaningSuggestions = this.dataCleaningSuggestions.filter(s => s.suggestionID !== suggestion.suggestionID);
+    if (this.columnProfile) {
+      this.dataCleaningSuggestionsCache.set(this.columnProfile.columnName, this.dataCleaningSuggestions);
+    }
+    this.changeDetectorRef.detectChanges();
+  }
+
+  private removeSuggestion(suggestionToRemove: DisplayableDataCleaningSuggestion): void {
+    this.dataCleaningSuggestions = this.dataCleaningSuggestions.filter(
+      s => s.suggestionID !== suggestionToRemove.suggestionID
+    );
+    if (this.columnProfile) {
+      const cached = this.dataCleaningSuggestionsCache.get(this.columnProfile.columnName);
+      if (cached) {
+        this.dataCleaningSuggestionsCache.set(
+          this.columnProfile.columnName,
+          cached.filter(s => s.suggestionID !== suggestionToRemove.suggestionID)
+        );
+      }
+    }
+  }
+
+  public onChartSelect(event: any): void {
+    console.log("Chart event:", event);
   }
 }
