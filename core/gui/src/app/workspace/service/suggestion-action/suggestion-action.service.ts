@@ -9,7 +9,7 @@ import { NzMessageService } from "ng-zorro-antd/message";
 import { cloneDeep } from "lodash";
 import { OperatorPredicate } from "../../types/workflow-common.interface";
 import { UntilDestroy, untilDestroyed } from "@ngneat/until-destroy";
-import {WorkflowSuggestionService} from "../workflow-suggestion/workflow-suggestion.service"; // For managing subscriptions in the service if needed
+import { WorkflowSuggestionService } from "../workflow-suggestion/workflow-suggestion.service"; // For managing subscriptions in the service if needed
 
 // @UntilDestroy() // Add if service has long-lived subscriptions to self-manage
 @Injectable({
@@ -66,13 +66,15 @@ export class SuggestionActionService {
       // It's better to run this after the graph has been reloaded and rendered.
       // Using a timeout ensures that the DOM and JointJS have settled.
       setTimeout(() => {
-        this.ngZone.run(() => { // Ensure running within Angular's zone if it involves UI updates triggered by JointJS
+        this.ngZone.run(() => {
+          // Ensure running within Angular's zone if it involves UI updates triggered by JointJS
           const wrapper = this.workflowActionService.getJointGraphWrapper();
           const paper = wrapper.getMainJointPaper(); // Get a fresh reference
-          if (this.viewStateBeforeRestore) { // Check again as it might be cleared by another async operation
-             wrapper.setZoomProperty(this.viewStateBeforeRestore.zoom);
-             paper.translate(this.viewStateBeforeRestore.tx, this.viewStateBeforeRestore.ty);
-             this.viewStateBeforeRestore = null;
+          if (this.viewStateBeforeRestore) {
+            // Check again as it might be cleared by another async operation
+            wrapper.setZoomProperty(this.viewStateBeforeRestore.zoom);
+            paper.translate(this.viewStateBeforeRestore.tx, this.viewStateBeforeRestore.ty);
+            this.viewStateBeforeRestore = null;
           }
         });
       }, 0);
@@ -127,25 +129,24 @@ export class SuggestionActionService {
       operatorsAndPositions.push({ op: newOp, pos }); // Use newOp here
     });
 
-     // Apply additions and deletions
+    // Apply additions and deletions
     if (!options.preview) {
       // For permanent application, delete operators first
       if (suggestion.changes.operatorsToDelete.length > 0) {
         this.workflowActionService.deleteOperatorsAndLinks(suggestion.changes.operatorsToDelete); // Assuming linksToDelete is empty or handled separately
       }
-       // Then add new/modified ones
+      // Then add new/modified ones
       this.workflowActionService.addOperatorsAndLinks(operatorsAndPositions, []); // Assuming linksToAdd handled next
     } else {
       // For preview, just add with visual styling
-      operatorsAndPositions.forEach(({op, pos}) => {
+      operatorsAndPositions.forEach(({ op, pos }) => {
         this.workflowActionService.addOperator(op, pos);
         const cell = jointGraph.getCell(op.operatorID); // Use the actual ID of the added operator
         if (cell) {
-            cell.attr({ ".": { opacity: 0.6 }, rect: { stroke: "#1890ff", "stroke-width": 2 } });
+          cell.attr({ ".": { opacity: 0.6 }, rect: { stroke: "#1890ff", "stroke-width": 2 } });
         }
       });
     }
-
 
     // Handle links to add
     suggestion.changes.linksToAdd.forEach(linkDetails => {
@@ -155,7 +156,9 @@ export class SuggestionActionService {
 
       if (texeraGraph.hasOperator(sourceIDInGraph) && texeraGraph.hasOperator(targetIDInGraph)) {
         const linkObject = {
-          linkID: options.preview ? `link-preview-${Date.now()}-${Math.random().toString(36).substring(2,7)}` : `link-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, // Ensure unique ID
+          linkID: options.preview
+            ? `link-preview-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+            : `link-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // Ensure unique ID
           source: { operatorID: sourceIDInGraph, portID: linkDetails.source.portID },
           target: { operatorID: targetIDInGraph, portID: linkDetails.target.portID },
         };
@@ -171,7 +174,13 @@ export class SuggestionActionService {
           }
         }
       } else {
-        console.warn("Could not add link, source or target operator not found in graph or ID map:", linkDetails, "Mapped IDs:", sourceIDInGraph, targetIDInGraph);
+        console.warn(
+          "Could not add link, source or target operator not found in graph or ID map:",
+          linkDetails,
+          "Mapped IDs:",
+          sourceIDInGraph,
+          targetIDInGraph
+        );
       }
     });
     return operatorIDMap;
@@ -192,10 +201,12 @@ export class SuggestionActionService {
       this.workflowSuggestionService.setPreviewActive(true); // Notify other services
 
       this.ngZone.runOutsideAngular(() => {
-        setTimeout(() => { // Defer to allow UI updates
-          this.ngZone.run(() => { // Ensure graph operations run in Angular zone if they trigger changes
+        setTimeout(() => {
+          // Defer to allow UI updates
+          this.ngZone.run(() => {
+            // Ensure graph operations run in Angular zone if they trigger changes
             this.applyWorkflowSuggestionChanges(suggestion, { preview: true });
-             this.messageService.info("Suggestion preview active. Some functionalities might be limited.");
+            this.messageService.info("Suggestion preview active. Some functionalities might be limited.");
           });
         });
       });

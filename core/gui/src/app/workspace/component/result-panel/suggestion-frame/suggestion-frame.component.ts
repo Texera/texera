@@ -42,24 +42,20 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone
   ) {
-    this.suggestionActionService.activePreviewId$
-      .pipe(untilDestroyed(this))
-      .subscribe(id => {
-        this.activePreviewId = id;
-        this.cdr.detectChanges();
-      });
+    this.suggestionActionService.activePreviewId$.pipe(untilDestroyed(this)).subscribe(id => {
+      this.activePreviewId = id;
+      this.cdr.detectChanges();
+    });
 
-    this.suggestionActionService.isInPreviewMode$
-      .pipe(untilDestroyed(this))
-      .subscribe(inPreview => {
-        this.isInPreviewMode = inPreview;
-        if (inPreview) {
-          this.addDocumentClickListener();
-        } else {
-          this.removeDocumentClickListener();
-        }
-        this.cdr.detectChanges();
-      });
+    this.suggestionActionService.isInPreviewMode$.pipe(untilDestroyed(this)).subscribe(inPreview => {
+      this.isInPreviewMode = inPreview;
+      if (inPreview) {
+        this.addDocumentClickListener();
+      } else {
+        this.removeDocumentClickListener();
+      }
+      this.cdr.detectChanges();
+    });
     this.boundHandleDocumentClick = this.handleDocumentClick.bind(this);
   }
 
@@ -146,7 +142,8 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
         this.workflowCompilingService.getWorkflowCompilationStateInfo(),
         this.workflowExecuteService.getExecutionState(),
         this.intentionText.trim(),
-        this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs()
+        this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs(),
+        {}
       )
       .pipe(untilDestroyed(this))
       .subscribe();
@@ -171,9 +168,14 @@ export class SuggestionFrameComponent implements OnInit, OnDestroy {
             .subscribe(() => {
               if (this.isInPreviewMode) {
                 const activeTab = document.querySelector(".ant-tabs-tab-active");
-                const isSuggestionTabActive = activeTab && (activeTab.textContent?.includes("Suggestions") || activeTab.getAttribute("aria-controls")?.includes("Suggestions"));
+                const isSuggestionTabActive =
+                  activeTab &&
+                  (activeTab.textContent?.includes("Suggestions") ||
+                    activeTab.getAttribute("aria-controls")?.includes("Suggestions"));
                 if (!isSuggestionTabActive) {
-                  const currentSuggestionTab = document.querySelector(".ant-tabs-tab[aria-controls*=\"Suggestions\"]") as HTMLElement;
+                  const currentSuggestionTab = document.querySelector(
+                    ".ant-tabs-tab[aria-controls*=\"Suggestions\"]"
+                  ) as HTMLElement;
                   if (currentSuggestionTab) currentSuggestionTab.click();
                 }
               } else if (this.tabFocusInterval) {

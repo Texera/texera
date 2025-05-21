@@ -81,7 +81,8 @@ export class WorkflowSuggestionService implements OnDestroy {
     compilationState: CompilationStateInfo,
     executionState: ExecutionStateInfo,
     intention: string,
-    focusingOperatorIDs: readonly string[]
+    focusingOperatorIDs: readonly string[],
+    operatorIDToTableSchemaMap: Record<string, ReadonlyArray<SchemaAttribute>>
   ): Observable<WorkflowSuggestionList> {
     // indicate loading started
     this.suggestionsLoadingSubject.next(true);
