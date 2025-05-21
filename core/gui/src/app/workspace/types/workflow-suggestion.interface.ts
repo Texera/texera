@@ -26,3 +26,13 @@ export interface WorkflowSuggestion {
 export interface WorkflowSuggestionList {
   suggestions: WorkflowSuggestion[];
 }
+
+export interface WorkflowDataCleaningSuggestion {
+  suggestionID: string;
+  suggestion: string;
+  details: string;
+}
+
+export interface WorkflowDataCleaningSuggestionList {
+  suggestions: WorkflowDataCleaningSuggestion[];
+}

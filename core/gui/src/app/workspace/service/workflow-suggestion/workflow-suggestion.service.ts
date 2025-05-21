@@ -5,7 +5,7 @@ import { catchError, map, tap, finalize } from "rxjs/operators";
 import { AppSettings } from "../../../common/app-setting";
 import { Workflow } from "../../../common/type/workflow";
 import { ExecutionStateInfo } from "../../types/execute-workflow.interface";
-import { WorkflowSuggestionList } from "../../types/workflow-suggestion.interface";
+import { WorkflowDataCleaningSuggestionList, WorkflowSuggestionList } from "../../types/workflow-suggestion.interface";
 import { v4 as uuid } from "uuid";
 import { CompilationStateInfo } from "../../types/workflow-compiling.interface";
 import { TableProfile } from "../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
@@ -17,6 +17,7 @@ export const DATA_CLEANING_SUGGESTION_ENDPOINT = "data-cleaning-suggestion";
 
 // Define the request interface if not already globally available
 export interface TableProfileSuggestionRequest {
+  focusingOperatorID: string;
   tableProfile: TableProfile;
   targetColumnName: string;
 }
@@ -171,21 +172,24 @@ export class WorkflowSuggestionService implements OnDestroy {
 
   /**
    * Requests data cleaning suggestions from the backend service based on table profile and target column.
+   * @param focusingOperatorID
    * @param tableProfile The complete table profile.
    * @param targetColumnName The name of the column for which to get suggestions.
    * @returns Observable of SuggestionList
    */
   public getDataCleaningSuggestions(
+    focusingOperatorID: string,
     tableProfile: TableProfile,
     targetColumnName: string
-  ): Observable<WorkflowSuggestionList> {
+  ): Observable<WorkflowDataCleaningSuggestionList> {
     const requestPayload: TableProfileSuggestionRequest = {
+      focusingOperatorID: focusingOperatorID,
       tableProfile: tableProfile,
       targetColumnName: targetColumnName,
     };
 
     return this.httpClient
-      .post<WorkflowSuggestionList>(
+      .post<WorkflowDataCleaningSuggestionList>(
         `${AppSettings.getApiEndpoint()}/${DATA_CLEANING_SUGGESTION_ENDPOINT}`,
         requestPayload
       )
@@ -201,7 +205,7 @@ export class WorkflowSuggestionService implements OnDestroy {
         }),
         catchError((error: unknown) => {
           console.error("Error getting data cleaning suggestions:", error);
-          return of({ suggestions: [] } as WorkflowSuggestionList); // Return empty list on error
+          return of({ suggestions: [] } as WorkflowDataCleaningSuggestionList); // Return empty list on error
         })
       );
   }
