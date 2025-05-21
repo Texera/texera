@@ -12,12 +12,20 @@ import { isDefined } from "../../../../common/util/predicate";
 import {
   WorkflowDataCleaningSuggestion,
   WorkflowDataCleaningSuggestionList,
+  WorkflowSuggestion,
+  WorkflowSuggestionList,
 } from "src/app/workspace/types/workflow-suggestion.interface";
 import { SchemaAttribute } from "src/app/workspace/types/workflow-compiling.interface";
+import { WorkflowActionService } from "../../../service/workflow-graph/model/workflow-action.service";
+import { WorkflowCompilingService } from "../../../service/compile-workflow/workflow-compiling.service";
+import { SuggestionActionService } from "../../../service/suggestion-action/suggestion-action.service";
+import { ExecuteWorkflowService } from "../../../service/execute-workflow/execute-workflow.service";
+import { NzMessageService } from "ng-zorro-antd/message";
 
 interface DisplayableDataCleaningSuggestion extends WorkflowDataCleaningSuggestion {
   isExpanded?: boolean;
   details: string; // To store a string representation of changes or other details
+  isAccepting?: boolean; // To show loading on the accept button
 }
 
 @UntilDestroy()
@@ -45,9 +53,6 @@ export class ColumnProfileFrameComponent implements OnInit {
   public xAxisLabel = "Category";
   public showYAxisLabel = true;
   public yAxisLabel = "Count";
-  public colorScheme = {
-    domain: ["#5AA454", "#A10A28", "#C7B42C", "#AAAAAA"],
-  };
 
   // For Data Cleaning Suggestions
   public dataCleaningSuggestions: DisplayableDataCleaningSuggestion[] = [];
@@ -58,6 +63,11 @@ export class ColumnProfileFrameComponent implements OnInit {
   constructor(
     private columnProfileService: ColumnProfileService,
     private workflowSuggestionService: WorkflowSuggestionService,
+    private workflowActionService: WorkflowActionService,
+    private workflowCompilingService: WorkflowCompilingService,
+    private executeWorkflowService: ExecuteWorkflowService,
+    private suggestionActionService: SuggestionActionService,
+    private messageService: NzMessageService,
     private changeDetectorRef: ChangeDetectorRef,
     private elRef: ElementRef // Inject ElementRef to get host width
   ) {}
@@ -200,7 +210,7 @@ export class ColumnProfileFrameComponent implements OnInit {
   private fetchOrGetCachedDataCleaningSuggestions(columnProfile: ColumnProfile): void {
     const cached = this.dataCleaningSuggestionsCache.get(columnProfile.columnName);
     if (cached) {
-      this.dataCleaningSuggestions = cached.map(s => ({ ...s, isExpanded: s.isExpanded || false }));
+      this.dataCleaningSuggestions = cached.map(s => ({ ...s, isExpanded: s.isExpanded || false, isAccepting: false }));
       this.lastFetchedSuggestionsForColumn = columnProfile.columnName;
       this.isLoadingDataCleaningSuggestions = false;
     } else {
@@ -236,7 +246,8 @@ export class ColumnProfileFrameComponent implements OnInit {
           this.dataCleaningSuggestions = response.suggestions.map(s => ({
             ...s,
             isExpanded: false,
-            details: s.details || "No specific changes detailed.",
+            details: s.details,
+            isAccepting: false,
           }));
           this.dataCleaningSuggestionsCache.set(columnProfile.columnName, this.dataCleaningSuggestions);
           this.lastFetchedSuggestionsForColumn = columnProfile.columnName;
@@ -262,20 +273,64 @@ export class ColumnProfileFrameComponent implements OnInit {
 
   public acceptSuggestion(suggestion: DisplayableDataCleaningSuggestion, event: MouseEvent): void {
     event.stopPropagation();
-    console.log("Suggestion accepted (placeholder):", suggestion);
+    if (!this.selectedColumnInfo || !this.selectedColumnInfo.tableProfile || suggestion.isAccepting) {
+      if (!this.selectedColumnInfo) console.warn("acceptSuggestion: selectedColumnInfo is null.");
+      else if (!this.selectedColumnInfo.schema) console.warn("acceptSuggestion: selectedColumnInfo.schema is null.");
+      else if (suggestion.isAccepting) console.warn("acceptSuggestion: suggestion is already being accepted.");
+      return;
+    }
+
+    suggestion.isAccepting = true;
+    this.messageService.loading(`Attempting to apply action for: "${suggestion.suggestion}"...`, { nzDuration: 0 });
+
+    const operatorIDToSchema: { [key: string]: ReadonlyArray<SchemaAttribute> } = {};
+    operatorIDToSchema[this.selectedColumnInfo.operatorId] = this.selectedColumnInfo.schema;
+
+    this.workflowSuggestionService
+      .getSuggestions(
+        this.workflowActionService.getWorkflow(),
+        this.workflowCompilingService.getWorkflowCompilationStateInfo(),
+        this.executeWorkflowService.getExecutionState(),
+        suggestion.suggestion,
+        [this.selectedColumnInfo.operatorId],
+        operatorIDToSchema
+      )
+      .pipe(
+        finalize(() => {
+          suggestion.isAccepting = false;
+          this.messageService.remove();
+          this.changeDetectorRef.detectChanges();
+        }),
+        untilDestroyed(this)
+      )
+      .subscribe(
+        (actionableSuggestions: WorkflowSuggestionList) => {
+          if (actionableSuggestions.suggestions && actionableSuggestions.suggestions.length > 0) {
+            const firstActionableSuggestion = actionableSuggestions.suggestions[0];
+            this.messageService.success(
+              `Applying action: "${firstActionableSuggestion.suggestion}" based on your request.`
+            );
+            this.suggestionActionService.applySuggestion(firstActionableSuggestion);
+            this.removeSuggestionFromList(suggestion);
+          } else {
+            this.messageService.warning(
+              `Could not find an actionable Texera suggestion for: "${suggestion.suggestion}"`
+            );
+          }
+        },
+        (error: unknown) => {
+          console.error("Error getting actionable suggestions:", error);
+          this.messageService.error("Failed to get actionable suggestions.");
+        }
+      );
   }
 
   public rejectSuggestion(suggestion: DisplayableDataCleaningSuggestion, event: MouseEvent): void {
     event.stopPropagation();
-    console.log("Suggestion rejected:", suggestion);
-    this.dataCleaningSuggestions = this.dataCleaningSuggestions.filter(s => s.suggestionID !== suggestion.suggestionID);
-    if (this.columnProfile) {
-      this.dataCleaningSuggestionsCache.set(this.columnProfile.columnName, this.dataCleaningSuggestions);
-    }
-    this.changeDetectorRef.detectChanges();
+    this.removeSuggestionFromList(suggestion);
   }
 
-  private removeSuggestion(suggestionToRemove: DisplayableDataCleaningSuggestion): void {
+  private removeSuggestionFromList(suggestionToRemove: DisplayableDataCleaningSuggestion): void {
     this.dataCleaningSuggestions = this.dataCleaningSuggestions.filter(
       s => s.suggestionID !== suggestionToRemove.suggestionID
     );
@@ -288,6 +343,7 @@ export class ColumnProfileFrameComponent implements OnInit {
         );
       }
     }
+    this.changeDetectorRef.detectChanges();
   }
 
   public onChartSelect(event: any): void {

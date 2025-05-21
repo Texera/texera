@@ -121,6 +121,7 @@
                 nzSize="small"
                 class="action-btn accept-btn"
                 (click)="acceptSuggestion(suggestion, $event)"
+                [nzLoading]="suggestion.isAccepting"
                 title="Accept suggestion">
                 <i
                   nz-icon

@@ -822,7 +822,8 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
         this.workflowCompilingService.getWorkflowCompilationStateInfo(),
         this.executeWorkflowService.getExecutionState(),
         this.intentionText.trim(),
-        this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs()
+        this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs(),
+        {}
       )
       .pipe(untilDestroyed(this))
       .subscribe(() => {

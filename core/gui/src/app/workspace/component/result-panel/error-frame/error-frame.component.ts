@@ -97,7 +97,8 @@ export class ErrorFrameComponent implements OnInit {
         this.workflowCompilingService.getWorkflowCompilationStateInfo(),
         this.executeWorkflowService.getExecutionState(),
         "Please fix this error",
-        focusingIDs
+        focusingIDs,
+        {}
       )
       .pipe(untilDestroyed(this))
       .subscribe(_ => {
