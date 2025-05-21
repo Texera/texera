@@ -84,6 +84,7 @@ def _deep_snake(d: Any) -> Any:
 class TableProfileSuggestionRequest(BaseModel):
     tableProfile: TableProfile
     targetColumnName: str
+    focusingOperatorID: str
 
     # 🔑 custom validator
     @field_validator("tableProfile", mode="before")

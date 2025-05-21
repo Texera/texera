@@ -5,10 +5,10 @@ from typing import Dict, Any, List, Optional
 from openai import OpenAI
 from llm_agent.base import LLMAgent, LLMAgentFactory
 from llm_agent.utils.operator_metadata_converter import extract_json_schemas
-from model.llm import Prompt
-from model.llm.interpretation import BaseInterpretation, WorkflowInterpretation
-from model.llm.sanitizor import OperatorSchema, SuggestionSanitization
-from model.llm.suggestion import SuggestionList, Suggestion
+from model.llm import SuggestionPrompt
+from model.llm.interpretation import BaseInterpretation
+from model.llm.prompt import DataCleaningSuggestionPrompt
+from model.llm.suggestion import SuggestionList, Suggestion, DataCleaningSuggestionList
 
 
 @LLMAgentFactory.register("openai")
@@ -53,6 +53,9 @@ class OpenAIAgent(LLMAgent):
         with open("files/instruction_for_function_call.md", "r") as f:
             self.instruction_for_suggestion_fc = f.read()
 
+        with open("files/instruction_for_data_cleaning_agent.md", "r") as f:
+            self.instruction_for_dc_suggestion = f.read()
+
         self.function_tools = [
             {
                 "type": "function",
@@ -81,7 +84,7 @@ class OpenAIAgent(LLMAgent):
 
     def generate_suggestions(
         self,
-        prompt: Prompt,
+        prompt: SuggestionPrompt,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs,
@@ -265,7 +268,7 @@ class OpenAIAgent(LLMAgent):
             raise ValueError(f"Unknown function: {name}")
 
     def _generate_suggestions_with_function_calls(
-        self, prompt: Prompt, temperature: float, max_tokens: Optional[int]
+        self, prompt: SuggestionPrompt, temperature: float, max_tokens: Optional[int]
     ) -> SuggestionList:
         """
         Two‑step approach:
@@ -334,3 +337,46 @@ class OpenAIAgent(LLMAgent):
         )
 
         return sanitized_suggestions
+
+    def generate_data_cleaning_suggestions(
+        self,
+        prompt: DataCleaningSuggestionPrompt,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs,
+    ) -> DataCleaningSuggestionList:
+        """
+        Produce a short list of natural-language cleaning recommendations
+        for the given column profile.
+
+        The model is instructed to return a JSON object that matches
+        `DataCleaningSuggestionList` (see model.llm.suggestion).
+        """
+
+        try:
+            prompt_json = prompt.model_dump_json(indent=2)
+
+            resp = self.client.responses.create(
+                model=self.model,
+                instructions=self.instruction_for_dc_suggestion,
+                input=prompt_json,
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "data_cleaning_suggestions",
+                        "schema": DataCleaningSuggestionList.model_json_schema(),
+                        "strict": True,  # let the model vary order / whitespace
+                        "additionalProperties": False,
+                    }
+                },
+            )
+
+            # The assistant output is guaranteed JSON thanks to the schema-
+            # enforcement, so we can safely load then validate with pydantic.
+            suggestions_dict = json.loads(resp.output_text)
+            return suggestions_dict
+
+        except Exception as e:
+            # Any error → return an empty list to the caller
+            print(f"[OpenAIAgent] Error in data-cleaning generation: {e}")
+            return DataCleaningSuggestionList(suggestions=[])

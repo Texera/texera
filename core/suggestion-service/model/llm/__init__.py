@@ -1,1 +1,1 @@
-from .prompt import Prompt  # noqa: F401
+from .prompt import SuggestionPrompt  # noqa: F401

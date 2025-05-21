@@ -4,18 +4,24 @@ import uuid
 import os
 from dotenv import load_dotenv
 
-from model.llm.suggestion import SuggestionList
-from model.web.input import CompilationStateInfo, ExecutionStateInfo
+from model.llm.suggestion import SuggestionList, DataCleaningSuggestionList
+from model.web.input import (
+    CompilationStateInfo,
+    ExecutionStateInfo,
+    TableProfileSuggestionRequest,
+)
 from workflow_interpretation.interpreter import (
     WorkflowInterpreter,
 )
-from model.llm.prompt import Prompt
+from model.llm.prompt import SuggestionPrompt, DataCleaningSuggestionPrompt
 from model.llm.interpretation import (
     PathInterpretation,
     RawInterpretation,
     OperatorInterpretation,
     BaseInterpretation,
     InterpretationMethod,
+    AttributeInterpretation,
+    SchemaInterpretation,
 )
 from llm_agent.base import LLMAgentFactory
 from distutils.util import strtobool  # stdlib helper
@@ -135,7 +141,7 @@ class SuggestionGenerator:
             if op:
                 focusing_operators.append(op)
 
-        prompt_obj = Prompt(
+        prompt_obj = SuggestionPrompt(
             intention=intention,
             focusingOperators=focusing_operators,
             workflowInterpretation=interpretation,
@@ -172,6 +178,99 @@ class SuggestionGenerator:
                     f.write(suggestions.model_dump_json(indent=2))
             except Exception as e:
                 print(f"Failed to log suggestions: {e}")
+        return suggestions
+
+    def generate_data_cleaning_suggestions(
+        self,
+        request: TableProfileSuggestionRequest,
+        enable_logging: bool = True,
+    ) -> DataCleaningSuggestionList:
+        """
+        Build a DataCleaningSuggestionPrompt from the table profile + target column
+        and ask the LLM agent for cleaning recommendations.
+
+        Args:
+            request:  TableProfileSuggestionRequest containing full table profile
+                      and the column we need to clean.
+            enable_logging:  if True, raw prompt / response JSON are written to
+                             the `logs/` folder for offline inspection.
+
+        Returns:
+            DataCleaningSuggestionList with zero or more natural-language
+            cleaning suggestions.
+        """
+        # Bail out early if no LLM agent has been configured.
+        if not self.llm_agent:
+            return DataCleaningSuggestionList(suggestions=[])
+
+        tp = request.tableProfile  # proto TableProfile
+        target_col = request.targetColumnName
+
+        # -------------------- 1️⃣  locate the target ColumnProfile ------------
+        target_profile = None
+        for col in tp.column_profiles:
+            # ColumnProfile in proto keeps the original field name `columnName`
+            if getattr(col, "column_name", None) == target_col:
+                target_profile = col
+                break
+
+        # If not found we cannot proceed – return empty result.
+        if target_profile is None:
+            return DataCleaningSuggestionList(suggestions=[])
+
+        # -------------------- 2️⃣  derive a SchemaInterpretation --------------
+        # We expose the *entire* table schema (name + inferred type for each col)
+        attributes = []
+        for col in tp.column_profiles:
+            attr = AttributeInterpretation(
+                attributeName=getattr(col, "column_name"),
+                attributeType=getattr(col, "data_type"),
+            )
+            attributes.append(attr)
+
+        schema_interp = SchemaInterpretation(attributes=attributes)
+
+        # -------------------- 3️⃣  compose the cleaning prompt ----------------
+        prompt_obj = DataCleaningSuggestionPrompt(
+            focusingOperatorID=request.focusingOperatorID,  # not available in this request
+            columnProfile=target_profile,
+            tableSchema=schema_interp,
+        )
+
+        prompt_json = prompt_obj.model_dump_json(indent=2)
+
+        # Optional logging for debugging
+        log_id: Optional[str] = None
+        if enable_logging:
+            try:
+                os.makedirs(logs_directory, exist_ok=True)
+                log_id = str(uuid.uuid4())
+                with open(
+                    os.path.join(logs_directory, f"cleaning-{log_id}.json"),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    f.write(prompt_json)
+            except Exception as e:
+                print(f"Failed to log cleaning prompt: {e}")
+
+        # -------------------- 4️⃣  call the LLM agent -------------------------
+        suggestions = self.llm_agent.generate_data_cleaning_suggestions(
+            prompt=prompt_obj,
+            temperature=0.4,  # a bit more deterministic
+        )
+
+        if enable_logging and log_id:
+            try:
+                with open(
+                    os.path.join(logs_directory, f"cleaning-response-{log_id}.json"),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    f.write(suggestions.model_dump_json(indent=2))
+            except Exception as e:
+                print(f"Failed to log cleaning suggestions: {e}")
+
         return suggestions
 
     def _enhance_prompt_with_state_info(
