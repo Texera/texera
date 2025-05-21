@@ -7,6 +7,8 @@ from typing import List
 
 from typing import Dict, List, Any, Optional
 
+from model.llm.interpretation import AttributeInterpretation
+
 # Import all relevant classes from the proto definition
 from model.proto.edu.uci.ics.amber.engine.architecture.worker import (
     TableProfile,
@@ -83,6 +85,7 @@ def _deep_snake(d: Any) -> Any:
 
 class TableProfileSuggestionRequest(BaseModel):
     tableProfile: TableProfile
+    tableSchema: List[AttributeInterpretation]
     targetColumnName: str
     focusingOperatorID: str
 

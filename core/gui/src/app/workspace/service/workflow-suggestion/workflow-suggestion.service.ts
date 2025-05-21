@@ -7,7 +7,7 @@ import { Workflow } from "../../../common/type/workflow";
 import { ExecutionStateInfo } from "../../types/execute-workflow.interface";
 import { WorkflowDataCleaningSuggestionList, WorkflowSuggestionList } from "../../types/workflow-suggestion.interface";
 import { v4 as uuid } from "uuid";
-import { CompilationStateInfo } from "../../types/workflow-compiling.interface";
+import { CompilationStateInfo, SchemaAttribute } from "../../types/workflow-compiling.interface";
 import { TableProfile } from "../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
 
 // endpoint for workflow suggestions
@@ -18,6 +18,7 @@ export const DATA_CLEANING_SUGGESTION_ENDPOINT = "data-cleaning-suggestion";
 // Define the request interface if not already globally available
 export interface TableProfileSuggestionRequest {
   focusingOperatorID: string;
+  tableSchema: ReadonlyArray<SchemaAttribute>;
   tableProfile: TableProfile;
   targetColumnName: string;
 }
@@ -173,17 +174,20 @@ export class WorkflowSuggestionService implements OnDestroy {
   /**
    * Requests data cleaning suggestions from the backend service based on table profile and target column.
    * @param focusingOperatorID
+   * @param tableSchema
    * @param tableProfile The complete table profile.
    * @param targetColumnName The name of the column for which to get suggestions.
    * @returns Observable of SuggestionList
    */
   public getDataCleaningSuggestions(
     focusingOperatorID: string,
+    tableSchema: ReadonlyArray<SchemaAttribute>,
     tableProfile: TableProfile,
     targetColumnName: string
   ): Observable<WorkflowDataCleaningSuggestionList> {
     const requestPayload: TableProfileSuggestionRequest = {
       focusingOperatorID: focusingOperatorID,
+      tableSchema: tableSchema,
       tableProfile: tableProfile,
       targetColumnName: targetColumnName,
     };
