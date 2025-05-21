@@ -62,3 +62,20 @@ class SuggestionList(BaseModel):
 
     class Config:
         json_schema_extra = {"required": ["suggestions"]}
+
+
+class DataCleaningSuggestion(BaseModel):
+    suggestion: str
+    details: str
+
+    class Config:
+        json_schema_extra = {"required": ["suggestion", "details"]}
+        extra = "forbid"
+
+
+class DataCleaningSuggestionList(BaseModel):
+    suggestions: List[DataCleaningSuggestion]
+
+    class Config:
+        json_schema_extra = {"required": ["suggestions"]}
+        extra = "forbid"

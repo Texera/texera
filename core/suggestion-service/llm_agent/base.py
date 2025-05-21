@@ -4,8 +4,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Type
 import os
 
-from model.llm import Prompt
-from model.llm.suggestion import SuggestionList
+from model.llm import SuggestionPrompt
+from model.llm.prompt import DataCleaningSuggestionPrompt
+from model.llm.suggestion import SuggestionList, DataCleaningSuggestionList
 
 
 class LLMAgent(ABC):
@@ -28,7 +29,7 @@ class LLMAgent(ABC):
     @abstractmethod
     def generate_suggestions(
         self,
-        prompt: Prompt,
+        prompt: SuggestionPrompt,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         **kwargs,
@@ -54,6 +55,19 @@ class LLMAgent(ABC):
                     "operatorPropertiesToChange": List[Dict], # Properties to change on existing operators
                 }
             }
+        """
+        pass
+
+    @abstractmethod
+    def generate_data_cleaning_suggestions(
+        self,
+        prompt: DataCleaningSuggestionPrompt,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs,
+    ) -> DataCleaningSuggestionList:
+        """
+        generate the natural language plan of cleaning the given column
         """
         pass
 

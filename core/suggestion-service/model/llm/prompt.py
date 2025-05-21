@@ -6,10 +6,22 @@ from model.llm.interpretation import (
     BaseInterpretation,
     PathInterpretation,
     RawInterpretation,
+    SchemaInterpretation,
+)
+
+# Import all relevant classes from the proto definition
+from model.proto.edu.uci.ics.amber.engine.architecture.worker import (
+    TableProfile,
+    GlobalProfile,
+    ColumnProfile,
+    NumericMatrix,
+    ColumnIndexList,
+    GlobalProfileTimes,
+    ColumnStatistics,
 )
 
 
-class Prompt(BaseModel):
+class SuggestionPrompt(BaseModel):
     """Prompt structure sent to the LLM agent.
 
     It combines the user intention, the operators that the user wishes to focus on,
@@ -32,3 +44,9 @@ class Prompt(BaseModel):
     workflowInterpretation: Union[PathInterpretation, RawInterpretation] = Field(
         ..., description="Interpretation of the complete workflow."
     )
+
+
+class DataCleaningSuggestionPrompt(BaseModel):
+    focusingOperatorID: str
+    columnProfile: ColumnProfile
+    tableSchema: SchemaInterpretation
