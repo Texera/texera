@@ -25,6 +25,7 @@ import HubResource.{
   fetchDashboardDatasetsByDids,
   fetchDashboardWorkflowsByWids,
   getUserLCCount,
+  getViewCount,
   isLikedHelper,
   recordLikeActivity,
   recordUserActivity,
@@ -255,6 +256,32 @@ object HubResource {
       .fetchOne(0, classOf[Int])
   }
 
+  private def getViewCount(entityId: Integer, entityType: String): Int = {
+    validateEntityType(entityType)
+
+    val entityTables = ViewCountTable(entityType)
+    val (table, idCol, countCol) =
+      (entityTables.table, entityTables.idColumn, entityTables.viewCountColumn)
+
+    val existing: Integer = context
+      .select(countCol)
+      .from(table)
+      .where(idCol.eq(entityId))
+      .fetchOneInto(classOf[Integer])
+
+    if (existing != null) {
+      existing
+    } else {
+      context
+        .insertInto(table)
+        .set(idCol, entityId)
+        .set(countCol, Integer.valueOf(0))
+        .onDuplicateKeyIgnore()
+        .execute()
+      0
+    }
+  }
+
   def fetchDashboardWorkflowsByWids(wids: Seq[Integer], uid: Integer): List[DashboardWorkflow] = {
     if (wids.isEmpty) {
       return List.empty[DashboardWorkflow]
@@ -385,16 +412,6 @@ class HubResource {
     getUserLCCount(entityId, entityType, "like")
   }
 
-  @GET
-  @Path("/cloneCount")
-  @Produces(Array(MediaType.APPLICATION_JSON))
-  def getCloneCount(
-      @QueryParam("entityId") entityId: Integer,
-      @QueryParam("entityType") entityType: String
-  ): Int = {
-    getUserLCCount(entityId, entityType, "clone")
-  }
-
   @POST
   @Path("/view")
   @Consumes(Array(MediaType.APPLICATION_JSON))
@@ -411,110 +428,151 @@ class HubResource {
     val (table, idColumn, viewCountColumn) =
       (entityTables.table, entityTables.idColumn, entityTables.viewCountColumn)
 
-    context
+    val record = context
       .insertInto(table)
       .set(idColumn, entityID)
       .set(viewCountColumn, Integer.valueOf(1))
       .onDuplicateKeyUpdate()
       .set(viewCountColumn, viewCountColumn.add(1))
-      .execute()
+      .returning(viewCountColumn)
+      .fetchOne()
 
     recordUserActivity(request, userId, entityID, entityType, "view")
 
-    context
-      .select(viewCountColumn)
-      .from(table)
-      .where(idColumn.eq(entityID))
-      .fetchOneInto(classOf[Int])
+    record.get(viewCountColumn)
   }
 
-  @GET
-  @Path("/viewCount")
-  @Produces(Array(MediaType.APPLICATION_JSON))
-  def getViewCount(
-      @QueryParam("entityId") entityId: Integer,
-      @QueryParam("entityType") entityType: String
-  ): Int = {
-
-    validateEntityType(entityType)
-    val entityTables = ViewCountTable(entityType)
-    val (table, idColumn, viewCountColumn) =
-      (entityTables.table, entityTables.idColumn, entityTables.viewCountColumn)
-
-    context
-      .insertInto(table)
-      .set(idColumn, entityId)
-      .set(viewCountColumn, Integer.valueOf(0))
-      .onDuplicateKeyIgnore()
-      .execute()
-
-    context
-      .select(viewCountColumn)
-      .from(table)
-      .where(idColumn.eq(entityId))
-      .fetchOneInto(classOf[Int])
-  }
-
+  /**
+    * Unified endpoint to fetch the top N (here N = 8) entities of given action types (like/clone)
+    * for a specified entityType (e.g., "workflow" or "dataset") and optional user ID.
+    *
+    * @param entityType   The type of entity ("workflow" or "dataset") to query.
+    * @param actionTypes  A list of action types to fetch tops for (supported: "like", "clone").
+    *                     Example: ?entityType=workflow&actionTypes=like&actionTypes=clone
+    * @param uid          Optional user ID for context (e.g., to mark liked/cloned by this user).
+    *                     If null or -1, no user-specific context is applied.
+    * @return             A map from each actionType to a list of DashboardClickableFileEntry,
+    *                     representing the top 8 public entities of that type.
+    */
   @GET
   @Path("/getTops")
   @Produces(Array(MediaType.APPLICATION_JSON))
   def getTops(
       @QueryParam("entityType") entityType: String,
-      @QueryParam("actionType") actionType: String,
+      @QueryParam("actionTypes") actionTypes: java.util.List[String],
       @QueryParam("uid") uid: Integer
-  ): util.List[DashboardClickableFileEntry] = {
+  ): java.util.Map[String, java.util.List[DashboardClickableFileEntry]] = {
     validateEntityType(entityType)
 
     val baseTable = BaseEntityTable(entityType)
-    val entityTables = actionType match {
-      case "like"  => LikeTable(entityType)
-      case "clone" => CloneTable(entityType)
-      case _       => throw new IllegalArgumentException(s"Invalid action type: $actionType")
-    }
+    val isPublicColumn = baseTable.isPublicColumn
+    val baseIdColumn = baseTable.idColumn
 
-    val (table, idColumn) = (entityTables.table, entityTables.idColumn)
-    val (isPublicColumn, baseIdColumn) = (baseTable.isPublicColumn, baseTable.idColumn)
+    val currentUid: Integer =
+      if (uid == null || uid == -1) null
+      else Integer.valueOf(uid)
 
-    val topEntityIds = context
-      .select(idColumn)
-      .from(table)
-      .join(baseTable.table)
-      .on(idColumn.eq(baseIdColumn))
-      .where(isPublicColumn.eq(true))
-      .groupBy(idColumn)
-      .orderBy(DSL.count(idColumn).desc())
-      .limit(8)
-      .fetchInto(classOf[Integer])
-      .asScala
+    val types: Seq[String] = actionTypes.asScala
+      .map(_.toLowerCase)
+      .distinct
       .toSeq
 
-    val currentUid: Integer = if (uid == null || uid == -1) null else Integer.valueOf(uid)
-
-    val clickableFileEntries =
-      if (entityType == "workflow") {
-        val workflows = fetchDashboardWorkflowsByWids(topEntityIds, currentUid)
-        workflows.map { w =>
-          DashboardClickableFileEntry(
-            resourceType = "workflow",
-            workflow = Some(w),
-            project = None,
-            dataset = None
-          )
+    val result: Map[String, java.util.List[DashboardClickableFileEntry]] =
+      types.map { act =>
+        val (table, idColumn) = act match {
+          case "like" =>
+            val lt = LikeTable(entityType)
+            (lt.table, lt.idColumn)
+          case "clone" =>
+            val ct = CloneTable(entityType)
+            (ct.table, ct.idColumn)
+          case other =>
+            throw new BadRequestException(
+              s"Unsupported actionType: '$other'. Supported: [like, clone]"
+            )
         }
-      } else if (entityType == "dataset") {
-        val datasets = fetchDashboardDatasetsByDids(topEntityIds, currentUid)
-        datasets.map { d =>
-          DashboardClickableFileEntry(
-            resourceType = "dataset",
-            workflow = None,
-            project = None,
-            dataset = Some(d)
-          )
-        }
-      } else {
-        Seq.empty[DashboardClickableFileEntry]
-      }
 
-    clickableFileEntries.toList.asJava
+        val topIds: Seq[Integer] = context
+          .select(idColumn)
+          .from(table)
+          .join(baseTable.table)
+          .on(idColumn.eq(baseIdColumn))
+          .where(isPublicColumn.eq(true))
+          .groupBy(idColumn)
+          .orderBy(DSL.count(idColumn).desc())
+          .limit(8)
+          .fetchInto(classOf[Integer])
+          .asScala
+          .toSeq
+
+        val entries: Seq[DashboardClickableFileEntry] =
+          if (entityType == "workflow") {
+            fetchDashboardWorkflowsByWids(topIds, currentUid).map { w =>
+              DashboardClickableFileEntry(
+                resourceType = "workflow",
+                workflow = Some(w),
+                project = None,
+                dataset = None
+              )
+            }
+          } else if (entityType == "dataset") {
+            fetchDashboardDatasetsByDids(topIds, currentUid).map { d =>
+              DashboardClickableFileEntry(
+                resourceType = "dataset",
+                workflow = None,
+                project = None,
+                dataset = Some(d)
+              )
+            }
+          } else {
+            Seq.empty
+          }
+
+        act -> entries.toList.asJava
+      }.toMap
+
+    result.asJava
+  }
+
+  /**
+    * Unified endpoint to fetch one or more count metrics (view, like, clone) for a given entity.
+    *
+    * Example request:
+    *   GET /hub/counts?
+    *     entityId=123&
+    *     entityType=workflow&
+    *     actionType=view&
+    *     actionType=like
+    *
+    * @param entityId    The ID of the entity to count (e.g., a workflow or dataset).
+    * @param entityType  The type of the entity ("workflow" or "dataset").
+    * @param actionTypes A list of action types to fetch counts for. Valid values: "view", "like", "clone".
+    * @return            A map from actionType -> count, e.g. { "view" -> 42, "like" -> 17 }.
+    * @throws BadRequestException if an unsupported actionType is provided.
+    */
+  @GET
+  @Path("/counts")
+  @Produces(Array(MediaType.APPLICATION_JSON))
+  def getCounts(
+      @QueryParam("entityId") entityId: Integer,
+      @QueryParam("entityType") entityType: String,
+      @QueryParam("actionType") actionTypes: java.util.List[String]
+  ): java.util.Map[String, Int] = {
+    validateEntityType(entityType)
+
+    val types = actionTypes.asScala.map(_.toLowerCase).distinct
+
+    val result: Map[String, Int] = types.map {
+      case "view"  => "view" -> getViewCount(entityId, entityType)
+      case "like"  => "like" -> getUserLCCount(entityId, entityType, "like")
+      case "clone" => "clone" -> getUserLCCount(entityId, entityType, "clone")
+
+      case other =>
+        throw new BadRequestException(
+          s"Unsupported actionType: '$other'. Supported: [view, like, clone]"
+        )
+    }.toMap
+
+    result.asJava
   }
 }
