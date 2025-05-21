@@ -38,7 +38,13 @@ import {
 } from "../../../../common/type/proto/edu/uci/ics/amber/engine/architecture/worker/tableprofile";
 import { WorkflowSuggestionService } from "../../../service/workflow-suggestion/workflow-suggestion.service";
 import { finalize } from "rxjs";
-import { WorkflowSuggestion, WorkflowSuggestionList } from "../../../types/workflow-suggestion.interface";
+import {
+  WorkflowDataCleaningSuggestion,
+  WorkflowDataCleaningSuggestionList,
+  WorkflowSuggestion,
+  WorkflowSuggestionList,
+} from "../../../types/workflow-suggestion.interface";
+import { isDefined } from "../../../../common/util/predicate";
 
 /**
  * The Component will display the result in an excel table format,
@@ -102,9 +108,9 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
   @ViewChild("globalStatsModalContent") globalStatsModalContent!: TemplateRef<any>;
 
   // For Data Cleaning Suggestions
-  dataCleaningSuggestions: WorkflowSuggestion[] = [];
+  dataCleaningSuggestions: WorkflowDataCleaningSuggestion[] = [];
   isLoadingDataCleaningSuggestions: boolean = false;
-  dataCleaningSuggestionsCache: Map<string, WorkflowSuggestion[]> = new Map();
+  dataCleaningSuggestionsCache: Map<string, WorkflowDataCleaningSuggestion[]> = new Map();
   // Keep track of the column for which suggestions were last fetched to avoid redundant calls if modal isn't fully closed/reopened.
   lastFetchedSuggestionsForColumn: string | null = null;
 
@@ -507,7 +513,7 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
     });
   }
 
-  handleDataCleaningSuggestionClick(suggestion: WorkflowSuggestion): void {
+  handleDataCleaningSuggestionClick(suggestion: WorkflowDataCleaningSuggestion): void {
     console.log("Clicked data cleaning suggestion:", suggestion);
     // Placeholder for future action:
     // - Apply changes described in suggestion.changes
@@ -519,7 +525,7 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
   }
 
   fetchDataCleaningSuggestions(columnProfile: ColumnProfile | undefined) {
-    if (!columnProfile || !this.tableProfile) {
+    if (!columnProfile || !this.tableProfile || !isDefined(this.operatorId)) {
       this.dataCleaningSuggestions = [];
       return;
     }
@@ -532,7 +538,7 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
     this.isLoadingDataCleaningSuggestions = true;
     this.dataCleaningSuggestions = []; // Clear previous before fetching new
     this.workflowSuggestionService
-      .getDataCleaningSuggestions(this.tableProfile, columnProfile.columnName)
+      .getDataCleaningSuggestions(this.operatorId, this.tableProfile, columnProfile.columnName)
       .pipe(
         finalize(() => {
           this.isLoadingDataCleaningSuggestions = false;
@@ -541,7 +547,7 @@ export class ResultTableFrameComponent implements OnInit, OnChanges {
         untilDestroyed(this)
       )
       .subscribe(
-        (response: WorkflowSuggestionList) => {
+        (response: WorkflowDataCleaningSuggestionList) => {
           this.dataCleaningSuggestions = response.suggestions;
           this.dataCleaningSuggestionsCache.set(columnProfile.columnName, response.suggestions);
           this.lastFetchedSuggestionsForColumn = columnProfile.columnName;
