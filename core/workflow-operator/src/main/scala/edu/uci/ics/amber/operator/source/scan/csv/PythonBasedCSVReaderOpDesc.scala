@@ -129,7 +129,7 @@ class PythonBasedCSVReaderOpDesc extends ScanSourceOpDesc {
   // ------------- static operator metadata -------------------
   override def operatorInfo: OperatorInfo = {
     OperatorInfo(
-      "CSV Reader with Table Profile support",
+      "Intelligent CSV Reader",
       "User-defined (Python) CSV source that streams rows downstream",
       OperatorGroupConstants.PYTHON_GROUP,
       List.empty, // source → no inputs
