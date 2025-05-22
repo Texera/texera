@@ -29,7 +29,7 @@ import {
 } from "@angular/core";
 import { ExecuteWorkflowService } from "../../../service/execute-workflow/execute-workflow.service";
 import { WorkflowStatusService } from "../../../service/workflow-status/workflow-status.service";
-import { Subject } from "rxjs";
+import {finalize, Subject} from "rxjs";
 import { AbstractControl, FormGroup } from "@angular/forms";
 import { FormlyFieldConfig, FormlyFormOptions } from "@ngx-formly/core";
 import Ajv from "ajv";
@@ -66,8 +66,10 @@ import Quill from "quill";
 import QuillCursors from "quill-cursors";
 import * as Y from "yjs";
 import { OperatorSchema } from "src/app/workspace/types/operator-schema.interface";
-import { AttributeType, PortInputSchema } from "../../../types/workflow-compiling.interface";
+import {AttributeType, PortInputSchema, SchemaAttribute} from "../../../types/workflow-compiling.interface";
 import { WorkflowSuggestionService } from "../../../service/workflow-suggestion/workflow-suggestion.service";
+import {ColumnProfileService, SelectedColumnInfo} from "../../../service/column-profile/column-profile.service";
+import {SuggestionActionService} from "../../../service/suggestion-action/suggestion-action.service";
 
 Quill.register("modules/cursors", QuillCursors);
 
@@ -157,8 +159,11 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
   /** Whether the Copilot intention box is visible */
   copilotEnabled: boolean = false;
 
+  public selectedColumnInfo: SelectedColumnInfo | null = null;
+
   constructor(
     private formlyJsonschema: FormlyJsonschema,
+    private columnProfileService: ColumnProfileService,
     private workflowActionService: WorkflowActionService,
     public executeWorkflowService: ExecuteWorkflowService,
     private dynamicSchemaService: DynamicSchemaService,
@@ -167,7 +172,8 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
     private changeDetectorRef: ChangeDetectorRef,
     private workflowVersionService: WorkflowVersionService,
     private workflowStatusSerivce: WorkflowStatusService,
-    private workflowSuggestionService: WorkflowSuggestionService
+    private workflowSuggestionService: WorkflowSuggestionService,
+    private suggestionActionService: SuggestionActionService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -204,6 +210,13 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
         if (this.currentOperatorId) {
           this.currentOperatorStatus = update[this.currentOperatorId];
         }
+      });
+
+    this.columnProfileService
+      .getSelectedColumnStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(selectedInfo => {
+        this.selectedColumnInfo = selectedInfo;
       });
   }
 
@@ -806,11 +819,20 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
       return;
     }
 
-    // There might be no operators in the graph or no highlighted operator; in such cases we
-    // simply do nothing.
     const operators = this.workflowActionService.getTexeraGraph().getAllOperators();
     if (operators.length === 0) {
       return;
+    }
+
+    const highlighted = this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs();
+    if (highlighted.length === 0) {
+      this.notificationService.warning("No operator selected.");
+      return;
+    }
+
+    const operatorIDToSchema: { [key: string]: ReadonlyArray<SchemaAttribute> } = {};
+    if (this.selectedColumnInfo) {
+      operatorIDToSchema[this.selectedColumnInfo.operatorId] = this.selectedColumnInfo.schema;
     }
 
     this.notificationService.info("Asking copilot to fill out the properties...");
@@ -822,15 +844,27 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
         this.workflowCompilingService.getWorkflowCompilationStateInfo(),
         this.executeWorkflowService.getExecutionState(),
         this.intentionText.trim(),
-        this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs(),
-        {}
+        highlighted,
+        operatorIDToSchema
       )
-      .pipe(untilDestroyed(this))
-      .subscribe(() => {
-        // The SuggestionFrameComponent will be updated via the shared service stream, we only need
-        // to clear the loading flag here.
+      .pipe(finalize(() => {
         this.loadingSuggestions = false;
-        this.notificationService.success("Received suggestions from the copilot");
+        this.notificationService.remove();
+      }))
+      .subscribe({
+        next: suggestionsList => {
+          const suggestions = suggestionsList.suggestions;
+          if (suggestions.length > 0) {
+            const suggestion = suggestions[0];
+            this.notificationService.success(`Applying suggestion: "${suggestion.suggestion}"`);
+            this.suggestionActionService.applySuggestion(suggestion);
+          } else {
+            this.notificationService.warning("No actionable suggestion was found.");
+          }
+        },
+        error: unknown => {
+          this.notificationService.error("Failed to get actionable suggestions.");
+        },
       });
   }
 }
