@@ -67,9 +67,12 @@ def _dp_column_to_proto(cjs: Dict[str, Any]) -> ColumnProfile:
         categorical=bool(cjs.get("categorical")),
         order=cjs.get("order", "")
     )
-
-    if "samples" in cjs:
-        sample_str = cjs["samples"].strip("[]")
+    samples = cjs.get("samples", [])
+    if isinstance(samples, list):
+        cp.samples.extend([str(s) for s in samples[:10]])
+    elif isinstance(samples, str):
+        # compact-format DP report returns a JSON list-as-string
+        sample_str = samples.strip("[]")
         cp.samples.extend([s.strip(" '") for s in sample_str.split(",")[:10]])
 
     stats = cjs.get("statistics", {})
