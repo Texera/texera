@@ -112,6 +112,7 @@ export class WorkflowSuggestionService implements OnDestroy {
         executionState: executionState,
         intention: intention,
         focusingOperatorIDs: focusingOperatorIDs,
+        operatorIDToTableSchemaMap: operatorIDToTableSchemaMap,
       })
       .pipe(
         map(suggestionList => {
