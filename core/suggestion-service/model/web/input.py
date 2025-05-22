@@ -60,6 +60,7 @@ class SuggestionRequest(BaseModel):
     focusingOperatorIDs: Optional[List[str]] = Field(
         default_factory=list, description="Operator IDs that the user wants to focus on"
     )
+    operatorIDToTableSchemaMap: Dict[str, List[AttributeInterpretation]]
 
 
 def _camel_to_snake(name: str) -> str:
