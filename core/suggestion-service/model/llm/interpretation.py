@@ -2,7 +2,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Any
 
 
@@ -33,6 +33,9 @@ class OperatorInterpretation(BaseModel):
     operatorProperties: Dict[str, Any]
     error: Optional[ErrorInterpretation]
     inputSchemas: Dict[str, PortInterpretation]
+    outputSchema: SchemaInterpretation = Field(
+        default_factory=lambda: SchemaInterpretation(attributes=[])
+    )
 
 
 class LinkEndInterpretation(BaseModel):

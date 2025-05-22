@@ -53,13 +53,7 @@ async def generate_suggestions(request: SuggestionRequest):
     """
     try:
         # Generate suggestions using the suggestion engine
-        suggestions = suggestion_generator.generate_suggestions(
-            request.workflow,
-            request.compilationState,
-            request.executionState,
-            request.intention,
-            request.focusingOperatorIDs,
-        )
+        suggestions = suggestion_generator.generate_suggestions(request)
 
         return suggestions
 

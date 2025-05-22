@@ -9,6 +9,7 @@ from model.web.input import (
     CompilationStateInfo,
     ExecutionStateInfo,
     TableProfileSuggestionRequest,
+    SuggestionRequest,
 )
 from workflow_interpretation.interpreter import (
     WorkflowInterpreter,
@@ -25,7 +26,6 @@ from model.llm.interpretation import (
 )
 from llm_agent.base import LLMAgentFactory
 from distutils.util import strtobool  # stdlib helper
-
 
 # Load environment variables from .env file if present
 load_dotenv()
@@ -50,11 +50,6 @@ class SuggestionGenerator:
     def __init__(self):
         """
         Initialize the suggestion generator.
-
-        Args:
-            llm_provider: The LLM provider to use (defaults to environment variable LLM_PROVIDER)
-            llm_model: The LLM model to use (defaults to environment variable LLM_MODEL)
-            llm_api_key: The API key for the LLM provider (defaults to environment variable based on provider)
         """
         self.workflow_interpretation_method = InterpretationMethod(
             os.environ.get("INTERPRETATION_METHOD")
@@ -100,22 +95,11 @@ class SuggestionGenerator:
 
     def generate_suggestions(
         self,
-        workflow: str,
-        compilation_state: CompilationStateInfo,
-        execution_state: ExecutionStateInfo,
-        intention: str,
-        focusing_operator_ids: List[str],
+        request: SuggestionRequest,
         enable_logging: bool = True,
     ) -> SuggestionList:
         """
         Generate workflow suggestions based on the current workflow, compilation state, execution state, and result tables.
-
-        Args:
-            workflow: The current workflow configuration
-            compilation_state: Compilation information and errors
-            execution_state: Current execution state of the workflow
-            intention: The intention of the workflow
-            focusing_operator_ids: List of operator IDs to focus on
 
         Returns:
             A list of workflow suggestions
@@ -123,22 +107,25 @@ class SuggestionGenerator:
         # If LLM generation failed or agent is not available, return mock suggestions
         if not self.llm_agent:
             return SuggestionList(suggestions=[])
-        workflow_json = json.loads(workflow)
+        workflow_json = json.loads(request.workflow)
         # Generate natural language description of the workflow
         interpretation = self.workflow_interpreter.interpret_workflow(
             workflow_json,
-            compilation_state,
+            request.compilationState,
         )
 
         # Determine intention (fallback)
+        intention = request.intention
         if not intention:
             intention = "Recommend improvements and fixes of current workflows"
 
         workflow_intp = interpretation.get_base_workflow_interpretation()
         focusing_operators: List[OperatorInterpretation] = []
-        for oid in focusing_operator_ids:
+        for oid in request.focusingOperatorIDs:
             op = workflow_intp.operators.get(oid)
             if op:
+                output_attributes = request.operatorIDToTableSchemaMap.get(oid, [])
+                op.outputSchema = SchemaInterpretation(attributes=output_attributes)
                 focusing_operators.append(op)
 
         prompt_obj = SuggestionPrompt(
