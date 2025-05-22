@@ -127,56 +127,56 @@ class DatasetFileDocument:
         """
 
         # Pull the bytes from object storage
+        # Pull the bytes from object storage
         file_bytes = self.read_file()
 
         # Infer file format from the extension
         ext = self.file_relative_path.rsplit(".", 1)[-1].lower()
 
+        # ---- 1) load the file -----------------------------------------
         if ext in {"csv", "tsv", "txt"}:
             # default separator if caller didn't pass one
-            if "sep" not in pandas_kwargs:
-                pandas_kwargs["sep"] = "," if ext == "csv" else "\t"
+            pandas_kwargs.setdefault("sep", "," if ext == "csv" else "\t")
+            # keep blank rows if they exist; treat empty cells as NA
+            pandas_kwargs.setdefault("skip_blank_lines", False)
+            pandas_kwargs.setdefault("keep_default_na", True)
             df = pd.read_csv(file_bytes, **pandas_kwargs)
+
         elif ext in {"json", "ndjson"}:
             df = pd.read_json(file_bytes, lines=(ext == "ndjson"), **pandas_kwargs)
-        elif ext in {"parquet"}:
+        elif ext == "parquet":
             df = pd.read_parquet(file_bytes, **pandas_kwargs)
         else:
             raise ValueError(f"Unsupported file type: .{ext}")
 
-        # # --- tidy up numeric / datetime heuristics  -----------------
-        # for col in df.columns:
-        #     if is_float_dtype(df[col]):
-        #         mask = df[col].notna()
-        #         if mask.any() and (df.loc[mask, col] % 1).abs().lt(1e-12).all():
-        #             df[col] = df[col].astype("Int64")
-        #     elif is_datetime64_any_dtype(df[col]):
-        #         df[col] = df[col].astype(str)
-
-        # --- hard-cast according to Amber schema --------------------
+        # ---- 2) hard-cast columns according to Amber schema -----------
         if schema:
             for col, amber_type in schema.items():
                 if col not in df.columns:
                     continue
-                if amber_type in ("INTEGER", "LONG"):
-                    df[col] = df[col].astype("Int64")
+
+                s = df[col]          # shorthand
+
+                if amber_type in {"INTEGER", "LONG"}:
+                    df[col] = pd.to_numeric(s, errors="coerce").astype("Int64")
+
                 elif amber_type == "DOUBLE":
-                    df[col] = df[col].astype("float64")
+                    df[col] = pd.to_numeric(s, errors="coerce").astype("float64")
+
                 elif amber_type == "BOOLEAN":
-                    df[col] = df[col].astype("boolean")
+                    df[col] = s.astype("boolean")        # nullable boolean
+
                 elif amber_type == "STRING":
-                    df[col] = df[col].astype(str)
+                    # nullable *string* dtype – keeps pd.NA for empty cells
+                    df[col] = s.astype(pd.StringDtype())
+
                 elif amber_type == "TIMESTAMP":
-                    # → real datetimes expected by Amber
-                    # - `errors="coerce"` turns bad values into NaT
-                    # - `.dt.tz_localize(None)` drops tz so JVM parsing is trivial
-                    # - `.dt.to_pydatetime()` converts the ndarray to plain Python
                     df[col] = (
-                        pd.to_datetime(df[col], errors="coerce")
+                        pd.to_datetime(s, errors="coerce")
                         .dt.tz_localize(None)
                         .dt.to_pydatetime()
                     )
-                else:                       # BINARY, ANY, or unknown
+                else:                                   # BINARY, ANY, unknown
                     raise Exception(f"Unsupported type: {amber_type}")
 
         return Table(df)
