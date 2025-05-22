@@ -101,7 +101,7 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Add suggestions tab to the result panel first
-    this.displaySuggestions();
+    // this.displaySuggestions();
 
     const style = localStorage.getItem("result-panel-style");
     if (style) document.getElementById("result-container")!.style.cssText = style;
@@ -230,11 +230,11 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
         this.operatorTitle = "";
       }
     }
-
-    // Make sure suggestions tab is always available
-    if (!this.frameComponentConfigs.has("Suggestions")) {
-      this.displaySuggestions();
-    }
+    //
+    // // Make sure suggestions tab is always available
+    // if (!this.frameComponentConfigs.has("Suggestions")) {
+    //   this.displaySuggestions();
+    // }
 
     if (
       this.executeWorkflowService.getExecutionState().state === ExecutionState.Failed ||
@@ -365,10 +365,10 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
     this.height = DEFAULT_HEIGHT;
     this.width = DEFAULT_WIDTH;
 
-    // Ensure suggestions tab is available when panel is opened
-    if (!this.frameComponentConfigs.has("Suggestions")) {
-      this.displaySuggestions();
-    }
+    // // Ensure suggestions tab is available when panel is opened
+    // if (!this.frameComponentConfigs.has("Suggestions")) {
+    //   this.displaySuggestions();
+    // }
   }
 
   closePanel() {
@@ -424,13 +424,13 @@ export class ResultPanelComponent implements OnInit, OnDestroy {
     this.returnPosition = { x: this.returnPosition.x, y: this.returnPosition.y + prevHeight - newHeight };
   }
 
-  /**
-   * Displays the workflow suggestions in the result panel
-   */
-  displaySuggestions() {
-    this.frameComponentConfigs.set("Suggestions", {
-      component: SuggestionFrameComponent,
-      componentInputs: {},
-    });
-  }
+  // /**
+  //  * Displays the workflow suggestions in the result panel
+  //  */
+  // displaySuggestions() {
+  //   this.frameComponentConfigs.set("Suggestions", {
+  //     component: SuggestionFrameComponent,
+  //     componentInputs: {},
+  //   });
+  // }
 }
