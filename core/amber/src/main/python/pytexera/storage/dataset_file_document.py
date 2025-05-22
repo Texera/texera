@@ -167,9 +167,16 @@ class DatasetFileDocument:
                 elif amber_type == "STRING":
                     df[col] = df[col].astype(str)
                 elif amber_type == "TIMESTAMP":
-                    # keep as ISO string for Amber compatibility
-                    df[col] = pd.to_datetime(df[col], errors="coerce").astype(str)
+                    # → real datetimes expected by Amber
+                    # - `errors="coerce"` turns bad values into NaT
+                    # - `.dt.tz_localize(None)` drops tz so JVM parsing is trivial
+                    # - `.dt.to_pydatetime()` converts the ndarray to plain Python
+                    df[col] = (
+                        pd.to_datetime(df[col], errors="coerce")
+                        .dt.tz_localize(None)
+                        .dt.to_pydatetime()
+                    )
                 else:                       # BINARY, ANY, or unknown
-                    df[col] = df[col].astype(str)
+                    raise Exception(f"Unsupported type: {amber_type}")
 
         return Table(df)
