@@ -173,8 +173,8 @@ class ProcessTupleOperator(UDFOperatorV2):
         yield tuple_
 
 ```
-Tuple API takes one input tuple from a port at a time. It returns an iterator of optional `TupleLike` instances. A `TupleLike` is any data structure that supports key-value pairs, such as `pytexera.Tuple`, `dict`, `defaultdict`, `NamedTuple`, etc.
-Tuple API is useful for implementing functional operations which are applied to tuples one by one, such as map, reduce, and filter.
+* Tuple API takes one input tuple from a port at a time. It returns an iterator of optional `TupleLike` instances. A `TupleLike` is any data structure that supports key-value pairs, such as `pytexera.Tuple`, `dict`, `defaultdict`, `NamedTuple`, etc.
+* Tuple API is useful for implementing functional operations which are applied to tuples one by one, such as map, reduce, and filter.
 
 2. Table API.
 
@@ -186,9 +186,54 @@ class ProcessTableOperator(UDFTableOperator):
     def process_table(self, table: Table, port: int) -> Iterator[Optional[TableLike]]:
         yield table
 ```
-Table API consumes a `Table` at a time, which consists of all the whole table from a port. It returns an iterator of optional `TableLike` instances. A `TableLike ` is a collection of `TupleLike`, and currently, we support `pytexera.Table` and `pandas.DataFrame` as a `TableLike` instance.  
-Table API is useful for implementing blocking operations that will consume the whole column to do operations.
+* Table API consumes a `Table` at a time, which consists of all the whole table from a port. It returns an iterator of optional `TableLike` instances. A `TableLike ` is a collection of `TupleLike`, and currently, we support `pytexera.Table` and `pandas.DataFrame` as a `TableLike` instance.  
+* Table API is useful for implementing blocking operations that will consume the whole column to do operations.
+
+* Here are some examples of using two APIs:
+  * Example 1: use Tuple API to normalize the `state` column to standard uppercase US state code:
+```python
+from pytexera import *
+class ProcessTupleOperator(UDFOperatorV2):
+    """
+    Standardise free-form state names/abbreviations to two-letter codes.
+    Unknown values are upper-cased unchanged.
+    """
+    def process_tuple(self, tuple_: Tuple, port: int) -> Iterator[Optional[TupleLike]]:
+        _STATE_MAP = {
+            "california": "CA", "ca": "CA",
+            "new york":   "NY", "ny": "NY",
+            "texas":      "TX", "tx": "TX",
+        }
+
+        raw = str(tuple_["BILLINGCOMPANYCODE"]).strip().lower()
+        tuple_["BILLINGCOMPANYCODE"] = _STATE_MAP.get(raw, raw.upper())
+        yield tuple_
+```
+  * Example 2: use Table API to convert the `CREATIONTIME` column into datetime, remove all the rows that have null timestamp and do a filtering using the cutoff date
+```python
+from pytexera import *
+import pandas as pd
+
+class ProcessTableOperator(UDFTableOperator):
+    _CUTOFF = pd.Timestamp("2020-01-01", tz="UTC")
+
+    def process_table(self, table: Table, port: int):
+        df = table
+
+        # 1. Parse date strings; bad parses become NaT
+        df["CREATIONTIME"] = pd.to_datetime(df["CREATIONTIME"], errors="coerce", utc=True)
+
+        # 2. Drop rows where conversion failed
+        df = df.dropna(subset=["CREATIONTIME"])
+
+        # 3. Time-window filter
+        df = df[df["CREATIONTIME"] >= self._CUTOFF].reset_index(drop=True)
+
+        yield df
+```
 
 * When writing the udf code, you MUST NOT change the class name
-* You can import pandas, numpy, sklearn and other common python packages
+* You should import pandas, numpy, sklearn and other common python packages when you want too use them
 * You don't need to import typing for the type annotations.
+* Tuple you can think it as the 'Dict' type. You should only use `[]` to do tuple's field's read & write. DO NOT use methods like `tuple_.get()` or `tuple_.set()`
+* Table you can think it as the `pandas.Dataframe`.
