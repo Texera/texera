@@ -172,13 +172,14 @@ export class LeftPanelComponent implements OnDestroy, OnInit, AfterViewInit {
   }
 
   openFrame(i: number, forceOpen: boolean = false) {
-    if (!i) {
+    if (i === 0) {
       this.width = 0;
       this.height = 65;
-    } else if (!this.width && !forceOpen) {
-    } else if (!this.width || (forceOpen && this.width < LeftPanelComponent.MIN_PANEL_WIDTH)) {
-      this.width = LeftPanelComponent.MIN_PANEL_WIDTH;
-      this.height = this.minPanelHeight;
+    } else {
+      if (this.width === 0 || (forceOpen && this.width < LeftPanelComponent.MIN_PANEL_WIDTH)) {
+        this.width = LeftPanelComponent.MIN_PANEL_WIDTH;
+        this.height = this.minPanelHeight;
+      }
     }
 
     if (i >= 0 && i < this.items.length) {
