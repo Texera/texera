@@ -19,32 +19,23 @@
 
 package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
-import com.twitter.util.Future
+import com.twitter.util.{Future, Promise}
 import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
-import edu.uci.ics.amber.engine.architecture.controller.{
-  ControllerAsyncRPCHandlerInitializer,
-  ExecutionStatsUpdate
-}
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AsyncRPCContext,
-  EmptyRequest,
-  QueryStatisticsRequest
-}
+import edu.uci.ics.amber.engine.architecture.controller.{ControllerAsyncRPCHandlerInitializer, ExecutionStatsUpdate}
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest, QueryStatisticsRequest}
 import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState
+import edu.uci.ics.amber.engine.architecture.worker.tableprofile.TableProfile
 import edu.uci.ics.amber.util.VirtualIdentityUtils
 
-/** Get statistics from all the workers
-  *
-  * possible sender: controller(by statusUpdateAskHandle)
-  */
 trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer =>
 
   override def controllerInitiateQueryStatistics(
-      msg: QueryStatisticsRequest,
-      ctx: AsyncRPCContext
-  ): Future[EmptyReturn] = {
+                                                  msg: QueryStatisticsRequest,
+                                                  ctx: AsyncRPCContext
+                                                ): Future[EmptyReturn] = {
 
-    // decide whom to contact
+    // 1. decide whom to contact
     val workers: Iterable[ActorVirtualIdentity] =
       if (msg.filterByWorkers.nonEmpty) msg.filterByWorkers
       else
@@ -52,24 +43,34 @@ trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer 
           .flatMap(_.getAllOperatorExecutions.map(_._2))
           .flatMap(_.getWorkerIds)
 
-    // kick off both RPCs for every worker in parallel
+    // 2. fire queries in parallel
     val requests: Seq[Future[Unit]] = workers.map { wid =>
       val exec = cp.workflowExecution
         .getLatestOperatorExecution(VirtualIdentityUtils.getPhysicalOpId(wid))
         .getWorkerExecution(wid)
 
-      val statF = workerInterface.queryStatistics(EmptyRequest(), wid)
-      val profF = workerInterface.queryTableProfile(EmptyRequest(), wid)
+      // query metrics first
+      workerInterface.queryStatistics(EmptyRequest(), wid).flatMap { stat =>
+        // update state & basic stats immediately
+        exec.setState(stat.metrics.workerState)
+        exec.setStats(stat.metrics.workerStatistics)
 
-      statF.join(profF).map {
-        case (stat, prof) =>
-          exec.setState(stat.metrics.workerState)
-          exec.setStats(stat.metrics.workerStatistics)
-          exec.setTableProfile(prof.tableProfiles)
+        if (stat.metrics.workerState == WorkerState.COMPLETED) {
+          // worker finished – fetch its profile too
+          workerInterface
+            .queryTableProfile(EmptyRequest(), wid)
+            .map { prof =>
+              exec.setTableProfile(prof.tableProfiles)
+            }
+        } else {
+          // not completed – record an empty profile
+          exec.setTableProfile(new TableProfile(None, Seq.empty))
+          Future.Unit
+        }
       }
     }.toSeq
 
-    // after everyone replied, push aggregated view to the UI
+    // 3. when all workers replied, push aggregated view to UI
     Future.collect(requests).map { _ =>
       sendToClient(
         ExecutionStatsUpdate(
@@ -77,7 +78,7 @@ trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer 
           cp.workflowExecution.getAllRegionExecutionTableProfiles
         )
       )
-      EmptyReturn() // reply to whoever asked the controller
+      EmptyReturn()
     }
   }
 }
