@@ -188,8 +188,41 @@ class OpenAIAgent(LLMAgent):
     ) -> SuggestionList:
         """
         Validate / repair suggestions according to the project rules.
-        Invalid suggestions are dropped.
+        Invalid suggestions are dropped.  In addition, port IDs in
+        `linksToAdd` are normalised to the Texera conventions:
+            •  sources  →  "output-<index>"   (default index = 0)
+            •  targets  →  "input-<index>"    (default index = 0)
         """
+
+        # ---------- helper --------------------------------------------------
+        def _normalise_port_id(raw_pid: Any, direction: str) -> str:
+            """
+            Coerce various user/LLM styles into the canonical form.
+
+            direction ∈ {"input", "output"}
+            """
+            if raw_pid is None:
+                return f"{direction}-0"
+
+            pid = str(raw_pid).strip().lower()
+
+            # already canonical
+            if pid.startswith(f"{direction}-"):
+                return pid
+
+            # just a bare integer (e.g. "0")
+            if pid.isdigit():
+                return f"{direction}-{pid}"
+
+            # naked "input"/"output" → assume 0
+            if pid in {"input", "output"}:
+                return f"{direction}-0"
+
+            # anything else – fall back to 0
+            return f"{direction}-0"
+
+        # --------------------------------------------------------------------
+
         try:
             workflow_dict = (
                 workflow_intp.get_base_workflow_interpretation().model_dump()
@@ -219,22 +252,35 @@ class OpenAIAgent(LLMAgent):
                             break  # invalid operator type -> drop suggestion
 
                     # if updating an existing op, ID must exist in workflow
-                    if op["operatorID"] in existing_ops:
-                        pass  # allowed – treated as in-place update
+                    # (otherwise it's a brand-new op, which is fine)
                 else:
                     # 2) linksToAdd ------------------------------------------------------
                     valid_link_add = True
                     for link in ch["linksToAdd"]:
+                        # ---------- NEW: fix / fill port IDs --------------------------
+                        # NB: we *mutate* the dict in-place so later checks see the
+                        #     corrected value.
+                        src_port = link.setdefault("source", {})
+                        tgt_port = link.setdefault("target", {})
+                        src_port["portID"] = _normalise_port_id(
+                            src_port.get("portID"), direction="output"
+                        )
+                        tgt_port["portID"] = _normalise_port_id(
+                            tgt_port.get("portID"), direction="input"
+                        )
+                        # --------------------------------------------------------------
+
                         # ensure linkID exists (generate if missing)
                         if not link.get("linkID"):
                             link["linkID"] = f"link-{uuid.uuid4()}"
+
                         # ensure endpoints refer to real or newly-added ops
-                        src_ok = link["source"]["operatorID"] in existing_ops or any(
-                            op["operatorID"] == link["source"]["operatorID"]
+                        src_ok = src_port["operatorID"] in existing_ops or any(
+                            op["operatorID"] == src_port["operatorID"]
                             for op in ch["operatorsToAdd"]
                         )
-                        tgt_ok = link["target"]["operatorID"] in existing_ops or any(
-                            op["operatorID"] == link["target"]["operatorID"]
+                        tgt_ok = tgt_port["operatorID"] in existing_ops or any(
+                            op["operatorID"] == tgt_port["operatorID"]
                             for op in ch["operatorsToAdd"]
                         )
                         if not (src_ok and tgt_ok):
@@ -256,6 +302,10 @@ class OpenAIAgent(LLMAgent):
                         continue  # any remaining schema errors – drop
 
             return SuggestionList(suggestions=cleaned)
+
+        except Exception as e:
+            print(f"Error sanitizing suggestions: {e}")
+            return SuggestionList(suggestions=[])
 
         except Exception as e:
             print(f"Error sanitizing suggestions: {e}")
