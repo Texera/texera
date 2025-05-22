@@ -21,8 +21,15 @@ package edu.uci.ics.amber.engine.architecture.controller.promisehandlers
 
 import com.twitter.util.{Future, Promise}
 import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
-import edu.uci.ics.amber.engine.architecture.controller.{ControllerAsyncRPCHandlerInitializer, ExecutionStatsUpdate}
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest, QueryStatisticsRequest}
+import edu.uci.ics.amber.engine.architecture.controller.{
+  ControllerAsyncRPCHandlerInitializer,
+  ExecutionStatsUpdate
+}
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+  AsyncRPCContext,
+  EmptyRequest,
+  QueryStatisticsRequest
+}
 import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
 import edu.uci.ics.amber.engine.architecture.worker.statistics.WorkerState
 import edu.uci.ics.amber.engine.architecture.worker.tableprofile.TableProfile
@@ -31,9 +38,9 @@ import edu.uci.ics.amber.util.VirtualIdentityUtils
 trait QueryWorkerStatisticsHandler { this: ControllerAsyncRPCHandlerInitializer =>
 
   override def controllerInitiateQueryStatistics(
-                                                  msg: QueryStatisticsRequest,
-                                                  ctx: AsyncRPCContext
-                                                ): Future[EmptyReturn] = {
+      msg: QueryStatisticsRequest,
+      ctx: AsyncRPCContext
+  ): Future[EmptyReturn] = {
 
     // 1. decide whom to contact
     val workers: Iterable[ActorVirtualIdentity] =

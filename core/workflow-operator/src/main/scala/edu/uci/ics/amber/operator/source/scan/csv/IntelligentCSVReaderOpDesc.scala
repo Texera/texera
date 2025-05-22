@@ -34,7 +34,7 @@ import play.api.libs.json.{JsObject, JsString, Json}
 import java.io.InputStreamReader
 import java.net.URI
 
-class PythonBasedCSVReaderOpDesc extends ScanSourceOpDesc {
+class IntelligentCSVReaderOpDesc extends ScanSourceOpDesc {
   @JsonProperty(defaultValue = ",")
   @JsonSchemaTitle("Delimiter")
   @JsonPropertyDescription("delimiter to separate each line into fields")
