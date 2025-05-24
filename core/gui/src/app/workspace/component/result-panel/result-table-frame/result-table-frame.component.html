@@ -69,31 +69,6 @@
             </div>
           </th>
         </tr>
-        <tr
-          *ngIf="tableProfile"
-          #profileRow
-          class="custom-profile-row">
-          <th *ngFor="let column of currentColumns">
-            <div class="profile-header">
-              <ng-container *ngIf="getColumnProfile(column.header) as colProfile">
-                <div class="profile-line">
-                  <span class="profile-label">Type:</span>
-                  <span class="profile-value">{{ colProfile.dataType }}</span>
-                </div>
-                <div
-                  class="profile-line"
-                  *ngIf="colProfile.dataLabel">
-                  <span class="profile-label">Label:</span>
-                  <span class="profile-value">{{ colProfile.dataLabel }}</span>
-                </div>
-                <div class="profile-line">
-                  <span class="profile-label">Categorical:</span>
-                  <span class="profile-value">{{ colProfile.categorical ? 'Yes' : 'No' }}</span>
-                </div>
-              </ng-container>
-            </div>
-          </th>
-        </tr>
       </thead>
       <tbody>
         <tr
