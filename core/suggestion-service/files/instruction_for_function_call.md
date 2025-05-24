@@ -204,30 +204,77 @@ class ProcessTupleOperator(UDFOperatorV2):
             "new york":   "NY", "ny": "NY",
             "texas":      "TX", "tx": "TX",
         }
-
-        raw = str(tuple_["BILLINGCOMPANYCODE"]).strip().lower()
-        tuple_["BILLINGCOMPANYCODE"] = _STATE_MAP.get(raw, raw.upper())
-        yield tuple_
+        if tuple_["BILLINGCOMPANYCODE"] is not None:
+            raw = str(tuple_["BILLINGCOMPANYCODE"]).strip().lower()
+            tuple_["BILLINGCOMPANYCODE"] = _STATE_MAP.get(raw, raw.upper())
+            yield tuple_
 ```
-  * Example 2: use Table API to convert the `CREATIONTIME` column into datetime, remove all the rows that have null timestamp and do a filtering using the cutoff date
+  * Example 2: use Table API to convert the `CREATIONTIME` column into a uniform format
 ```python
 from pytexera import *
 import pandas as pd
+import re
 
 class ProcessTableOperator(UDFTableOperator):
-    _CUTOFF = pd.Timestamp("2020-01-01", tz="UTC")
+    """
+    Clean the string‐typed `CREATIONTIME` column **without** converting the column
+    to real datetimes:
+
+    1. Normalise every entry to the canonical string format YYYY-MM-DD.
+    2. Drop rows that cannot be interpreted as a valid calendar date
+       (remain as `None` after normalisation).
+    """
+
+    _YMD   = re.compile(r"^\s*(\d{4})[/-](\d{1,2})[/-](\d{1,2}).*$")  # 2024-5-7 or 2024/05/07
+    _MDY   = re.compile(r"^\s*(\d{1,2})[/-](\d{1,2})[/-](\d{4}).*$")  # 5/7/2024 or 05-07-2024
+    _DMY   = re.compile(r"^\s*(\d{1,2})[/-](\d{1,2})[/-](\d{4}).*$")  # 07-05-2024 (day first)
+
+    @staticmethod
+    def _pad(n: str) -> str:
+        """Left-pad month/day to two digits."""
+        return n.zfill(2)
+
+    @classmethod
+    def _normalise(cls, s: str):
+        """
+        Convert a date string to YYYY-MM-DD.  Returns None if no pattern matches
+        or values are out of range (very light validation).
+        """
+        if not isinstance(s, str):
+            return None
+
+        s = s.strip()
+        m = cls._YMD.match(s)
+        if m:
+            y, mm, dd = m.groups()
+        else:
+            m = cls._MDY.match(s)
+            if m:
+                mm, dd, y = m.groups()
+            else:
+                m = cls._DMY.match(s)
+                if m:
+                    dd, mm, y = m.groups()
+                else:
+                    return None  # unrecognised format
+
+        # Basic sanity check
+        try:
+            year  = int(y)
+            month = int(mm)
+            day   = int(dd)
+            if not (1 <= month <= 12 and 1 <= day <= 31):
+                return None
+        except ValueError:
+            return None
+
+        return f"{year:04d}-{cls._pad(str(month))}-{cls._pad(str(day))}"
 
     def process_table(self, table: Table, port: int):
-        df = table
+        df: pd.DataFrame = table
 
-        # 1. Parse date strings; bad parses become NaT
-        df["CREATIONTIME"] = pd.to_datetime(df["CREATIONTIME"], errors="coerce", utc=True)
-
-        # 2. Drop rows where conversion failed
-        df = df.dropna(subset=["CREATIONTIME"])
-
-        # 3. Time-window filter
-        df = df[df["CREATIONTIME"] >= self._CUTOFF].reset_index(drop=True)
+        # Apply pure-string normalisation
+        df["CREATIONTIME"] = df["CREATIONTIME"].apply(self._normalise)
 
         yield df
 ```
@@ -235,5 +282,8 @@ class ProcessTableOperator(UDFTableOperator):
 * When writing the udf code, you MUST NOT change the class name
 * You should import pandas, numpy, sklearn and other common python packages when you want too use them
 * You don't need to import typing for the type annotations.
-* Tuple you can think it as the 'Dict' type. You should only use `[]` to do tuple's field's read & write. DO NOT use methods like `tuple_.get()` or `tuple_.set()`
+* Tuple you can think it as the 'Dict' type. You should ONLY use `[]` to do tuple's field's read & write. DO NOT use methods like `tuple_.get()` or `tuple_.set()` or `tuple_.values()`
 * Table you can think it as the `pandas.Dataframe`.
+* Try to use `yield` to return the result tuple or result df; DO NOT have the code that will yield tuple /table multiple times
+* When doing tuple / table APIs, be aware of the None value for the given key, e.g. `tuple_['key']`  could potentially be None value.
+* DO NOT cast types for any values in the tuple or table

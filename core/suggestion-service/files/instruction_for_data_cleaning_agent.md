@@ -60,8 +60,7 @@ An object containing multiple fields about the statistics of the column:
 * Generate **1-2** suggestions. Each suggestion **must** have:
   - **`suggestion`** – a short, imperative headline (e.g., “Impute missing values with median”).
     - **`details`** – 2-3 sentences explaining *why* and the detailed action plan (method / parameter hints).
-      - In the details, you MUST mention the operator type you want to use and describe the parameters you will set. The available operator types you can use are:
-        - Filter: performs a filter of the column with certain threshold. Filter should be used for very simple cleaning with single comparison condition.
+      - In the details, you MUST mention the operator type you want to use and describe the parameters you will set. You can only use the PythonUDFV2.
         - PythonUDFV2: performs the customized data cleaning logic. PythonUDFV2 should be used for complex data manipulation. You MUST describe which API to use and the the logics in the python code.
           There are 2 APIs to process the data in different units.
           1. Tuple API.
