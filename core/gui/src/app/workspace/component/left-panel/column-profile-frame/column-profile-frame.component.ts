@@ -137,7 +137,7 @@ export class ColumnProfileFrameComponent implements OnInit {
     } else {
       this.barChartData = [];
     }
-    this.fetchOrGetCachedDataCleaningSuggestions(this.columnProfile);
+    // this.fetchOrGetCachedDataCleaningSuggestions(this.columnProfile);
   }
 
   private resetDisplayData(): void {

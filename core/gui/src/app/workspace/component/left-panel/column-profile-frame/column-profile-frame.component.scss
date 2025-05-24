@@ -35,6 +35,37 @@
   .data-cleaning-suggestions-section {
     margin-top: 16px;
 
+    .suggestions-header-main-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 2px; 
+    }
+
+    .copilot-attribution-wrapper {
+        margin-bottom: 8px; 
+    }
+
+    .copilot-attribution {
+      display: flex;
+      align-items: center;
+      font-size: 0.75em; 
+      color: #777;       
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; 
+      font-style: italic; 
+
+      i[nz-icon] {
+        margin-right: 5px;
+        font-size: 1.2em; 
+        color: #007bff; 
+      }
+    }
+
+    h4 { 
+      margin-bottom: 0; 
+    }
+    
     .no-suggestions-message {
       padding: 10px;
       background-color: #f0f0f0;
@@ -44,113 +75,97 @@
       color: #555;
       font-style: italic;
     }
+  }
 
-    .suggestions-list {
-      // Remove background and border from the list container itself
-      // background-color: #fffbe6;
-      // border: 1px solid #ffe58f;
-      padding: 0; // Remove padding if items will have their own
-      border-radius: 4px;
-      list-style-type: none;
-      margin: 0;
+  // =========================
+  // Suggestion List & Items
+  // =========================
+  .suggestions-list {
+    padding: 0;
+    list-style-type: none;
+    margin: 0;
+  }
 
-      .suggestion-item {
-        padding: 8px 12px; // Adjusted padding for better spacing within item
-        margin-bottom: 6px; // Space between items
-        color: #333;
-        border-radius: 3px;
-        cursor: pointer;
-        transition:
-          background-color 0.2s ease-in-out,
-          color 0.2s ease-in-out,
-          border-color 0.2s ease-in-out; // Added border-color transition
-        display: flex;
-        flex-direction: column;
+  // Style each suggestion item regardless of parent container
+  .suggestion-item {
+    margin-bottom: 6px;
+    color: #333;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    // Apply transitions for hover/active effects
+    transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
 
-        // Default state - yellow background for each item
-        background-color: #fffbe6;
-        border: 1px solid #ffe58f;
+    // Default appearance
+    background-color: #fffbe6; // light yellow
+    border: 1px solid #ffe58f;
+    padding: 10px 14px;
 
-        &:last-child {
-          margin-bottom: 0;
-        }
+    &:last-child {
+      margin-bottom: 0;
+    }
 
-        &:hover {
-          background-color: #ffe58f;
-          border-color: #ffd700; // Darker border on hover
-          color: #000;
-        }
+    // Hover (not expanded)
+    &:not(.expanded):hover {
+      background-color: #ffecb3;
+      border-color: #ffd666;
+      transform: translateY(-2px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      color: #000;
+    }
 
-        .suggestion-type {
-          // This style was outside .suggestion-item before, moved in
-          font-size: 0.85em;
-          color: #777;
-          margin-left: 4px;
-        }
+    // Expanded state
+    &.expanded {
+      background-color: #fff9db;
+      border-color: #ffe58f;
+      padding-bottom: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
-        .suggestion-summary {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          width: 100%;
-        }
-
-        .expand-icon {
-          margin-left: 8px;
-          font-size: 0.8em;
-          color: #555;
-        }
-
-        // Styles when expanded
-        &.expanded {
-          background-color: #fff9e0; // Slightly lighter or different yellow for expanded
-          border-color: #ffecb3; // Lighter border for expanded
-
-          &:hover {
-            background-color: #fff0b3; // Hover for expanded item
-            border-color: #ffe58f;
-          }
-        }
-
-        .suggestion-details-wrapper {
-          padding-top: 10px; // Increased padding
-          margin-top: 10px; // Increased margin
-          border-top: 1px dashed #dcdcdc; // Slightly darker dashed line
-        }
-
-        .suggestion-details-area {
-          width: 100%;
-          min-height: 80px; // Increased min-height for the textarea
-          // Consider adding max-height or using 'rows' attribute if needed
-          // max-height: 150px;
-          // overflow-y: auto; // if max-height is set
-          font-family: monospace;
-          font-size: 0.85em;
-          padding: 8px; // Increased padding
-          border: 1px solid #ccc;
-          border-radius: 3px;
-          resize: vertical;
-          background-color: #fdfdfd; // Slightly off-white background for textarea
-          color: #333;
-          margin-bottom: 10px; // Increased margin
-        }
-
-        .suggestion-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-
-          .action-btn {
-            &.accept-btn {
-              // Default primary button style is usually fine
-            }
-
-            &.reject-btn {
-              // Default danger button style is usually fine
-            }
-          }
-        }
+      &:hover {
+        background-color: #ffefc2;
       }
+
+      .suggestion-details-wrapper {
+        padding-top: 10px;
+        margin-top: 10px;
+        border-top: 1px dashed #dcdcdc;
+      }
+
+      .suggestion-details-area {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 160px;
+        font-family: monospace;
+        font-size: 0.85em;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        resize: vertical;
+        background-color: #fdfdfd;
+        color: #333;
+        margin-bottom: 10px;
+      }
+
+      .suggestion-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+    }
+
+    // Inner elements common to both collapsed & expanded states
+    .suggestion-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .expand-icon {
+      margin-left: 8px;
+      font-size: 0.8em;
+      color: #555;
     }
   }
 }
@@ -181,3 +196,21 @@
 //      font-size: 9px !important;
 //   }
 // }
+
+.loading-suggestions-message {
+  padding: 10px;
+  text-align: center;
+  background-color: #fffbe6; // light yellow background
+  border: 1px solid #ffe58f; // yellow border to match suggestion items
+  color: #ad8b00; // dark yellow/brown text for contrast
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 500;
+
+  .loading-icon {
+    font-size: 16px;
+  }
+}

@@ -59,7 +59,7 @@
     </div>
 
     <div class="data-cleaning-suggestions-section section-header">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+      <div class="suggestions-header-main-line">
         <h4>Data Cleaning Suggestions</h4>
         <button
           nz-button
@@ -75,76 +75,87 @@
           Refresh
         </button>
       </div>
-
-      <div
-        *ngIf="isLoadingDataCleaningSuggestions && dataCleaningSuggestions.length === 0"
-        style="padding: 10px; text-align: center">
-        Loading data cleaning suggestions...
+      <div class="copilot-attribution-wrapper">
+        <span class="copilot-attribution">
+          <i nz-icon nzType="robot" nzTheme="outline"></i>
+          Powered by Data Copilot
+        </span>
       </div>
-
-      <div
-        *ngIf="!isLoadingDataCleaningSuggestions && dataCleaningSuggestions.length === 0 && lastFetchedSuggestionsForColumn"
-        class="no-suggestions-message">
-        No data cleaning suggestions available for this column.
-      </div>
-
-      <ul
-        *ngIf="dataCleaningSuggestions.length > 0"
-        class="suggestions-list">
-        <li
-          *ngFor="let suggestion of dataCleaningSuggestions"
-          class="suggestion-item"
-          (click)="toggleSuggestionExpansion(suggestion)"
-          [class.expanded]="suggestion.isExpanded"
-          title="Click to {{ suggestion.isExpanded ? 'collapse' : 'expand' }} suggestion">
-          <div class="suggestion-summary">
-            {{ suggestion.suggestion }}
-            <i
-              nz-icon
-              [nzType]="suggestion.isExpanded ? 'up' : 'down'"
-              class="expand-icon"></i>
-          </div>
-          <div
-            *ngIf="suggestion.isExpanded"
-            class="suggestion-details-wrapper"
-            (click)="$event.stopPropagation()">
-            <textarea
-              readonly
-              class="suggestion-details-area">
-{{ suggestion.details }}</textarea
-            >
-            <div class="suggestion-actions">
-              <button
-                nz-button
-                nzType="primary"
-                nzShape="circle"
-                nzSize="small"
-                class="action-btn accept-btn"
-                (click)="acceptSuggestion(suggestion, $event)"
-                [nzLoading]="suggestion.isAccepting"
-                title="Accept suggestion">
-                <i
-                  nz-icon
-                  nzType="check"></i>
-              </button>
-              <button
-                nz-button
-                nzType="primary"
-                nzDanger
-                nzShape="circle"
-                nzSize="small"
-                class="action-btn reject-btn"
-                (click)="rejectSuggestion(suggestion, $event)"
-                title="Reject suggestion">
-                <i
-                  nz-icon
-                  nzType="close"></i>
-              </button>
-            </div>
-          </div>
-        </li>
-      </ul>
     </div>
+
+    <div
+      *ngIf="isLoadingDataCleaningSuggestions && dataCleaningSuggestions.length === 0"
+      class="loading-suggestions-message">
+      <i
+        nz-icon
+        nzType="loading"
+        nzTheme="outline"
+        class="loading-icon"></i>
+      Loading data cleaning suggestions...
+    </div>
+
+    <div
+      *ngIf="!isLoadingDataCleaningSuggestions && dataCleaningSuggestions.length === 0 && lastFetchedSuggestionsForColumn"
+      class="no-suggestions-message">
+      No data cleaning suggestions available for this column.
+    </div>
+
+    <ul
+      *ngIf="dataCleaningSuggestions.length > 0"
+      class="suggestions-list">
+      <li
+        *ngFor="let suggestion of dataCleaningSuggestions"
+        class="suggestion-item"
+        (click)="toggleSuggestionExpansion(suggestion)"
+        [class.expanded]="suggestion.isExpanded"
+        title="Click to {{ suggestion.isExpanded ? 'collapse' : 'expand' }} suggestion">
+        <div class="suggestion-summary">
+          {{ suggestion.suggestion }}
+          <i
+            nz-icon
+            [nzType]="suggestion.isExpanded ? 'up' : 'down'"
+            class="expand-icon"></i>
+        </div>
+        <div
+          *ngIf="suggestion.isExpanded"
+          class="suggestion-details-wrapper"
+          (click)="$event.stopPropagation()">
+          <textarea
+            readonly
+            class="suggestion-details-area">
+{{ suggestion.details }}</textarea
+          >
+          <div class="suggestion-actions">
+            <button
+              nz-button
+              nzType="primary"
+              nzShape="circle"
+              nzSize="small"
+              class="action-btn accept-btn"
+              (click)="acceptSuggestion(suggestion, $event)"
+              [nzLoading]="suggestion.isAccepting"
+              title="Accept suggestion">
+              <i
+                nz-icon
+                nzType="check"></i>
+            </button>
+            <button
+              nz-button
+              nzType="primary"
+              nzDanger
+              nzShape="circle"
+              nzSize="small"
+              class="action-btn reject-btn"
+              (click)="rejectSuggestion(suggestion, $event)"
+              title="Reject suggestion">
+              <i
+                nz-icon
+                nzType="close"></i>
+            </button>
+          </div>
+        </div>
+      </li>
+    </ul>
   </div>
 </div>
 
