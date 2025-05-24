@@ -1,6 +1,25 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
 import { Injectable } from "@angular/core";
 import { BehaviorSubject } from "rxjs";
-import { WorkflowActionService } from "../workflow-graph/model/workflow-action.service"; // Import WorkflowActionService
+import { WorkflowActionService } from "../workflow-graph/model/workflow-action.service";
 import mapping from "../../../../assets/migration_tool/mapping";
 import { OperatorLink } from "../../types/workflow-common.interface";
 
@@ -28,7 +47,8 @@ export class JupyterPanelService {
 
   // Precompute the dictionary for O(1) highlighting
   private precomputeHighlightMapping(): void {
-    const cellToOperator = mapping.cell_to_operator;
+    const wid = this.workflowActionService.getWorkflow().wid;
+    const cellToOperator = mapping[wid != undefined ? "mapping_wid_" + wid : "default"].cell_to_operator;
     const allLinks: OperatorLink[] = this.workflowActionService.getTexeraGraph().getAllLinks();
 
     if (allLinks.length === 0) {
@@ -37,7 +57,6 @@ export class JupyterPanelService {
     }
 
     for (const cellUUID in cellToOperator) {
-      // @ts-ignore
       const components = cellToOperator[cellUUID] || [];
       const componentSet = new Set(components);
       const edges: string[] = [];
@@ -77,6 +96,10 @@ export class JupyterPanelService {
   // Close the Jupyter Notebook panel
   closeJupyterNotebookPanel(): void {
     this.jupyterNotebookPanelVisible.next(false);
+    const wid = this.workflowActionService.getWorkflow().wid;
+    if (wid != undefined && "mapping_wid_" + wid in mapping) {
+      delete mapping["mapping_wid_" + wid];
+    }
   }
 
   // Minimize the Jupyter Notebook panel
@@ -138,8 +161,8 @@ export class JupyterPanelService {
   // Handle when a Texera component is clicked to trigger the corresponding notebook cell
   onWorkflowComponentClick(cellUUID: string): void {
     if (this.iframeRef && this.iframeRef.contentWindow) {
-      // @ts-ignore
-      const operatorArray = mapping["operator_to_cell"][cellUUID];
+      const wid = this.workflowActionService.getWorkflow().wid;
+      const operatorArray = mapping[wid != undefined ? "mapping_wid_" + wid : "default"]["operator_to_cell"][cellUUID];
       if (operatorArray) {
         this.iframeRef.contentWindow.postMessage(
           { action: "triggerCellClick", operators: operatorArray },
