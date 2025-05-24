@@ -21,7 +21,7 @@ package edu.uci.ics.amber.engine.architecture.worker
 
 import com.softwaremill.macwire.wire
 import edu.uci.ics.amber.core.executor.OperatorExecutor
-import edu.uci.ics.amber.core.marker.{EndOfInputChannel, StartOfInputChannel, State}
+import edu.uci.ics.amber.core.marker.State
 import edu.uci.ics.amber.core.tuple.{
   FinalizeExecutor,
   FinalizePort,
@@ -52,6 +52,10 @@ import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
 import edu.uci.ics.amber.error.ErrorUtils.{mkConsoleMessage, safely}
 import edu.uci.ics.amber.core.virtualidentity.{ActorVirtualIdentity, ChannelIdentity}
 import edu.uci.ics.amber.core.workflow.PortIdentity
+import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.{
+  METHOD_END_CHANNEL,
+  METHOD_START_CHANNEL
+}
 
 class DataProcessor(
     actorId: ActorVirtualIdentity,
@@ -122,43 +126,6 @@ class DataProcessor(
     }
   }
 
-  /**
-    * process start of an input port with Executor.produceStateOnStart().
-    * this function is only called by the DP thread.
-    */
-  private[this] def processStartOfInputChannel(portId: Int): Unit = {
-    try {
-      outputManager.emitMarker(StartOfInputChannel())
-      val outputState = executor.produceStateOnStart(portId)
-      if (outputState.isDefined) {
-        outputManager.emitMarker(outputState.get)
-      }
-    } catch safely {
-      case e =>
-        handleExecutorException(e)
-    }
-  }
-
-  /**
-    * process end of an input port with Executor.produceStateOnFinish().
-    * this function is only called by the DP thread.
-    */
-  private[this] def processEndOfInputChannel(portId: Int): Unit = {
-    try {
-      val outputState = executor.produceStateOnFinish(portId)
-      if (outputState.isDefined) {
-        outputManager.emitMarker(outputState.get)
-      }
-      outputManager.outputIterator.setTupleOutput(
-        executor.onFinishMultiPort(portId)
-      )
-    } catch safely {
-      case e =>
-        // forward input tuple to the user and pause DP thread
-        handleExecutorException(e)
-    }
-  }
-
   /** transfer one tuple from iterator to downstream.
     * this function is only called by the DP thread
     */
@@ -181,10 +148,9 @@ class DataProcessor(
     val (outputTuple, outputPortOpt) = out
 
     if (outputTuple == null) return
-
     outputTuple match {
       case FinalizeExecutor() =>
-        outputManager.emitMarker(EndOfInputChannel())
+        asyncRPCClient.sendChannelMarkerToDataChannels(METHOD_END_CHANNEL)
         // Send Completed signal to worker actor.
         executor.close()
         adaptiveBatchingMonitor.stopAdaptiveBatching()
@@ -249,24 +215,53 @@ class DataProcessor(
         marker match {
           case state: State =>
             processInputState(state, portId.id)
-          case StartOfInputChannel() =>
-            processStartOfInputChannel(portId.id)
-          case EndOfInputChannel() =>
-            this.inputManager.getPort(portId).channels(channelId) = true
-            if (inputManager.isPortCompleted(portId)) {
-              inputManager.initBatch(channelId, Array.empty)
-              processEndOfInputChannel(portId.id)
-              outputManager.outputIterator.appendSpecialTupleToEnd(
-                FinalizePort(portId, input = true)
-              )
-            }
-            if (inputManager.getAllPorts.forall(portId => inputManager.isPortCompleted(portId))) {
-              // assuming all the output ports finalize after all input ports are finalized.
-              outputManager.finalizeOutput()
-            }
+          case _ =>
         }
     }
     statisticsManager.increaseDataProcessingTime(System.nanoTime() - dataProcessingStartTime)
+  }
+
+  def processStartOfInputChannel(): Unit = {
+    val portId = this.inputGateway.getChannel(inputManager.currentChannelId).getPortId
+    asyncRPCClient.sendChannelMarkerToDataChannels(METHOD_START_CHANNEL)
+    try {
+      val outputState = executor.produceStateOnStart(portId.id)
+      if (outputState.isDefined) {
+        outputManager.emitMarker(outputState.get)
+      }
+    } catch safely {
+      case e =>
+        handleExecutorException(e)
+    }
+  }
+
+  def processEndOfInputChannel(): Unit = {
+    val channelId = inputManager.currentChannelId
+    val portId = this.inputGateway.getChannel(channelId).getPortId
+    this.inputManager.getPort(portId).completed = true
+    inputManager.initBatch(channelId, Array.empty)
+    try {
+      val outputState = executor.produceStateOnFinish(portId.id)
+      if (outputState.isDefined) {
+        outputManager.emitMarker(outputState.get)
+      }
+      outputManager.outputIterator.setTupleOutput(
+        executor.onFinishMultiPort(portId.id)
+      )
+    } catch safely {
+      case e =>
+        // forward input tuple to the user and pause DP thread
+        handleExecutorException(e)
+    }
+
+    outputManager.outputIterator.appendSpecialTupleToEnd(
+      FinalizePort(portId, input = true)
+    )
+
+    if (inputManager.getAllPorts.forall(portId => this.inputManager.getPort(portId).completed)) {
+      // assuming all the output ports finalize after all input ports are finalized.
+      outputManager.finalizeOutput()
+    }
   }
 
   def processChannelMarker(
@@ -274,16 +269,18 @@ class DataProcessor(
       marker: ChannelMarkerPayload,
       logManager: ReplayLogManager
   ): Unit = {
+    println("betgergverv", marker.commandMapping)
+    inputManager.currentChannelId = channelId
     val markerId = marker.id
     val command = marker.commandMapping.get(actorId.name)
-    logger.info(s"receive marker from $channelId, id = ${marker.id}, cmd = ${command}")
+    logger.info(s"receive marker from $channelId, id = $markerId, cmd = $command")
     if (marker.markerType == REQUIRE_ALIGNMENT) {
       pauseManager.pauseInputChannel(EpochMarkerPause(markerId), List(channelId))
     }
     if (channelMarkerManager.isMarkerAligned(channelId, marker)) {
       logManager.markAsReplayDestination(markerId)
       // invoke the control command carried with the epoch marker
-      logger.info(s"process marker from $channelId, id = ${marker.id}, cmd = ${command}")
+      logger.info(s"process marker from $channelId, id = $markerId, cmd = $command")
       if (command.isDefined) {
         asyncRPCServer.receive(command.get, channelId.fromWorkerId)
       }
@@ -294,7 +291,7 @@ class DataProcessor(
         outputGateway.getActiveChannels.foreach { activeChannelId =>
           if (downstreamChannelsInScope.contains(activeChannelId)) {
             logger.info(
-              s"send marker to $activeChannelId, id = ${marker.id}, cmd = ${command}"
+              s"send marker to $activeChannelId, id = $markerId, cmd = $command"
             )
             outputGateway.sendTo(activeChannelId, marker)
           }

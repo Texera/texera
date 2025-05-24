@@ -43,7 +43,7 @@ from core.models.internal_queue import (
     ChannelMarkerElement,
     InternalQueueElement,
 )
-from core.models.marker import State, EndOfInputChannel, StartOfInputChannel
+from core.models.marker import State
 from core.runnables.data_processor import DataProcessor
 from core.util import StoppableQueueBlockingRunnable, get_one_of
 from core.util.console_message.timestamp import current_time_in_local_timezone
@@ -58,6 +58,8 @@ from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     ConsoleMessageTriggeredRequest,
     ChannelMarkerType,
     ChannelMarkerPayload,
+    AsyncRpcContext,
+    ControlRequest,
 )
 from proto.edu.uci.ics.amber.engine.architecture.worker import (
     WorkerState,
@@ -67,6 +69,7 @@ from proto.edu.uci.ics.amber.core import (
     ActorVirtualIdentity,
     PortIdentity,
     ChannelIdentity,
+    ChannelMarkerIdentity,
 )
 
 
@@ -285,19 +288,8 @@ class MainLoop(StoppableQueueBlockingRunnable):
         Upon receipt of an StartOfAllMarker,
         which indicates the start of any input links,
         send the StartOfInputChannel to all downstream workers.
-
-        :param _: StartOfAny Internal Marker
         """
-        for to, batch in self.context.output_manager.emit_marker(StartOfInputChannel()):
-            self._output_queue.put(
-                DataElement(
-                    tag=ChannelIdentity(
-                        ActorVirtualIdentity(self.context.worker_id), to, False
-                    ),
-                    payload=batch,
-                )
-            )
-            self._check_and_process_control()
+        self._send_channel_marker_to_data_channels("StartChannel")
 
     def _process_end_of_output_ports(self, _: EndOfOutputPorts) -> None:
         """
@@ -310,16 +302,7 @@ class MainLoop(StoppableQueueBlockingRunnable):
         """
         self.context.output_manager.close_port_storage_writers()
 
-        for to, batch in self.context.output_manager.emit_marker(EndOfInputChannel()):
-            self._output_queue.put(
-                DataElement(
-                    tag=ChannelIdentity(
-                        ActorVirtualIdentity(self.context.worker_id), to, False
-                    ),
-                    payload=batch,
-                )
-            )
-            self._check_and_process_control()
+        self._send_channel_marker_to_data_channels("EndChannel")
 
         # Need to send port completed even if there is no downstream link
         for port_id in self.context.output_manager.get_port_ids():
@@ -375,20 +358,44 @@ class MainLoop(StoppableQueueBlockingRunnable):
                             f"send marker to {active_channel_id},"
                             f" id = {marker_id}, cmd = {command}"
                         )
-                        for batch in self.context.output_manager.emit_marker_to_channel(
-                            active_channel_id.to_worker_id, marker_payload
-                        ):
-                            tag = active_channel_id
-                            element = (
-                                ChannelMarkerElement(tag=tag, payload=batch)
-                                if isinstance(batch, ChannelMarkerPayload)
-                                else DataElement(tag=tag, payload=batch)
-                            )
-
-                            self._output_queue.put(element)
+                        self._send_channel_marker(active_channel_id, marker_payload)
 
             if marker_payload.marker_type == ChannelMarkerType.REQUIRE_ALIGNMENT:
                 self.context.pause_manager.resume(PauseType.MARKER_PAUSE)
+
+    def _send_channel_marker_to_data_channels(self, method_name: str) -> None:
+        for active_channel_id in self.context.output_manager.get_output_channel_ids():
+            if not active_channel_id.is_control:
+                marker_payload = ChannelMarkerPayload(
+                    ChannelMarkerIdentity(method_name),
+                    ChannelMarkerType.REQUIRE_ALIGNMENT,
+                    [],
+                    {
+                        active_channel_id.to_worker_id.name: ControlInvocation(
+                            method_name,
+                            ControlRequest(empty_request=EmptyRequest()),
+                            AsyncRpcContext(
+                                ActorVirtualIdentity(), ActorVirtualIdentity()
+                            ),
+                            -1,
+                        )
+                    },
+                )
+                self._send_channel_marker(active_channel_id, marker_payload)
+
+    def _send_channel_marker(
+        self, channel_id: ChannelIdentity, marker_payload: ChannelMarkerPayload
+    ) -> None:
+        for batch in self.context.output_manager.emit_marker_to_channel(
+            channel_id.to_worker_id, marker_payload
+        ):
+            tag = channel_id
+            element = (
+                ChannelMarkerElement(tag=tag, payload=batch)
+                if isinstance(batch, ChannelMarkerPayload)
+                else DataElement(tag=tag, payload=batch)
+            )
+            self._output_queue.put(element)
 
     def _process_data_element(self, data_element: DataElement) -> None:
         """

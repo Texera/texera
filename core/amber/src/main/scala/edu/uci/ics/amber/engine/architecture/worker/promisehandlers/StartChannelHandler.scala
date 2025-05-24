@@ -17,14 +17,21 @@
  * under the License.
  */
 
-package edu.uci.ics.amber.engine.architecture.messaginglayer
+package edu.uci.ics.amber.engine.architecture.worker.promisehandlers
 
-import edu.uci.ics.amber.core.tuple.Schema
-import edu.uci.ics.amber.core.virtualidentity.ChannelIdentity
+import com.twitter.util.Future
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.worker.DataProcessorRPCHandlerInitializer
 
-import scala.collection.mutable
+trait StartChannelHandler {
+  this: DataProcessorRPCHandlerInitializer =>
 
-case class WorkerPort(
-    schema: Schema,
-    var completed: Boolean = false
-)
+  override def startChannel(
+      request: EmptyRequest,
+      ctx: AsyncRPCContext
+  ): Future[EmptyReturn] = {
+    dp.processStartOfInputChannel()
+    EmptyReturn()
+  }
+}
