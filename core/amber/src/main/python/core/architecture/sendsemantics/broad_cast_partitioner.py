@@ -32,13 +32,15 @@ from proto.edu.uci.ics.amber.core import ActorVirtualIdentity
 
 
 class BroadcastPartitioner(Partitioner):
-    def __init__(self, partitioning: BroadcastPartitioning):
+    def __init__(self, partitioning: BroadcastPartitioning, worker_id: str):
         super().__init__(set_one_of(Partitioning, partitioning))
         self.batch_size = partitioning.batch_size
         self.batch: list[Tuple] = list()
-        self.receivers = list(
-            {channel.to_worker_id for channel in partitioning.channels}
-        )
+        self.receivers = [
+            channel.to_worker_id
+            for channel in partitioning.channels
+            if channel.from_worker_id.name == worker_id
+        ]
 
     @overrides
     def add_tuple_to_batch(

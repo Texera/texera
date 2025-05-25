@@ -32,12 +32,14 @@ from proto.edu.uci.ics.amber.core import ActorVirtualIdentity
 
 
 class RoundRobinPartitioner(Partitioner):
-    def __init__(self, partitioning: RoundRobinPartitioning):
+    def __init__(self, partitioning: RoundRobinPartitioning, worker_id: str):
         super().__init__(set_one_of(Partitioning, partitioning))
         self.batch_size = partitioning.batch_size
+        self.receivers = []
         self.receivers = [
-            (receiver, [])
-            for receiver in {channel.to_worker_id for channel in partitioning.channels}
+            (channel.to_worker_id, [])
+            for channel in partitioning.channels
+            if channel.from_worker_id.name == worker_id
         ]
         self.round_robin_index = 0
 

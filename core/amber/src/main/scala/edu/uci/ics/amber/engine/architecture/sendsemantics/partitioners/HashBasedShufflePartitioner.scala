@@ -23,10 +23,10 @@ import edu.uci.ics.amber.core.tuple.Tuple
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.HashBasedShufflePartitioning
 import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
 
-case class HashBasedShufflePartitioner(partitioning: HashBasedShufflePartitioning)
+case class HashBasedShufflePartitioner(partitioning: HashBasedShufflePartitioning, actorId: ActorVirtualIdentity)
     extends Partitioner {
 
-  private val receivers = partitioning.channels.map(_.toWorkerId).distinct
+  private val receivers = partitioning.channels.filter(_.fromWorkerId == actorId).map(_.toWorkerId)
 
   override def getBucketIndex(tuple: Tuple): Iterator[Int] = {
     val numBuckets = receivers.length

@@ -33,13 +33,14 @@ from proto.edu.uci.ics.amber.core import ActorVirtualIdentity
 
 
 class RangeBasedShufflePartitioner(Partitioner):
-    def __init__(self, partitioning: RangeBasedShufflePartitioning):
+    def __init__(self, partitioning: RangeBasedShufflePartitioning, worker_id: str):
         super().__init__(set_one_of(Partitioning, partitioning))
         logger.info(f"got {partitioning}")
         self.batch_size = partitioning.batch_size
         self.receivers = [
-            (receiver, [])
-            for receiver in {channel.to_worker_id for channel in partitioning.channels}
+            (channel.to_worker_id, [])
+            for channel in partitioning.channels
+            if channel.from_worker_id.name == worker_id
         ]
         self.range_attribute_names = partitioning.range_attribute_names
         self.range_min = partitioning.range_min

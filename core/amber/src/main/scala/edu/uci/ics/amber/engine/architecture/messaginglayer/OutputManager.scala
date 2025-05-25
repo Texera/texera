@@ -50,13 +50,13 @@ object OutputManager {
       case oneToOnePartitioning: OneToOnePartitioning =>
         OneToOnePartitioner(oneToOnePartitioning, actorId)
       case roundRobinPartitioning: RoundRobinPartitioning =>
-        RoundRobinPartitioner(roundRobinPartitioning)
+        RoundRobinPartitioner(roundRobinPartitioning, actorId)
       case hashBasedShufflePartitioning: HashBasedShufflePartitioning =>
-        HashBasedShufflePartitioner(hashBasedShufflePartitioning)
+        HashBasedShufflePartitioner(hashBasedShufflePartitioning, actorId)
       case rangeBasedShufflePartitioning: RangeBasedShufflePartitioning =>
-        RangeBasedShufflePartitioner(rangeBasedShufflePartitioning)
+        RangeBasedShufflePartitioner(rangeBasedShufflePartitioning, actorId)
       case broadcastPartitioning: BroadcastPartitioning =>
-        BroadcastPartitioner(broadcastPartitioning)
+        BroadcastPartitioner(broadcastPartitioning, actorId)
       case _ => throw new RuntimeException(s"partitioning $partitioning not supported")
     }
     partitioner

@@ -23,9 +23,9 @@ import edu.uci.ics.amber.core.tuple.Tuple
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.BroadcastPartitioning
 import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
 
-case class BroadcastPartitioner(partitioning: BroadcastPartitioning) extends Partitioner {
+case class BroadcastPartitioner(partitioning: BroadcastPartitioning, actorId: ActorVirtualIdentity) extends Partitioner {
 
-  private val receivers = partitioning.channels.map(_.toWorkerId).distinct
+  private val receivers = partitioning.channels.filter(_.fromWorkerId == actorId).map(_.toWorkerId)
 
   override def getBucketIndex(tuple: Tuple): Iterator[Int] = {
     receivers.indices.iterator

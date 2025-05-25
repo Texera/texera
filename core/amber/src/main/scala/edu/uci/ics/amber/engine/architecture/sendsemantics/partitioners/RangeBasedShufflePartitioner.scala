@@ -23,10 +23,10 @@ import edu.uci.ics.amber.core.tuple.{AttributeType, Tuple}
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.RangeBasedShufflePartitioning
 import edu.uci.ics.amber.core.virtualidentity.ActorVirtualIdentity
 
-case class RangeBasedShufflePartitioner(partitioning: RangeBasedShufflePartitioning)
+case class RangeBasedShufflePartitioner(partitioning: RangeBasedShufflePartitioning, actorId: ActorVirtualIdentity)
     extends Partitioner {
 
-  private val receivers = partitioning.channels.map(_.toWorkerId).distinct
+  private val receivers = partitioning.channels.filter(_.fromWorkerId == actorId).map(_.toWorkerId)
   private val keysPerReceiver =
     ((partitioning.rangeMax - partitioning.rangeMin) / receivers.length) + 1
 

@@ -32,13 +32,14 @@ from proto.edu.uci.ics.amber.core import ActorVirtualIdentity
 
 
 class HashBasedShufflePartitioner(Partitioner):
-    def __init__(self, partitioning: HashBasedShufflePartitioning):
+    def __init__(self, partitioning: HashBasedShufflePartitioning, worker_id: str):
         super().__init__(set_one_of(Partitioning, partitioning))
         logger.debug(f"got {partitioning}")
         self.batch_size = partitioning.batch_size
         self.receivers = [
-            (receiver, [])
-            for receiver in {channel.to_worker_id for channel in partitioning.channels}
+            (channel.to_worker_id, [])
+            for channel in partitioning.channels
+            if channel.from_worker_id.name == worker_id
         ]
         self.hash_attribute_names = partitioning.hash_attribute_names
 
