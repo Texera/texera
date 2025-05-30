@@ -16,7 +16,7 @@
 # under the License.
 
 import threading
-from typing import Iterator, Optional, Union, Dict, List
+from typing import Iterator, Optional, Union, Dict, List, Set
 from pyarrow.lib import Table
 from core.models import Tuple, ArrowTableTupleProvider, Schema, InternalQueue
 from core.models.internal_marker import (
@@ -42,30 +42,22 @@ from proto.edu.uci.ics.amber.engine.architecture.sendsemantics import Partitioni
 class Channel:
     def __init__(self):
         self.port_id: Optional[PortIdentity] = None
-        self.completed = False
 
     def set_port_id(self, port_id: PortIdentity) -> None:
         self.port_id = port_id
 
-    def complete(self) -> None:
-        self.completed = True
-
-    def is_completed(self) -> bool:
-        return self.completed
-
 
 class WorkerPort:
     def __init__(self, schema: Schema):
-        self.channels: List[Channel] = list()
         self._schema = schema
+        self._channels: Set[ChannelIdentity] = set()
+        self.completed = False
 
-    def add_channel(self, channel: Channel) -> None:
-        self.channels.append(channel)
+    def add_channel(self, channel: ChannelIdentity) -> None:
+        self._channels.add(channel)
 
-    def is_completed(self) -> bool:
-        return bool(self.channels) and all(
-            map(lambda channel: channel.is_completed(), self.channels)
-        )
+    def get_channels(self) -> Set[ChannelIdentity]:
+        return self._channels
 
     def get_schema(self) -> Schema:
         return self._schema
@@ -141,6 +133,9 @@ class InputManager:
     def get_port_id(self, channel_id: ChannelIdentity) -> PortIdentity:
         return self._channels[channel_id].port_id
 
+    def get_port(self, port_id: PortIdentity) -> WorkerPort:
+        return self._ports[port_id]
+
     def register_input(
         self, channel_id: ChannelIdentity, port_id: PortIdentity
     ) -> None:
@@ -151,7 +146,7 @@ class InputManager:
         channel = Channel()
         channel.set_port_id(port_id)
         self._channels[channel_id] = channel
-        self._ports[port_id].add_channel(channel)
+        self._ports[port_id].add_channel(channel_id)
 
     def process_data_payload(
         self, from_: ChannelIdentity, payload: DataPayload
@@ -191,21 +186,7 @@ class InputManager:
             yield StartOfInputPort()
         if isinstance(marker, EndOfInputChannel):
             channel = self._channels[self._current_channel_id]
-            channel.complete()
-            port_id = channel.port_id
-            port_completed = all(
-                map(
-                    lambda channel: channel.is_completed(),
-                    self._ports[port_id].channels,
-                )
-            )
-
-            if port_completed:
-                yield EndOfInputPort()
-
-            all_ports_completed = all(
-                map(lambda port: port.is_completed(), self._ports.values())
-            )
-
-            if all_ports_completed:
+            self._ports[channel.port_id].completed = True
+            yield EndOfInputPort()
+            if all(port.completed for port in self._ports.values()):
                 yield EndOfOutputPorts()
