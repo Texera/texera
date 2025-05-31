@@ -24,11 +24,10 @@ import edu.uci.ics.texera.auth.JwtAuth.{TOKEN_EXPIRE_TIME_IN_DAYS, dayToMin, jwt
 import edu.uci.ics.texera.auth.{JwtAuth, SessionUser}
 import edu.uci.ics.texera.dao.SqlServer
 import edu.uci.ics.texera.dao.SqlServer.withTransaction
+import edu.uci.ics.texera.dao.jooq.generated.enums.WorkflowComputingUnitTypeEnum
 import edu.uci.ics.texera.dao.jooq.generated.tables.daos.WorkflowComputingUnitDao
 import edu.uci.ics.texera.dao.jooq.generated.tables.pojos.WorkflowComputingUnit
-import edu.uci.ics.texera.dao.jooq.generated.enums.WorkflowComputingUnitTypeEnum
-import edu.uci.ics.texera.service.ComputingUnitConfig
-import edu.uci.ics.texera.service.KubernetesConfig
+import edu.uci.ics.texera.service.{ComputingUnitConfig, KubernetesConfig}
 import edu.uci.ics.texera.service.KubernetesConfig.{
   cpuLimitOptions,
   gpuLimitOptions,
@@ -44,10 +43,9 @@ import jakarta.annotation.security.RolesAllowed
 import jakarta.ws.rs._
 import jakarta.ws.rs.core.{MediaType, Response}
 import org.jooq.DSLContext
-
-import java.sql.Timestamp
 import play.api.libs.json._
 
+import java.sql.Timestamp
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 object ComputingUnitManagingResource {
@@ -94,10 +92,12 @@ object ComputingUnitManagingResource {
       unitType: String,
       cpuLimit: String,
       memoryLimit: String,
-      gpuLimit: String,
+      gpuLimit: Option[String],
       jvmMemorySize: String,
-      shmSize: String,
-      uri: Option[String] = None
+      shmSize: Option[String],
+      uri: Option[String] = None,
+      numNodes: Int,
+      diskLimit: String
   )
 
   case class WorkflowComputingUnitResourceLimit(
@@ -144,6 +144,14 @@ class ComputingUnitManagingResource {
 
   private def userOwnComputingUnit(ctx: DSLContext, cuid: Integer, uid: Integer): Boolean = {
     getComputingUnitByCuid(ctx, cuid).getUid == uid
+  }
+
+  private def isCluster(unit: WorkflowComputingUnit): Boolean = {
+    Json
+      .parse(unit.getResource)
+      .as[JsObject]
+      .value("numNodes")
+      .as[Int] > 1
   }
 
   private def getSupportedComputingUnitTypes: List[String] = {
@@ -273,32 +281,41 @@ class ComputingUnitManagingResource {
             s"Memory quantity '${param.memoryLimit}' is not allowed. " +
               s"Valid options: ${memoryLimitOptions.mkString(", ")}"
           )
-        if (!gpuLimitOptions.contains(param.gpuLimit))
+        if (param.gpuLimit.isDefined && !gpuLimitOptions.contains(param.gpuLimit))
           throw new ForbiddenException(
-            s"GPU quantity '${param.gpuLimit}' is not allowed. " +
+            s"GPU quantity '${param.gpuLimit.get}' is not allowed. " +
               s"Valid options: ${gpuLimitOptions.mkString(", ")}"
           )
 
-        // Check if the shared-memory size is the valid size representation
-        val shmQuantity =
-          try {
-            Quantity.parse(param.shmSize)
-          } catch {
-            case _: IllegalArgumentException =>
-              throw new ForbiddenException(
-                s"Shared-memory size '${param.shmSize}' is not a valid Kubernetes quantity " +
-                  s"(examples: 64Mi, 2Gi)."
-              )
-          }
-
-        val memQuantity = Quantity.parse(param.memoryLimit)
-
-        // ensure /dev/shm upper bound ≤ container memory limit
-        if (shmQuantity.compareTo(memQuantity) > 0)
+        // disallowing shm and gpu configuration for a cluster for now.
+        if (param.numNodes > 1 && (param.shmSize.isDefined || param.gpuLimit.isDefined)) {
           throw new ForbiddenException(
-            s"Shared-memory size (${param.shmSize}) cannot exceed the total memory limit " +
-              s"(${param.memoryLimit})."
+            s"It is not allowed to configure shared memory or GPU in a cluster."
           )
+        }
+
+        // Check if the shared-memory size is the valid size representation
+        if (param.shmSize.isDefined) {
+          val shmQuantity =
+            try {
+              Quantity.parse(param.shmSize.get)
+            } catch {
+              case _: IllegalArgumentException =>
+                throw new ForbiddenException(
+                  s"Shared-memory size '${param.shmSize}' is not a valid Kubernetes quantity " +
+                    s"(examples: 64Mi, 2Gi)."
+                )
+            }
+
+          val memQuantity = Quantity.parse(param.memoryLimit)
+
+          // ensure /dev/shm upper bound ≤ container memory limit
+          if (shmQuantity.compareTo(memQuantity) > 0)
+            throw new ForbiddenException(
+              s"Shared-memory size (${param.shmSize}) cannot exceed the total memory limit " +
+                s"(${param.memoryLimit})."
+            )
+        }
 
         // JVM heap ≤ total memory
         val jvmGB = param.jvmMemorySize.replaceAll("[^0-9]", "").toInt
@@ -349,7 +366,7 @@ class ComputingUnitManagingResource {
               "gpuLimit" -> param.gpuLimit,
               "jvmMemorySize" -> param.jvmMemorySize,
               "shmSize" -> param.shmSize,
-              "nodeAddresses" -> Json.arr() // filled in later
+              "numNodes" -> param.numNodes
             )
           )
 
@@ -362,8 +379,7 @@ class ComputingUnitManagingResource {
               "gpuLimit" -> "NaN",
               "jvmMemorySize" -> "NaN",
               "shmSize" -> "NaN",
-              // user-supplied URI goes straight in
-              "nodeAddresses" -> Json.arr(param.uri.get)
+              "numNodes" -> 1
             )
           )
         case _ => "{}"
@@ -393,28 +409,36 @@ class ComputingUnitManagingResource {
       if (cuType == WorkflowComputingUnitTypeEnum.kubernetes && insertedUnit != null) {
         // 1. Update the DB with the URI
         insertedUnit.setUri(KubernetesClient.generatePodURI(cuid))
-
-        val updatedResource: JsObject =
-          Json
-            .parse(insertedUnit.getResource)
-            .as[JsObject] ++
-            Json.obj("nodeAddresses" -> Json.arr(insertedUnit.getUri))
-
-        insertedUnit.setResource(Json.stringify(updatedResource))
         wcDao.update(insertedUnit)
 
         // 2. Launch the pod as CU
-        KubernetesClient.createPod(
-          cuid,
-          param.cpuLimit,
-          param.memoryLimit,
-          param.gpuLimit,
-          computingUnitEnvironmentVariables ++ Map(
-            EnvironmentalVariable.ENV_USER_JWT_TOKEN -> userToken,
-            EnvironmentalVariable.ENV_JAVA_OPTS -> s"-Xmx${param.jvmMemorySize}"
-          ),
-          Some(param.shmSize)
+
+        val envVars = computingUnitEnvironmentVariables ++ Map(
+          EnvironmentalVariable.ENV_USER_JWT_TOKEN -> userToken,
+          EnvironmentalVariable.ENV_JAVA_OPTS -> s"-Xmx${param.jvmMemorySize}"
         )
+
+        if (param.numNodes > 1) {
+          KubernetesClient.createCluster(
+            cuid,
+            param.cpuLimit,
+            param.memoryLimit,
+            param.diskLimit,
+            param.numNodes,
+            envVars
+          )
+        } else {
+          val volume = KubernetesClient.createVolume(cuid, param.diskLimit)
+          KubernetesClient.createPod(
+            cuid,
+            param.cpuLimit,
+            param.memoryLimit,
+            envVars,
+            volume,
+            param.gpuLimit,
+            param.shmSize
+          )
+        }
       }
 
       DashboardWorkflowComputingUnit(
@@ -456,9 +480,25 @@ class ComputingUnitManagingResource {
         )
 
       units.map { unit =>
+        val cuid = unit.getCuid.intValue()
+        val podName = KubernetesClient.generatePodName(cuid)
+        val pod = KubernetesClient.getPodByName(podName)
+
+        val status = if (isCluster(unit)) {
+          val phases = (pod.toSeq ++ KubernetesClient.getClusterPodsById(cuid))
+            .map(_.getStatus.getPhase)
+
+          phases.distinct match {
+            case Seq(singlePhase) => singlePhase // all identical
+            case _                => "Unknown" // mixed
+          }
+        } else {
+          getComputingUnitStatus(unit).toString
+        }
+
         DashboardWorkflowComputingUnit(
           computingUnit = unit,
-          status = getComputingUnitStatus(unit).toString,
+          status = status,
           metrics = getComputingUnitMetrics(unit)
         )
       }.toList
@@ -520,12 +560,18 @@ class ComputingUnitManagingResource {
 
       // if the computing unit is kubernetes pod, then kill the pod
       if (unit.getType == WorkflowComputingUnitTypeEnum.kubernetes) {
-        KubernetesClient.deletePod(cuid)
+        if (isCluster(unit)) {
+          KubernetesClient.deleteCluster(cuid)
+        } else {
+          KubernetesClient.deleteVolume(cuid)
+          KubernetesClient.deletePod(cuid)
+        }
       }
 
       unit.setTerminateTime(new Timestamp(System.currentTimeMillis()))
       cuDao.update(unit)
     }
+
     Response.ok().build()
   }
 

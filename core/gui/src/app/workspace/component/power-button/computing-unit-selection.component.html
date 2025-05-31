@@ -184,6 +184,38 @@
             [(ngModel)]="newComputingUnitName"
             class="unit-name-input" />
         </div>
+
+        <!-- Cluster‑specific fields -->
+        <ng-container>
+          <!-- Node count with plus/minus -->
+          <div class="select-unit">
+            <span># of Nodes</span>
+            <nz-input-number
+              [(ngModel)]="selectedNumNodes"
+              [nzMin]="1"
+              [nzMax]="100"
+              [nzStep]="1"
+              (ngModelChange)="onNumNodesChange($event)">
+            </nz-input-number>
+          </div>
+
+          <!-- Disk size -->
+          <div class="select-unit">
+            <span>Total Disk Size</span>
+            <nz-input-group nzSuffix="GB">
+              <input
+                nz-input
+                type="number"
+                min="4"
+                [(ngModel)]="selectedDiskSize" />
+            </nz-input-group>
+          </div>
+        </ng-container>
+
+        <div class="select-unit name-field">
+          <b>Per-node Spec:</b>
+        </div>
+
         <div class="select-unit">
           <span>Select RAM Size</span>
           <nz-select
@@ -210,12 +242,18 @@
             </nz-option>
           </nz-select>
         </div>
-
         <div
-          *ngIf="showGpuSelection()"
+          *ngIf="true"
           class="select-unit">
-          <span>Select #GPU(s)</span>
+          <div class="toggle-row">
+            <span>Select #GPU(s)</span>
+            <nz-switch
+              [(ngModel)]="enabledGPUSelection"
+              [disabled]="isCluster()"
+              nzSize="small"></nz-switch>
+          </div>
           <nz-select
+            [disabled]="!enabledGPUSelection"
             class="gpu-selection"
             [(ngModel)]="selectedGpu">
             <nz-option
@@ -227,26 +265,34 @@
         </div>
 
         <div class="select-unit shared-memory-group">
-          <span>
-            Adjust the Shared Memory Size
-            <i
-              nz-icon
-              nzType="info-circle"
-              nz-tooltip
-              [nzTooltipTitle]="
+          <div class="toggle-row">
+            <span>
+              Shared Memory for IPC
+              <i
+                nz-icon
+                nzType="info-circle"
+                nz-tooltip
+                [nzTooltipTitle]="
                 'Shared memory (/dev/shm) is used for inter-process communication. If you plan to run ML tasks (e.g., using PyTorch), consider increasing this size. Learn more: https://man7.org/linux/man-pages/man7/shm_overview.7.html'
               ">
-            </i>
-          </span>
+              </i>
+            </span>
+            <nz-switch
+              [(ngModel)]="enabledShmAdjustment"
+              [disabled]="isCluster()"
+              nzSize="small"></nz-switch>
+          </div>
           <div class="shm-input-row">
             <input
               nz-input
+              [disabled]="!enabledShmAdjustment"
               type="number"
               min="0"
               [(ngModel)]="shmSizeValue"
               class="shm-size-input"
               placeholder="e.g. 512" />
             <nz-select
+              [disabled]="!enabledShmAdjustment"
               class="shm-unit-select"
               [(ngModel)]="shmSizeUnit">
               <nz-option
@@ -257,17 +303,11 @@
                 nzLabel="Gi"></nz-option>
             </nz-select>
           </div>
-          <div
-            *ngIf="isShmTooLarge()"
-            class="shm-warning">
-            Shared memory cannot be greater than total memory.
-          </div>
         </div>
-
         <div class="select-unit name-field">
           <span>JVM Memory Size: {{selectedJvmMemorySize}}</span>
           <nz-slider
-            *ngIf="showJvmMemorySlider"
+            *ngIf="showJvmMemorySlider && !isCluster()"
             class="jvm-memory-slider"
             [nzMarks]="jvmMemoryMarks"
             [nzMin]="jvmMemorySteps[0] || 2"
@@ -277,15 +317,6 @@
             [ngModel]="jvmMemorySliderValue"
             (ngModelChange)="onJvmMemorySliderChange($event)">
           </nz-slider>
-          <div
-            *ngIf="isMaxJvmMemorySelected()"
-            class="memory-warning">
-            <nz-alert
-              nzType="warning"
-              nzMessage="Using maximum JVM memory may affect the performance of Python-based operators."
-              nzShowIcon>
-            </nz-alert>
-          </div>
         </div>
       </ng-container>
 
@@ -310,6 +341,40 @@
             class="unit-uri-input" />
         </div>
       </ng-container>
+    </div>
+
+    <!-- Summary warning -->
+    <div
+      class="configuration-hint"
+      *ngIf="isCluster()">
+      <nz-alert
+        nzType="info"
+        nzMessage="This will start a cluster with {{ selectedNumNodes }} nodes, allocating a total
+           of {{ parseResourceNumber(selectedCpu) * selectedNumNodes }}{{parseResourceUnit(selectedCpu)}} CPU,
+           {{ parseResourceNumber(selectedMemory) * selectedNumNodes }}{{parseResourceUnit(selectedMemory)}} Memory,
+           and a {{ selectedDiskSize }}GiB disk shared by all nodes. Advanced configurations (e.g. GPU, Shared Memory, etc.) will be ignored."
+        nzShowIcon>
+      </nz-alert>
+    </div>
+
+    <div
+      *ngIf="enabledShmAdjustment && isShmTooLarge()"
+      class="configuration-hint">
+      <nz-alert
+        nzType="error"
+        nzMessage="Shared memory cannot be greater than total memory."
+        nzShowIcon>
+      </nz-alert>
+    </div>
+
+    <div
+      *ngIf="!isCluster() && isMaxJvmMemorySelected()"
+      class="configuration-hint">
+      <nz-alert
+        nzType="warning"
+        nzMessage="Using maximum JVM memory may affect the performance of Python-based operators."
+        nzShowIcon>
+      </nz-alert>
     </div>
   </ng-template>
   <ng-template #addComputeUnitModalFooter>
