@@ -71,7 +71,8 @@ public enum AttributeType implements Serializable {
     BOOLEAN("boolean", Boolean.class),
     TIMESTAMP("timestamp", Timestamp.class),
     BINARY("binary", byte[].class),
-    ANY("ANY", Object.class);
+    ANY("ANY", Object.class),
+    LARGE_BINARY("large binary", String.class);
 
     private final String name;
     private final Class<?> fieldClass;
@@ -95,9 +96,9 @@ public enum AttributeType implements Serializable {
         return this.fieldClass;
     }
 
-    public static AttributeType getAttributeType(Class<?> fieldClass) {
+    public static AttributeType getAttributeType(Class<?> fieldClass, boolean isLargeBinary) {
         if (fieldClass.equals(String.class)) {
-            return STRING;
+            return isLargeBinary ? LARGE_BINARY : STRING;
         } else if (fieldClass.equals(Integer.class)) {
             return INTEGER;
         } else if (fieldClass.equals(Long.class)) {

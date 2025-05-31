@@ -417,8 +417,40 @@ class ResultExportService(workflowIdentity: WorkflowIdentity, computingUnitId: I
     }
 
     val field: Any = selectedRow.getField(columnIndex)
-    val dataBytes = convertFieldToBytes(field)
-    out.write(dataBytes)
+    field match {
+      case data: Array[Byte] =>
+        out.write(data)
+
+      case data: String if data.startsWith("s3://") =>
+        val uri = new java.net.URI(data)
+        val bucketName = uri.getHost
+        val key = uri.getPath.stripPrefix("/")
+
+        val s3Client = edu.uci.ics.texera.service.util.S3StorageClient.getS3Client
+        val response = s3Client.getObject(
+          software.amazon.awssdk.services.s3.model.GetObjectRequest
+            .builder()
+            .bucket(bucketName)
+            .key(key)
+            .build()
+        )
+
+        val buffer = new Array[Byte](1024 * 1024) // 1MB buffer
+        val inputStream = response
+
+        var bytesRead = inputStream.read(buffer)
+        while (bytesRead != -1) {
+          out.write(buffer, 0, bytesRead)
+          bytesRead = inputStream.read(buffer)
+        }
+        inputStream.close()
+
+      case data: String =>
+        out.write(data.getBytes(StandardCharsets.UTF_8))
+
+      case other =>
+        out.write(other.toString.getBytes(StandardCharsets.UTF_8))
+    }
   }
 
   /**
@@ -460,14 +492,6 @@ class ResultExportService(workflowIdentity: WorkflowIdentity, computingUnitId: I
     } catch {
       case ex: Exception =>
         (None, Some(s"$extension export failed for operator $operatorId: ${ex.getMessage}"))
-    }
-  }
-
-  private def convertFieldToBytes(field: Any): Array[Byte] = {
-    field match {
-      case data: Array[Byte] => data
-      case data: String      => data.getBytes(StandardCharsets.UTF_8)
-      case other             => other.toString.getBytes(StandardCharsets.UTF_8)
     }
   }
 

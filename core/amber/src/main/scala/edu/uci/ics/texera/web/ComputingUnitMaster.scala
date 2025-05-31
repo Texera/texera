@@ -123,6 +123,11 @@ class ComputingUnitMaster extends io.dropwizard.Application[Configuration] with 
       StorageConfig.jdbcPassword
     )
 
+    // Initialize S3 large binary bucket
+    edu.uci.ics.texera.service.util.S3StorageClient.createBucketIfNotExist(
+      StorageConfig.s3LargeBinaryBucketName
+    )
+
     environment.jersey.setUrlPattern("/api/*")
 
     val webSocketUpgradeFilter =
