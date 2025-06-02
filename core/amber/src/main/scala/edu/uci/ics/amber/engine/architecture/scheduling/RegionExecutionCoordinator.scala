@@ -100,7 +100,8 @@ class RegionExecutionCoordinator(
     // update UI
     asyncRPCClient.sendToClient(
       ExecutionStatsUpdate(
-        workflowExecution.getAllRegionExecutionsStats
+        workflowExecution.getAllRegionExecutionsStats,
+        workflowExecution.getAllRegionExecutionTableProfiles
       )
     )
     asyncRPCClient.sendToClient(
@@ -282,7 +283,8 @@ class RegionExecutionCoordinator(
   private def sendStarts(region: Region): Future[Seq[Unit]] = {
     asyncRPCClient.sendToClient(
       ExecutionStatsUpdate(
-        workflowExecution.getAllRegionExecutionsStats
+        workflowExecution.getAllRegionExecutionsStats,
+        workflowExecution.getAllRegionExecutionTableProfiles
       )
     )
     Future.collect(

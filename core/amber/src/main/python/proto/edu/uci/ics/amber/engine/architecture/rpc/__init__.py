@@ -140,6 +140,9 @@ class ControlRequest(betterproto.Message):
     query_statistics_request: "QueryStatisticsRequest" = betterproto.message_field(
         58, group="sealed_value"
     )
+    query_table_profile_request: "QueryTableProfileRequest" = betterproto.message_field(
+        59, group="sealed_value"
+    )
     ping: "Ping" = betterproto.message_field(100, group="sealed_value")
     """request for testing"""
 
@@ -401,6 +404,11 @@ class QueryStatisticsRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class QueryTableProfileRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
 class ControlReturn(betterproto.Message):
     """The generic return message"""
 
@@ -431,6 +439,9 @@ class ControlReturn(betterproto.Message):
     )
     finalize_checkpoint_response: "FinalizeCheckpointResponse" = (
         betterproto.message_field(52, group="sealed_value")
+    )
+    table_profile_response: "TableProfileResponse" = betterproto.message_field(
+        53, group="sealed_value"
     )
     control_error: "ControlError" = betterproto.message_field(101, group="sealed_value")
     """common responses"""
@@ -528,6 +539,11 @@ class WorkerStateResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class WorkerMetricsResponse(betterproto.Message):
     metrics: "_worker__.WorkerMetrics" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class TableProfileResponse(betterproto.Message):
+    table_profiles: "_worker__.TableProfile" = betterproto.message_field(1)
 
 
 class RpcTesterStub(betterproto.ServiceStub):
@@ -868,6 +884,23 @@ class WorkerServiceStub(betterproto.ServiceStub):
             "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/QueryStatistics",
             empty_request,
             WorkerMetricsResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def query_table_profile(
+        self,
+        empty_request: "EmptyRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "TableProfileResponse":
+        return await self._unary_unary(
+            "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/QueryTableProfile",
+            empty_request,
+            TableProfileResponse,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -1471,6 +1504,11 @@ class WorkerServiceBase(ServiceBase):
     ) -> "WorkerMetricsResponse":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def query_table_profile(
+        self, empty_request: "EmptyRequest"
+    ) -> "TableProfileResponse":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def resume_worker(
         self, empty_request: "EmptyRequest"
     ) -> "WorkerStateResponse":
@@ -1569,6 +1607,13 @@ class WorkerServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.query_statistics(request)
+        await stream.send_message(response)
+
+    async def __rpc_query_table_profile(
+        self, stream: "grpclib.server.Stream[EmptyRequest, TableProfileResponse]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.query_table_profile(request)
         await stream.send_message(response)
 
     async def __rpc_resume_worker(
@@ -1682,6 +1727,12 @@ class WorkerServiceBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 EmptyRequest,
                 WorkerMetricsResponse,
+            ),
+            "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/QueryTableProfile": grpclib.const.Handler(
+                self.__rpc_query_table_profile,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                EmptyRequest,
+                TableProfileResponse,
             ),
             "/edu.uci.ics.amber.engine.architecture.rpc.WorkerService/ResumeWorker": grpclib.const.Handler(
                 self.__rpc_resume_worker,

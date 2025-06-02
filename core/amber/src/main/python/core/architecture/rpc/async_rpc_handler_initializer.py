@@ -37,6 +37,7 @@ from core.architecture.handlers.control.pause_worker_handler import PauseWorkerH
 from core.architecture.handlers.control.query_statistics_handler import (
     QueryStatisticsHandler,
 )
+from core.architecture.handlers.control.query_table_profile_handler import QueryTableProfileHandler
 from core.architecture.handlers.control.replay_current_tuple_handler import (
     RetryCurrentTupleHandler,
 )
@@ -54,6 +55,7 @@ class AsyncRPCHandlerInitializer(
     OpenExecutorHandler,
     PauseWorkerHandler,
     QueryStatisticsHandler,
+    QueryTableProfileHandler,
     RetryCurrentTupleHandler,
     ResumeWorkerHandler,
     StartWorkerHandler,
