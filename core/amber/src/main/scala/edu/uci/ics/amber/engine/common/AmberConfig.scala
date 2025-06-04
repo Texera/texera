@@ -97,15 +97,6 @@ object AmberConfig {
   val sinkStorageCleanUpCheckIntervalInSecs: Int =
     getConfSource.getInt("result-cleanup.collection-check-interval-in-seconds")
 
-  // User system
-  val isUserSystemEnabled: Boolean = getConfSource.getBoolean("user-sys.enabled")
-  val adminUsername: String = getConfSource.getString("user-sys.admin-username")
-  val adminPassword: String = getConfSource.getString("user-sys.admin-password")
-  val googleClientId: String = getConfSource.getString("user-sys.google.clientId")
-  val gmail: String = getConfSource.getString("user-sys.google.smtp.gmail")
-  val smtpPassword: String = getConfSource.getString("user-sys.google.smtp.password")
-  val inviteOnly: Boolean = getConfSource.getBoolean("user-sys.invite-only")
-
   // Web server
   val operatorConsoleBufferSize: Int = getConfSource.getInt("web-server.python-console-buffer-size")
   val consoleMessageDisplayLength: Int =
