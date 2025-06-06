@@ -52,6 +52,7 @@ import { MultiSchemaTypeComponent } from "./common/formly/multischema.type";
 import { NullTypeComponent } from "./common/formly/null.type";
 import { ObjectTypeComponent } from "./common/formly/object.type";
 import { UserService } from "./common/service/user/user.service";
+import { GuiConfigService } from "./common/service/gui-config.service";
 import { DashboardComponent } from "./dashboard/component/dashboard.component";
 import { UserWorkflowComponent } from "./dashboard/component/user/user-workflow/user-workflow.component";
 import { ShareAccessComponent } from "./dashboard/component/user/share-access/share-access.component";
@@ -271,7 +272,7 @@ registerLocaleData(en);
       },
     }),
     BrowserAnimationsModule,
-    RouterModule.forRoot([]),
+    RouterModule,
     FormsModule,
     ReactiveFormsModule,
     FormlyModule.forRoot(TEXERA_FORMLY_CONFIG),
@@ -329,6 +330,7 @@ registerLocaleData(en);
     AdminGuardService,
     DatePipe,
     UserService,
+    GuiConfigService,
     FileSaverService,
     ReportGenerationService,
     {
