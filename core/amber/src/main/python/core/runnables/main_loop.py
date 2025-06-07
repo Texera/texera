@@ -43,7 +43,7 @@ from core.models.internal_queue import (
     ChannelMarkerElement,
     InternalQueueElement,
 )
-from core.models.marker import State, EndOfInputChannel, StartOfInputChannel
+from core.models.marker import State
 from core.runnables.data_processor import DataProcessor
 from core.util import StoppableQueueBlockingRunnable, get_one_of
 from core.util.console_message.timestamp import current_time_in_local_timezone
@@ -58,6 +58,8 @@ from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     ConsoleMessageTriggeredRequest,
     ChannelMarkerType,
     ChannelMarkerPayload,
+    AsyncRpcContext,
+    ControlRequest,
 )
 from proto.edu.uci.ics.amber.engine.architecture.worker import (
     WorkerState,
@@ -67,6 +69,7 @@ from proto.edu.uci.ics.amber.core import (
     ActorVirtualIdentity,
     PortIdentity,
     ChannelIdentity,
+    ChannelMarkerIdentity,
 )
 
 
@@ -259,19 +262,19 @@ class MainLoop(StoppableQueueBlockingRunnable):
         self.process_input_state()
         self._check_and_process_control()
 
-    def _process_start_of_input_port(
-        self, start_of_input_port: StartOfInputPort
-    ) -> None:
-        self.context.marker_processing_manager.current_input_marker = (
-            start_of_input_port
-        )
+    def _process_start_of_input_port(self) -> None:
+        self.context.marker_processing_manager.current_input_marker = StartOfInputPort()
         self.process_input_state()
 
-    def _process_end_of_input_port(self, end_of_input_port: EndOfInputPort) -> None:
-        self.context.marker_processing_manager.current_input_marker = end_of_input_port
+    def _process_end_of_input_port(self) -> None:
+        self.context.marker_processing_manager.current_input_marker = EndOfInputPort()
         self.process_input_state()
         self.process_input_tuple()
-        input_port_id = self.context.tuple_processing_manager.current_input_port_id
+
+        input_port_id = self.context.input_manager.get_port_id(
+            self.context.current_input_channel_id
+        )
+
         if input_port_id is not None:
             self._async_rpc_client.controller_stub().port_completed(
                 PortCompletedRequest(
@@ -280,26 +283,17 @@ class MainLoop(StoppableQueueBlockingRunnable):
                 )
             )
 
-    def _process_start_of_output_ports(self, _: StartOfOutputPorts) -> None:
+    def _process_start_of_output_ports(self) -> None:
         """
         Upon receipt of an StartOfAllMarker,
         which indicates the start of any input links,
         send the StartOfInputChannel to all downstream workers.
-
-        :param _: StartOfAny Internal Marker
         """
-        for to, batch in self.context.output_manager.emit_marker(StartOfInputChannel()):
-            self._output_queue.put(
-                DataElement(
-                    tag=ChannelIdentity(
-                        ActorVirtualIdentity(self.context.worker_id), to, False
-                    ),
-                    payload=batch,
-                )
-            )
-            self._check_and_process_control()
+        self._send_channel_marker_to_data_channels(
+            "StartChannel", ChannelMarkerType.NO_ALIGNMENT
+        )
 
-    def _process_end_of_output_ports(self, _: EndOfOutputPorts) -> None:
+    def _process_end_of_output_ports(self) -> None:
         """
         Upon receipt of an EndOfAllMarker, which indicates the end of all input links,
         send the last data batches to all downstream workers.
@@ -314,16 +308,9 @@ class MainLoop(StoppableQueueBlockingRunnable):
             return
         self.context.output_manager.close_port_storage_writers()
 
-        for to, batch in self.context.output_manager.emit_marker(EndOfInputChannel()):
-            self._output_queue.put(
-                DataElement(
-                    tag=ChannelIdentity(
-                        ActorVirtualIdentity(self.context.worker_id), to, False
-                    ),
-                    payload=batch,
-                )
-            )
-            self._check_and_process_control()
+        self._send_channel_marker_to_data_channels(
+            "EndChannel", ChannelMarkerType.PORT_ALIGNMENT
+        )
 
         # Need to send port completed even if there is no downstream link
         for port_id in self.context.output_manager.get_port_ids():
@@ -349,7 +336,7 @@ class MainLoop(StoppableQueueBlockingRunnable):
             f"receive channel marker from {channel_id},"
             f" id = {marker_id}, cmd = {command}"
         )
-        if marker_payload.marker_type == ChannelMarkerType.REQUIRE_ALIGNMENT:
+        if marker_payload.marker_type != ChannelMarkerType.NO_ALIGNMENT:
             self.context.pause_manager.pause_input_channel(
                 PauseType.MARKER_PAUSE, channel_id
             )
@@ -379,20 +366,56 @@ class MainLoop(StoppableQueueBlockingRunnable):
                             f"send marker to {active_channel_id},"
                             f" id = {marker_id}, cmd = {command}"
                         )
-                        for batch in self.context.output_manager.emit_marker_to_channel(
-                            active_channel_id.to_worker_id, marker_payload
-                        ):
-                            tag = active_channel_id
-                            element = (
-                                ChannelMarkerElement(tag=tag, payload=batch)
-                                if isinstance(batch, ChannelMarkerPayload)
-                                else DataElement(tag=tag, payload=batch)
-                            )
+                        self._send_channel_marker(active_channel_id, marker_payload)
 
-                            self._output_queue.put(element)
-
-            if marker_payload.marker_type == ChannelMarkerType.REQUIRE_ALIGNMENT:
+            if marker_payload.marker_type != ChannelMarkerType.NO_ALIGNMENT:
                 self.context.pause_manager.resume(PauseType.MARKER_PAUSE)
+
+            marker_handlers = {
+                StartOfInputPort: self._process_start_of_input_port,
+                EndOfInputPort: self._process_end_of_input_port,
+                StartOfOutputPorts: self._process_start_of_output_ports,
+                EndOfOutputPorts: self._process_end_of_output_ports,
+            }
+            while not self.context.internal_markers.empty():
+                marker = self.context.internal_markers.get()
+                marker_handlers.get(type(marker))()
+
+    def _send_channel_marker_to_data_channels(
+        self, method_name: str, alignment: ChannelMarkerType
+    ) -> None:
+        for active_channel_id in self.context.output_manager.get_output_channel_ids():
+            if not active_channel_id.is_control:
+                marker_payload = ChannelMarkerPayload(
+                    ChannelMarkerIdentity(method_name),
+                    alignment,
+                    [],
+                    {
+                        active_channel_id.to_worker_id.name: ControlInvocation(
+                            method_name,
+                            ControlRequest(empty_request=EmptyRequest()),
+                            AsyncRpcContext(
+                                ActorVirtualIdentity(), ActorVirtualIdentity()
+                            ),
+                            -1,
+                        )
+                    },
+                )
+                self._send_channel_marker(active_channel_id, marker_payload)
+
+    def _send_channel_marker(
+        self, channel_id: ChannelIdentity, marker_payload: ChannelMarkerPayload
+    ) -> None:
+        for batch in self.context.output_manager.emit_marker_to_channel(
+            channel_id.to_worker_id, marker_payload
+        ):
+            tag = channel_id
+            element = (
+                ChannelMarkerElement(tag=tag, payload=batch)
+                if isinstance(batch, ChannelMarkerPayload)
+                else DataElement(tag=tag, payload=batch)
+            )
+            self._output_queue.put(element)
 
     def _process_data_element(self, data_element: DataElement) -> None:
         """
@@ -434,14 +457,6 @@ class MainLoop(StoppableQueueBlockingRunnable):
                     element,
                     Tuple,
                     self._process_tuple,
-                    StartOfInputPort,
-                    self._process_start_of_input_port,
-                    EndOfInputPort,
-                    self._process_end_of_input_port,
-                    StartOfOutputPorts,
-                    self._process_start_of_output_ports,
-                    EndOfOutputPorts,
-                    self._process_end_of_output_ports,
                     State,
                     self._process_state,
                 )
