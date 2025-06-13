@@ -34,6 +34,7 @@ class WorkerState(betterproto.Enum):
     RUNNING = 2
     PAUSED = 3
     COMPLETED = 4
+    TERMINATING = 5
 
 
 @dataclass(eq=False, repr=False)

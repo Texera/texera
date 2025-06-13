@@ -19,12 +19,16 @@
 
 package edu.uci.ics.amber.engine.architecture.scheduling
 
+import akka.pattern.gracefulStop
 import com.twitter.util.Future
-import java.util.concurrent.atomic.AtomicReference
 import edu.uci.ics.amber.core.storage.DocumentFactory
 import edu.uci.ics.amber.core.storage.VFSURIFactory.decodeURI
 import edu.uci.ics.amber.core.workflow.{GlobalPortIdentity, PhysicalLink, PhysicalOp}
-import edu.uci.ics.amber.engine.architecture.common.{AkkaActorService, ExecutorDeployment}
+import edu.uci.ics.amber.engine.architecture.common.{
+  AkkaActorRefMappingService,
+  AkkaActorService,
+  ExecutorDeployment
+}
 import edu.uci.ics.amber.engine.architecture.controller.execution.{
   OperatorExecution,
   WorkflowExecution
@@ -34,12 +38,7 @@ import edu.uci.ics.amber.engine.architecture.controller.{
   ExecutionStatsUpdate,
   WorkerAssignmentUpdate
 }
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
-  AssignPortRequest,
-  EmptyRequest,
-  InitializeExecutorRequest,
-  LinkWorkersRequest
-}
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands._
 import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
 import edu.uci.ics.amber.engine.architecture.scheduling.config.{
   InputPortConfig,
@@ -48,9 +47,14 @@ import edu.uci.ics.amber.engine.architecture.scheduling.config.{
   ResourceConfig
 }
 import edu.uci.ics.amber.engine.architecture.sendsemantics.partitionings.Partitioning
+import edu.uci.ics.amber.engine.common.FutureBijection._
 import edu.uci.ics.amber.engine.common.rpc.AsyncRPCClient
 import edu.uci.ics.amber.engine.common.virtualidentity.util.CONTROLLER
 import edu.uci.ics.texera.web.resource.dashboard.user.workflow.WorkflowExecutionsResource
+
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.duration.Duration
 
 /**
   * The executor of a region.
@@ -83,7 +87,8 @@ class RegionExecutionCoordinator(
     workflowExecution: WorkflowExecution,
     asyncRPCClient: AsyncRPCClient,
     controllerConfig: ControllerConfig,
-    actorService: AkkaActorService
+    actorService: AkkaActorService,
+    actorRefService: AkkaActorRefMappingService
 ) {
 
   initRegionExecution()
@@ -99,18 +104,47 @@ class RegionExecutionCoordinator(
   )
 
   /**
-    * Check the status of `RegionExecution` again and transition this coordinator's phase to `Completed` only when the
+    * Sync the status of `RegionExecution` and transition this coordinator's phase to `Completed` only when the
     * coordinator is currently in `ExecutingNonDependeePortsPhase` and all the ports of this region are completed.
+    *
+    * Before transitioning the phase to `Completed`, this method will also terminate all the workers of this region.
     */
-  private def syncCompletedStatus(): Unit = {
-    // Only `ExecutingNonDependeePortsPhase` can transtion to `Completed`
-    if (currentPhaseRef.get == ExecutingNonDependeePortsPhase) {
-      val regionExecution = workflowExecution.getRegionExecution(region.id)
-      // All the ports of this region should be completed.
-      if (regionExecution.isCompleted) {
-        currentPhaseRef.set(Completed)
-      }
-    }
+  private def tryCompleteRegionExecution(): Future[Unit] = {
+    if (currentPhaseRef.get != ExecutingNonDependeePortsPhase) return Future.Unit
+
+    val regionExecution = workflowExecution.getRegionExecution(region.id)
+    if (!regionExecution.isCompleted) return Future.Unit
+
+    // Send one last control message to all the completed workers
+    val workerTerminationRequests: Seq[Future[EmptyReturn]] =
+      regionExecution.getAllOperatorExecutions.flatMap {
+        case (_, opExec) =>
+          opExec.getWorkerIds.map { workerId =>
+            asyncRPCClient.workerInterface
+              .endWorker(EmptyRequest(), asyncRPCClient.mkContext(workerId))
+          }
+      }.toSeq
+
+    // Wait for each worker to send back the final response
+    Future.collect(workerTerminationRequests)
+
+    // Now we can safely kill each worker
+    val gracefulStops: Seq[Future[Boolean]] =
+      regionExecution.getAllOperatorExecutions.flatMap {
+        case (_, opExec) =>
+          opExec.getWorkerIds.map { workerId =>
+            val actorRef = actorRefService.getActorRef(workerId)
+            gracefulStop(actorRef, Duration(5, TimeUnit.SECONDS)).asTwitter()
+          }
+      }.toSeq
+
+    // Wait for all the workers are stopped
+    Future.collect(gracefulStops)
+
+    // transition to Completed
+    currentPhaseRef.set(Completed)
+
+    Future.Unit
   }
 
   def isCompleted: Boolean = currentPhaseRef.get == Completed
@@ -141,8 +175,7 @@ class RegionExecutionCoordinator(
           Future.Unit
         }
       case ExecutingNonDependeePortsPhase =>
-        syncCompletedStatus()
-        Future.Unit
+        tryCompleteRegionExecution()
     }
 
   private def executeDependeePortPhase(): Future[Unit] = {
