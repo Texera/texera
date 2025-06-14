@@ -63,18 +63,6 @@ export class HubService {
     });
   }
 
-  public getLikeCount(entityId: number, entityType: string): Observable<number> {
-    const params = new HttpParams().set("entityId", entityId.toString()).set("entityType", entityType);
-
-    return this.http.get<number>(`${this.BASE_URL}/likeCount`, { params });
-  }
-
-  public getCloneCount(entityId: number, entityType: string): Observable<number> {
-    const params = new HttpParams().set("entityId", entityId.toString()).set("entityType", entityType);
-
-    return this.http.get<number>(`${this.BASE_URL}/cloneCount`, { params });
-  }
-
   public postView(entityId: number, userId: number, entityType: string): Observable<number> {
     const body = { entityId, userId, entityType };
     return this.http.post<number>(`${this.BASE_URL}/view`, body, {
@@ -82,20 +70,50 @@ export class HubService {
     });
   }
 
-  public getViewCount(entityId: number, entityType: string): Observable<number> {
-    const params = new HttpParams().set("entityId", entityId.toString()).set("entityType", entityType);
+  /**
+   * Fetches the top entities for the given action types in one request.
+   *
+   * @param entityType   The type of entity to query (e.g. 'workflow' or 'dataset').
+   * @param actionTypes  An array of action types to retrieve (e.g. ['like', 'clone']).
+   * @param currentUid   User ID context (will be sent as -1 if undefined).
+   * @returns             An Observable resolving to a map where each key is an actionType
+   *                      and the value is the corresponding list of SearchResultItem.
+   */
+  public getTops(
+    entityType: string,
+    actionTypes: string[],
+    currentUid?: number
+  ): Observable<{ [actionType: string]: SearchResultItem[] }> {
+    let params = new HttpParams()
+      .set("entityType", entityType)
+      .set("uid", (currentUid !== undefined ? currentUid : -1).toString());
 
-    return this.http.get<number>(`${this.BASE_URL}/viewCount`, { params });
+    actionTypes.forEach(act => {
+      params = params.append("actionTypes", act);
+    });
+
+    return this.http.get<{ [actionType: string]: SearchResultItem[] }>(`${this.BASE_URL}/getTops`, { params });
   }
 
-  public getTops(entityType: string, actionType: string, currentUid?: number): Observable<SearchResultItem[]> {
-    const params: any = {
-      entityType,
-      actionType,
-    };
+  /**
+   * Fetches multiple counts (view, like, clone) for a given entity in one request.
+   *
+   * @param entityId    The numeric ID of the entity to query.
+   * @param entityType  The type of entity (e.g. "workflow" or "dataset").
+   * @param actionTypes An array of action types to fetch (each of "view", "like", or "clone").
+   * @returns            An Observable resolving to a map from actionType to its count.
+   */
+  public getCounts(
+    entityId: number,
+    entityType: string,
+    actionTypes: string[]
+  ): Observable<{ [action: string]: number }> {
+    let params = new HttpParams().set("entityId", entityId.toString()).set("entityType", entityType);
 
-    params.uid = currentUid !== undefined ? currentUid : -1;
+    actionTypes.forEach(t => {
+      params = params.append("actionType", t);
+    });
 
-    return this.http.get<SearchResultItem[]>(`${this.BASE_URL}/getTops`, { params });
+    return this.http.get<{ [action: string]: number }>(`${this.BASE_URL}/counts`, { params });
   }
 }
