@@ -163,7 +163,7 @@ class DataProcessor(
     if (outputTuple == null) return
     outputTuple match {
       case FinalizeExecutor() =>
-        sendECMToDataChannels(METHOD_END_CHANNEL, PORT_ALIGNMENT)
+        sendECMToDataChannels(METHOD_END_CHANNEL.getBareMethodName, PORT_ALIGNMENT)
         // Send Completed signal to worker actor.
         executor.close()
         adaptiveBatchingMonitor.stopAdaptiveBatching()
@@ -269,22 +269,23 @@ class DataProcessor(
   }
 
   def sendECMToDataChannels(
-      method: MethodDescriptor[EmptyRequest, EmptyReturn],
-      alignment: EmbeddedControlMessageType
+      method: String,
+      alignment: EmbeddedControlMessageType,
+      request: ControlRequest = EmptyRequest()
   ): Unit = {
     outputManager.flush()
     outputGateway.getActiveChannels
       .filter(!_.isControl)
       .foreach { activeChannelId =>
         asyncRPCClient.sendECMToChannel(
-          EmbeddedControlMessageIdentity(method.getBareMethodName),
+          EmbeddedControlMessageIdentity(method),
           alignment,
           Set(),
           Map(
             activeChannelId.toWorkerId.name ->
               ControlInvocation(
-                method.getBareMethodName,
-                EmptyRequest(),
+                method,
+                request,
                 AsyncRPCContext(ActorVirtualIdentity(""), ActorVirtualIdentity("")),
                 -1
               )

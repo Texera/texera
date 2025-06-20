@@ -35,7 +35,7 @@ trait StartChannelHandler {
       ctx: AsyncRPCContext
   ): Future[EmptyReturn] = {
     val portId = dp.inputGateway.getChannel(dp.inputManager.currentChannelId).getPortId
-    dp.sendECMToDataChannels(METHOD_START_CHANNEL, NO_ALIGNMENT)
+    dp.sendECMToDataChannels(METHOD_START_CHANNEL.getBareMethodName, NO_ALIGNMENT)
     try {
       val outputState = dp.executor.produceStateOnStart(portId.id)
       if (outputState.isDefined) {
