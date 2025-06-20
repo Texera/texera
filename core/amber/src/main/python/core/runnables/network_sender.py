@@ -25,14 +25,14 @@ from core.models import DataPayload, InternalQueue, DataFrame, StateFrame, State
 from core.models.internal_queue import (
     InternalQueueElement,
     DataElement,
-    ControlElement,
+    DirectControlMessageElement,
     EmbeddedControlMessageElement,
 )
 from core.proxy import ProxyClient
 from core.util import StoppableQueueBlockingRunnable
 from proto.edu.uci.ics.amber.engine.architecture.rpc import EmbeddedControlMessage
 from proto.edu.uci.ics.amber.engine.common import (
-    ControlPayloadV2,
+    DirectControlMessageV2,
     PythonControlMessage,
     PythonDataHeader,
 )
@@ -60,7 +60,7 @@ class NetworkSender(StoppableQueueBlockingRunnable):
     def receive(self, next_entry: InternalQueueElement):
         if isinstance(next_entry, DataElement):
             self._send_data(next_entry.tag, next_entry.payload)
-        elif isinstance(next_entry, ControlElement):
+        elif isinstance(next_entry, DirectControlMessageElement):
             self._send_control(next_entry.tag, next_entry.payload)
         elif isinstance(next_entry, EmbeddedControlMessageElement):
             self._send_ecm(next_entry.tag, next_entry.payload)
@@ -113,7 +113,7 @@ class NetworkSender(StoppableQueueBlockingRunnable):
 
     @logger.catch(reraise=True)
     def _send_control(
-        self, to: ChannelIdentity, control_payload: ControlPayloadV2
+        self, to: ChannelIdentity, control_payload: DirectControlMessageV2
     ) -> None:
         """
         Send the control payload to the given target actor. This method is to be used

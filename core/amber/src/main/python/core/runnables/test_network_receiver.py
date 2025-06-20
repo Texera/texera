@@ -22,7 +22,7 @@ from pyarrow import Table
 
 from core.models.internal_queue import (
     InternalQueue,
-    ControlElement,
+    DirectControlMessageElement,
     DataElement,
     EmbeddedControlMessageElement,
 )
@@ -39,7 +39,7 @@ from proto.edu.uci.ics.amber.engine.architecture.rpc import (
     AsyncRpcContext,
     ControlRequest,
 )
-from proto.edu.uci.ics.amber.engine.common import ControlPayloadV2
+from proto.edu.uci.ics.amber.engine.common import DirectControlMessageV2
 from proto.edu.uci.ics.amber.core import (
     ActorVirtualIdentity,
     ChannelIdentity,
@@ -150,11 +150,11 @@ class TestNetworkReceiver:
         network_sender_thread,
     ):
         worker_id = ActorVirtualIdentity(name="test")
-        control_payload = set_one_of(ControlPayloadV2, ControlInvocation())
+        control_payload = set_one_of(DirectControlMessageV2, ControlInvocation())
         channel_id = ChannelIdentity(worker_id, worker_id, False)
-        input_queue.put(ControlElement(tag=channel_id, payload=control_payload))
+        input_queue.put(DirectControlMessageElement(tag=channel_id, payload=control_payload))
         network_sender_thread.start()
-        element: ControlElement = output_queue.get()
+        element: DirectControlMessageElement = output_queue.get()
         assert element.payload == control_payload
         assert element.tag == channel_id
 
