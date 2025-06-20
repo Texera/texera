@@ -24,7 +24,6 @@ import {
   EventEmitter,
   Input,
   OnChanges,
-  OnInit,
   Output,
   SimpleChanges,
   ViewChild,
@@ -59,7 +58,7 @@ import { isDefined } from "../../../../common/util/predicate";
   templateUrl: "./list-item.component.html",
   styleUrls: ["./list-item.component.scss"],
 })
-export class ListItemComponent implements OnInit, OnChanges {
+export class ListItemComponent implements OnChanges {
   private owners: number[] = [];
   public originalName: string = "";
   public originalDescription: string | undefined = undefined;
@@ -159,26 +158,8 @@ export class ListItemComponent implements OnInit, OnChanges {
     } else {
       throw new Error("Unexpected type in DashboardEntry.");
     }
-
-    if (typeof this.entry.id === "number") {
-      this.hubService
-        .getLikeCount(this.entry.id, this.entry.type)
-        .pipe(untilDestroyed(this))
-        .subscribe(count => {
-          this.likeCount = count;
-        });
-      this.hubService
-        .getViewCount(this.entry.id, this.entry.type)
-        .pipe(untilDestroyed(this))
-        .subscribe(count => {
-          this.viewCount = count;
-        });
-    }
-  }
-
-  ngOnInit(): void {
-    this.initializeEntry();
-    this.checkLikeStatus();
+    this.likeCount = this.entry.likeCount;
+    this.viewCount = this.entry.viewCount;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -402,10 +383,11 @@ export class ListItemComponent implements OnInit, OnChanges {
     if (instance) {
       if (wid !== undefined) {
         this.hubService
-          .getViewCount(wid, this.entry.type)
+          .getBatchCounts([this.entry.type], [wid], ["view"])
           .pipe(untilDestroyed(this))
-          .subscribe(count => {
-            this.viewCount = count + 1; // hacky fix to display view correctly
+          .subscribe(counts => {
+            const count = counts[0];
+            this.viewCount = (count?.counts.view ?? 0) + 1; // hacky fix to display view correctly
           });
       }
     }
@@ -427,11 +409,10 @@ export class ListItemComponent implements OnInit, OnChanges {
           if (success) {
             this.isLiked = false;
             this.hubService
-              .getLikeCount(entryId, this.entry.type)
-
+              .getBatchCounts([this.entry.type], [entryId], ["like"])
               .pipe(untilDestroyed(this))
-              .subscribe((count: number) => {
-                this.likeCount = count;
+              .subscribe(counts => {
+                this.likeCount = counts[0].counts.like ?? 0;
               });
           }
         });
@@ -443,10 +424,10 @@ export class ListItemComponent implements OnInit, OnChanges {
           if (success) {
             this.isLiked = true;
             this.hubService
-              .getLikeCount(entryId, this.entry.type)
+              .getBatchCounts([this.entry.type], [entryId], ["like"])
               .pipe(untilDestroyed(this))
-              .subscribe((count: number) => {
-                this.likeCount = count;
+              .subscribe(counts => {
+                this.likeCount = counts[0].counts.like ?? 0;
               });
           }
         });

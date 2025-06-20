@@ -139,10 +139,10 @@ export class DatasetDetailComponent implements OnInit {
     }
 
     this.hubService
-      .getLikeCount(this.did, "dataset")
+      .getBatchCounts(["dataset"], [this.did], ["like"])
       .pipe(untilDestroyed(this))
-      .subscribe(count => {
-        this.likeCount = count;
+      .subscribe(counts => {
+        this.likeCount = counts[0].counts.like ?? 0;
       });
 
     this.hubService
@@ -456,10 +456,10 @@ export class DatasetDetailComponent implements OnInit {
           if (success) {
             this.isLiked = false;
             this.hubService
-              .getLikeCount(this.did!, "dataset")
+              .getBatchCounts(["dataset"], [this.did!], ["like"])
               .pipe(untilDestroyed(this))
-              .subscribe((count: number) => {
-                this.likeCount = count;
+              .subscribe(counts => {
+                this.likeCount = counts[0].counts.like ?? 0;
               });
           }
         });
@@ -471,10 +471,10 @@ export class DatasetDetailComponent implements OnInit {
           if (success) {
             this.isLiked = true;
             this.hubService
-              .getLikeCount(this.did!, "dataset")
+              .getBatchCounts(["dataset"], [this.did!], ["like"])
               .pipe(untilDestroyed(this))
-              .subscribe((count: number) => {
-                this.likeCount = count;
+              .subscribe(counts => {
+                this.likeCount = counts[0].counts.like ?? 0;
               });
           }
         });
