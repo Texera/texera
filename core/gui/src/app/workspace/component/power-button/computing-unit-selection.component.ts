@@ -32,6 +32,9 @@ import { NzModalService } from "ng-zorro-antd/modal";
 import { WorkflowExecutionsService } from "../../../dashboard/service/user/workflow-executions/workflow-executions.service";
 import { WorkflowExecutionsEntry } from "../../../dashboard/type/workflow-executions-entry";
 import { ExecutionState } from "../../types/execute-workflow.interface";
+import { ShareAccessComponent } from "../../../dashboard/component/user/share-access/share-access.component";
+import { combineLatest } from "rxjs";
+import { GuiConfigService } from "../../../common/service/gui-config.service";
 
 @UntilDestroy()
 @Component({
@@ -45,7 +48,8 @@ export class ComputingUnitSelectionComponent implements OnInit {
 
   lastSelectedCuid?: number;
   selectedComputingUnit: DashboardWorkflowComputingUnit | null = null;
-  computingUnits: DashboardWorkflowComputingUnit[] = [];
+  ownComputingUnits: DashboardWorkflowComputingUnit[] = [];
+  sharedComputingUnits: DashboardWorkflowComputingUnit[] = [];
 
   // variables for creating a computing unit
   addComputeUnitModalVisible = false;
@@ -76,7 +80,7 @@ export class ComputingUnitSelectionComponent implements OnInit {
   constructor(
     private computingUnitService: WorkflowComputingUnitManagingService,
     private notificationService: NotificationService,
-    private workflowWebsocketService: WorkflowWebsocketService,
+    protected config: GuiConfigService,
     private workflowActionService: WorkflowActionService,
     private computingUnitStatusService: ComputingUnitStatusService,
     private workflowExecutionsService: WorkflowExecutionsService,
@@ -142,12 +146,14 @@ export class ComputingUnitSelectionComponent implements OnInit {
         this.selectedComputingUnit = unit;
       });
 
-    // Subscribe to all available units from the status service
-    this.computingUnitStatusService
-      .getAllComputingUnits()
+    combineLatest([
+      this.computingUnitStatusService.getOwnComputingUnits(),
+      this.computingUnitStatusService.getSharedComputingUnits(),
+    ])
       .pipe(untilDestroyed(this))
-      .subscribe(units => {
-        this.computingUnits = units;
+      .subscribe(([ownedUnits, sharedUnits]) => {
+        this.ownComputingUnits = ownedUnits;
+        this.sharedComputingUnits = sharedUnits;
       });
 
     this.registerWorkflowMetadataSubscription();
@@ -202,7 +208,8 @@ export class ComputingUnitSelectionComponent implements OnInit {
                 },
                 error: (err: unknown) => {
                   // fallback: select the first available Running unit if any
-                  const runningUnit = this.computingUnits.find(unit => unit.status === "Running");
+                  const allUnits = [...this.ownComputingUnits, ...this.sharedComputingUnits];
+                  const runningUnit = allUnits.find(unit => unit.status === "Running");
                   if (runningUnit) {
                     this.selectComputingUnit(this.workflowId, runningUnit.computingUnit.cuid);
                   }
@@ -350,7 +357,8 @@ export class ComputingUnitSelectionComponent implements OnInit {
    * @param cuid The CUID of the unit to terminate.
    */
   terminateComputingUnit(cuid: number): void {
-    const unit = this.computingUnits.find(unit => unit.computingUnit.cuid === cuid);
+    const allUnits = [...this.ownComputingUnits, ...this.sharedComputingUnits];
+    const unit = allUnits.find(u => u.computingUnit.cuid === cuid);
 
     if (!unit || !unit.computingUnit.uri) {
       this.notificationService.error("Invalid computing unit.");
@@ -770,6 +778,22 @@ export class ComputingUnitSelectionComponent implements OnInit {
   getCreateModalTitle(): string {
     if (!this.selectedComputingUnitType) return "Create Computing Unit";
     return this.unitTypeMessageTemplate[this.selectedComputingUnitType].createTitle;
+  }
+
+  public async onClickOpenShareAccess(cuid: number): Promise<void> {
+    this.modalService.create({
+      nzContent: ShareAccessComponent,
+      nzData: {
+        writeAccess: true,
+        type: "computing-unit",
+        id: cuid,
+        inWorkspace: true,
+      },
+      nzFooter: null,
+      nzTitle: "Share this computing unit with others",
+      nzCentered: true,
+      nzWidth: "800px",
+    });
   }
 
   unitTypeMessageTemplate = {
