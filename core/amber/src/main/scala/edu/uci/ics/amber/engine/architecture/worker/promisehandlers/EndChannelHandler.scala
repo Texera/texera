@@ -21,10 +21,16 @@ package edu.uci.ics.amber.engine.architecture.worker.promisehandlers
 
 import com.twitter.util.Future
 import edu.uci.ics.amber.core.tuple.FinalizePort
-import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{AsyncRPCContext, EmptyRequest}
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.EmbeddedControlMessageType.PORT_ALIGNMENT
+import edu.uci.ics.amber.engine.architecture.rpc.controlcommands.{
+  AsyncRPCContext,
+  EmptyRequest,
+  EndIterationRequest
+}
 import edu.uci.ics.amber.engine.architecture.rpc.controlreturns.EmptyReturn
+import edu.uci.ics.amber.engine.architecture.rpc.workerservice.WorkerServiceGrpc.METHOD_END_ITERATION
 import edu.uci.ics.amber.engine.architecture.worker.DataProcessorRPCHandlerInitializer
-import edu.uci.ics.amber.error.ErrorUtils.safely
+import edu.uci.ics.amber.operator.loop.LoopStartOpExec
 
 trait EndChannelHandler {
   this: DataProcessorRPCHandlerInitializer =>
@@ -37,20 +43,7 @@ trait EndChannelHandler {
     val portId = dp.inputGateway.getChannel(channelId).getPortId
     dp.inputManager.getPort(portId).completed = true
     dp.inputManager.initBatch(channelId, Array.empty)
-    try {
-      val outputState = dp.executor.produceStateOnFinish(portId.id)
-      if (outputState.isDefined) {
-        dp.outputManager.emitState(outputState.get)
-      }
-      dp.outputManager.outputIterator.setTupleOutput(
-        dp.executor.onFinishMultiPort(portId.id)
-      )
-    } catch safely {
-      case e =>
-        // forward input tuple to the user and pause DP thread
-        dp.handleExecutorException(e)
-    }
-
+    dp.processOnFinish()
     dp.outputManager.outputIterator.appendSpecialTupleToEnd(
       FinalizePort(portId, input = true)
     )
@@ -59,8 +52,17 @@ trait EndChannelHandler {
       // Need this check for handling input port dependency relationships.
       // See documentation of isMissingOutputPort
       if (!dp.outputManager.isMissingOutputPort) {
-        // assuming all the output ports finalize after all input ports are finalized.
-        dp.outputManager.finalizeOutput()
+        dp.executor match {
+          case _: LoopStartOpExec =>
+            dp.sendECMToDataChannels(
+              METHOD_END_ITERATION.getBareMethodName,
+              PORT_ALIGNMENT,
+              EndIterationRequest(dp.actorId)
+            )
+          case _ =>
+            // assuming all the output ports finalize after all input ports are finalized.
+            dp.outputManager.finalizeOutput()
+        }
       }
     }
     EmptyReturn()
