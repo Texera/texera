@@ -113,6 +113,7 @@ export const operatorCoeditorChangedPropertyClass = "texera-operator-coeditor-ch
 export const operatorIconClass = "texera-operator-icon";
 export const operatorNameClass = "texera-operator-name";
 export const operatorFriendlyNameClass = "texera-operator-friendly-name";
+export const operatorPortMetricsClass = "texera-operator-port-metrics";
 
 export const linkPathStrokeColor = "#919191";
 
@@ -129,6 +130,7 @@ class TexeraCustomJointElement extends joint.shapes.devs.Model {
       <image class="${operatorIconClass}"></image>
       <text class="${operatorFriendlyNameClass}"></text>
       <text class="${operatorNameClass}"></text>
+      <text class="${operatorPortMetricsClass}"></text>
       <text class="${operatorProcessedCountClass}"></text>
       <text class="${operatorOutputCountClass}"></text>
       <text class="${operatorAbbreviatedCountClass}"></text>
@@ -247,6 +249,7 @@ export class JointUIService {
 
     // set operator element ID to be operator ID
     operatorElement.set("id", operator.operatorID);
+    operatorElement.set("z", 1);
 
     // set the input ports and output ports based on operator predicate
     operator.inputPorts.forEach(port =>
@@ -301,11 +304,63 @@ export class JointUIService {
     const processedCountText = isSource ? "" : abbreviateNumber(statistics.aggregatedInputRowCount);
     const outputCountText = isSink ? "" : abbreviateNumber(statistics.aggregatedOutputRowCount);
     const abbreviatedText = processedCountText + (isSource || isSink ? "" : " → ") + outputCountText;
+
+    const element = jointPaper.getModelById(operatorID) as joint.shapes.devs.Model;
+    const allPorts = element.getPorts();
+    const inPorts = allPorts.filter(p => p.group === "in");
+    const outPorts = allPorts.filter(p => p.group === "out");
+
+    const inputMetrics = statistics.inputPortMetrics;
+
+    inPorts.forEach(portDef => {
+      const portId = portDef.id;
+      if (portId != null) {
+        const parts = portId.split("-");
+        const numericSuffix = parts.length > 1 ? parts[1] : portId;
+
+        const count: number = inputMetrics[numericSuffix] ?? 0;
+        const rawAttrs = (portDef.attrs as any) || {};
+        const oldText: string = (rawAttrs[".port-label"] && rawAttrs[".port-label"].text) || "";
+        let originalName = oldText.includes(":") ? oldText.split(":", 1)[0].trim() : oldText;
+
+        if (!originalName) {
+          originalName = portId;
+        }
+
+        const labelText = `${originalName}: ${count}`;
+
+        element.portProp(portId, "attrs/.port-label/text", labelText);
+      }
+    });
+
+    outPorts.forEach(portDef => {
+      const portId = portDef.id;
+      if (portId != null) {
+        const parts = portId.split("-");
+        const numericSuffix = parts.length > 1 ? parts[1] : portId;
+
+        const count: number = inputMetrics[numericSuffix] ?? 0;
+        const rawAttrs = (portDef.attrs as any) || {};
+        const oldText: string = (rawAttrs[".port-label"] && rawAttrs[".port-label"].text) || "";
+        let originalName = oldText.includes(":") ? oldText.split(":", 1)[0].trim() : oldText;
+
+        if (!originalName) {
+          originalName = portId;
+        }
+
+        const labelText = `${originalName}: ${count}`;
+
+        element.portProp(portId, "attrs/.port-label/text", labelText);
+      }
+    });
+
     jointPaper.getModelById(operatorID).attr({
       [`.${operatorProcessedCountClass}`]: isSink ? { text: processedText, "ref-y": -30 } : { text: processedText },
       [`.${operatorOutputCountClass}`]: { text: outputText },
       [`.${operatorAbbreviatedCountClass}`]: { text: abbreviatedText },
     });
+
+    this.changeOperatorState(jointPaper, operatorID, statistics.operatorState);
   }
   public foldOperatorDetails(jointPaper: joint.dia.Paper, operatorID: string): void {
     jointPaper.getModelById(operatorID).attr({
@@ -313,12 +368,17 @@ export class JointUIService {
       [`.${operatorProcessedCountClass}`]: { visibility: "hidden" },
       [`.${operatorOutputCountClass}`]: { visibility: "hidden" },
       [`.${operatorStateClass}`]: { visibility: "hidden" },
+      [`.${operatorPortMetricsClass}`]: { visibility: "hidden" },
       ".delete-button": { visibility: "hidden" },
       ".add-input-port-button": { visibility: "hidden" },
       ".add-output-port-button": { visibility: "hidden" },
       ".remove-input-port-button": { visibility: "hidden" },
       ".remove-output-port-button": { visibility: "hidden" },
     });
+    const element = jointPaper.getModelById(operatorID) as joint.shapes.devs.Model;
+    if (!element) {
+      return;
+    }
   }
 
   public unfoldOperatorDetails(jointPaper: joint.dia.Paper, operatorID: string): void {
@@ -327,12 +387,18 @@ export class JointUIService {
       [`.${operatorProcessedCountClass}`]: { visibility: "visible" },
       [`.${operatorOutputCountClass}`]: { visibility: "visible" },
       [`.${operatorStateClass}`]: { visibility: "visible" },
+      [`.${operatorPortMetricsClass}`]: { visibility: "visible" },
       ".delete-button": { visibility: "visible" },
       ".add-input-port-button": { visibility: "visible" },
       ".add-output-port-button": { visibility: "visible" },
       ".remove-input-port-button": { visibility: "visible" },
       ".remove-output-port-button": { visibility: "visible" },
     });
+
+    const element = jointPaper.getModelById(operatorID) as joint.shapes.devs.Model;
+    if (!element) {
+      return;
+    }
   }
 
   public changeOperatorState(jointPaper: joint.dia.Paper, operatorID: string, operatorState: OperatorState): void {
@@ -362,6 +428,22 @@ export class JointUIService {
       [`.${operatorAbbreviatedCountClass}`]: { fill: fillColor },
       [`.${operatorProcessedCountClass}`]: { fill: fillColor },
       [`.${operatorOutputCountClass}`]: { fill: fillColor },
+      [`.${operatorPortMetricsClass}`]: { fill: fillColor },
+    });
+    const element = jointPaper.getModelById(operatorID) as joint.shapes.devs.Model;
+    const allPorts = element.getPorts();
+    const inPorts = allPorts.filter(p => p.group === "in");
+    inPorts.forEach(p => {
+      if (p.id != null) {
+        element.portProp(p.id, "attrs/.port-label/fill", fillColor);
+      }
+    });
+
+    const outPorts = allPorts.filter(p => p.group === "out");
+    outPorts.forEach(p => {
+      if (p.id != null) {
+        element.portProp(p.id, "attrs/.port-label/fill", fillColor);
+      }
     });
   }
 
@@ -488,6 +570,7 @@ export class JointUIService {
       port: link.target.portID,
     });
     jointLinkCell.set("id", link.linkID);
+    jointLinkCell.set("z", 0);
     return jointLinkCell;
   }
 
@@ -578,6 +661,7 @@ export class JointUIService {
         stroke: "none",
       },
       ".port-label": {
+        visibility: "visible",
         event: "input-label:evt",
         dblclick: "input-label:dbclick",
         pointerdblclick: "input-label:pointerdblclick",
@@ -676,6 +760,17 @@ export class JointUIService {
         visibility: "visible",
         "ref-x": 0.5,
         "ref-y": -30,
+        ref: "rect.body",
+        "y-alignment": "middle",
+        "x-alignment": "middle",
+      },
+      ".texera-operator-port-metrics": {
+        text: "",
+        fill: "blue",
+        "font-size": "14px",
+        visibility: "hidden",
+        "ref-x": 0.5,
+        "ref-y": -70,
         ref: "rect.body",
         "y-alignment": "middle",
         "x-alignment": "middle",
