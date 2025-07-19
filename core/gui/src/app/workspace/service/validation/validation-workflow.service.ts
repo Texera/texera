@@ -28,6 +28,7 @@ import { DynamicSchemaService } from "../dynamic-schema/dynamic-schema.service";
 import { untilDestroyed } from "@ngneat/until-destroy";
 import { UntilDestroy } from "@ngneat/until-destroy";
 import { WorkflowGraph, WorkflowGraphReadonly } from "../workflow-graph/model/workflow-graph";
+import { Workflow } from "../../../common/type/workflow";
 
 export type ValidationError = {
   isValid: false;
@@ -154,6 +155,22 @@ export class ValidationWorkflowService {
         this.workflowActionService.getTexeraGraph().isOperatorDisabled(operator.operatorID)
       );
     }
+  }
+
+  /**
+   * Checks if the given workflow is "broken".
+   * A workflow is considered broken if any of its links reference an operator ID
+   * that does not exist in the list of operators within the workflow.
+   *
+   * @param workflow - The workflow to validate. 
+   * @returns `true` if the workflow is broken, `false` otherwise.
+   */
+  public checkIfWorkflowBroken(workflow: Workflow): boolean {
+    // Check the provided workflow
+    const validOperatorIDs = new Set(workflow.content.operators.map(o => o.operatorID));
+    return workflow.content.links.some(
+      link => !validOperatorIDs.has(link.source.operatorID) || !validOperatorIDs.has(link.target.operatorID)
+    );
   }
 
   private updateValidationStateOnDelete(operatorID: string) {
