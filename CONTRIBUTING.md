@@ -3,8 +3,17 @@
 Thank you for your interest in contributing to Texera! Please follow the steps below to submit your contributions effectively. We follow a **fork-based development workflow** and adopt the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for commit messages and pull request titles.
 
 ---
+## Different roles in the project
 
-## 🛠 Contribution Workflow
+| Role    | Key Permissions | How to Join
+| -------- | ------- | ------- |
+| Contributor  | Submit issues & PRs, join discussions    | Start contributing — no formal process |
+| Committer | Merge PRs, push code, vote on code changes     | Voted by PPMC based on quality contributions |
+| PPMC Member | Governance, vote on releases & new committers/PPMC     | Voted  by PPMC members |
+| Mentor | Guide project, oversee releases, ensure Apache policies followed     | Appointed by Incubator PMC — must be an experienced Apache member |
+
+
+## 🛠 Contribution Process (for Committers and PPMC members)
 
 ### 1. Fork and Branch
 - Fork the [Texera repository](https://github.com/Texera/texera) to your own GitHub account.
@@ -53,6 +62,12 @@ Do not include any of the following in your PR:
 > ℹ️ If your PR is not ready for review, please mark it as a draft. You can change it to “Ready for review” when it is complete.
 
 ---
+
+
+## 🛠 Contribution Process (for developers with a "Contributor" role)
+
+Developers with a "contributor" role don't have the privileges to merge code into the main branch of the Texera repo.  To make changes to the codebase, fork the Texera rep, make contributions to your own repo, then raise a PR into the Texera repo. Ask a committer or a PPMC member to review the PR and do the merge once it's approved.
+
 
 ## 📝 Apache License Header
 
