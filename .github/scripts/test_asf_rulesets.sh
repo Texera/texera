@@ -74,11 +74,10 @@ for path in files:
             failures.append(f"{path}: {exc}")
 
 with open(".asf.yaml") as fh:
-    rulesets = {
-        r.get("name"): r
-        for r in yaml.safe_load(fh)["github"]["rulesets"]
-        if isinstance(r, dict)
-    }
+    ruleset_list = [
+        r for r in yaml.safe_load(fh)["github"]["rulesets"] if isinstance(r, dict)
+    ]
+rulesets = {r.get("name"): r for r in ruleset_list}
 main_rs = rulesets.get("Merge Queue")
 release_rs = rulesets.get("Merge Queue (release)")
 if main_rs is None or release_rs is None:
@@ -101,6 +100,15 @@ if release_rs is not None and release_rs.get("bypass_actors") != ACTIONS_APP:
         ".asf.yaml: 'Merge Queue (release)' bypass_actors must be exactly the "
         "GitHub Actions app -- widen this list and the test together, deliberately"
     )
+names = [r.get("name") for r in ruleset_list]
+if main_rs is not None and release_rs is not None and names.index(
+    "Merge Queue (release)"
+) > names.index("Merge Queue"):
+    failures.append(
+        ".asf.yaml: 'Merge Queue (release)' must be listed before 'Merge Queue' -- "
+        "asfyaml applies rulesets in file order, and creating the release ruleset "
+        "before shrinking the main one is what keeps a rejected run fail-safe"
+    )
 
 for failure in failures:
     print(f"FAIL: {failure}")
@@ -108,6 +116,7 @@ if failures:
     sys.exit(1)
 print(
     f"OK: {len(files)} files duplicate-key clean; "
-    "Merge Queue rules identical; bypass only on the release ruleset"
+    "Merge Queue rules identical; bypass only on the release ruleset; "
+    "release ruleset listed first"
 )
 EOF
