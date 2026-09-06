@@ -68,6 +68,7 @@ describe("WorkflowFormComponent", () => {
       h.workflowWebsocketService as any,
       h.host as any,
       h.datePipe as any,
+      h.panelResizeService as any,
       h.validationWorkflowService as any,
       h.config as any
     );
@@ -1055,6 +1056,26 @@ describe("WorkflowFormComponent", () => {
       expect(component.runError).toBe("");
     });
 
+    it("clears a stale failure banner when a new run starts, even a co-editor's", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.executionStateStream.next({ current: { state: ExecutionState.Failed, errorMessages: [{ message: "boom" }] } });
+      expect(component.runError).not.toBe("");
+
+      // A co-editor starts the next run: the shared stream goes in-flight without this page's onRun().
+      h.executionStateStream.next({ current: { state: ExecutionState.Running } });
+
+      expect(component.runError).toBe("");
+    });
+
+    it("tells apart a never-run form from a completed run that produced nothing", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(component.hasRunFinished).toBe(false);
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Completed } });
+
+      expect(component.hasRunFinished).toBe(true);
+    });
+
     it("stops a running workflow instead of starting another", () => {
       build(formViewWorkflow).ngOnInit();
       h.executionStateStream.next({ current: { state: ExecutionState.Running } });
@@ -1092,6 +1113,214 @@ describe("WorkflowFormComponent", () => {
       vi.useRealTimers();
 
       expect(component.executionDuration).toBe(2000);
+    });
+  });
+
+  describe("showing the chosen results", () => {
+    // The terminal always shows (the engine always materializes it); a chosen intermediate shows only
+    // while it still has view-result on the canvas. The form never writes the view-result set
+    // (display filter, per the settled design).
+    const chosen = (resultOperatorIds: string[]) =>
+      formBindingService.getConfig.mockReturnValue({ instruction: undefined, fields: [], resultOperatorIds });
+
+    it("shows a chosen result only while its operator still has view-result on the canvas", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a", "b"]);
+      h.viewResultIds.add("a"); // b's eye is off on the canvas
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["a"]);
+    });
+
+    it("shows a chosen terminal operator with no eye", () => {
+      // The engine materializes a terminal operator unconditionally, so its result is always available.
+      // The form must show it, or an author who picks the workflow's final operator -- the most natural
+      // choice -- would get a card that never appears.
+      build(formViewWorkflow).ngOnInit();
+      chosen(["last"]);
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      h.terminalIds.add("last"); // no downstream link, and its eye is off
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["last"]);
+    });
+
+    it("shows the terminal result with nothing chosen", () => {
+      // A reader who never curates still sees the workflow's final result: the engine always
+      // materializes the terminal operator, so its result is always available to show.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      h.hasOperatorIds.add("last");
+      h.terminalIds.add("last"); // terminal, no eye, not chosen
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["last"]);
+    });
+
+    it("does not show a chosen non-terminal operator whose eye is off", () => {
+      // A mid-graph step with an enabled downstream link is materialized only when its eye is on;
+      // without the eye it produces no result, so the form must not show a card that sits forever empty.
+      build(formViewWorkflow).ngOnInit();
+      chosen(["mid"]);
+      h.graphOperators.push({ operatorID: "mid", operatorType: "Filter" }); // enabled downstream, no eye
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual([]);
+    });
+
+    it("treats an operator whose only downstream link is disabled as terminal", () => {
+      // The backend's storage rule is out-degree 0 on the ENABLED plan, so an operator whose downstream
+      // link is disabled is terminal and gets materialized. The form must match, reading enabled links.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "a", operatorType: "Filter" });
+      h.graphOperators.push({ operatorID: "b", operatorType: "Limit" });
+      h.disabledDownstream.add("a"); // a -> b link disabled, so a has no enabled downstream
+      h.terminalIds.add("b"); // b is the true end
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toContain("a");
+      expect(component.shownResultIds).toContain("b");
+    });
+
+    it("does not treat a disabled operator as terminal", () => {
+      // A disabled operator is not in the compiled plan, so the engine never materializes it; even with
+      // no downstream it must not be shown as a terminal result.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "off", operatorType: "Limit", isDisabled: true });
+      h.terminalIds.add("off"); // no downstream, but disabled
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual([]);
+    });
+
+    it("drops a card when the canvas view-result set changes, without a result update", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a", "b"]);
+      h.viewResultIds.add("a");
+      h.viewResultIds.add("b");
+      (component as any).readConfig();
+      expect(component.shownResultIds).toEqual(["a", "b"]);
+
+      // A co-editor turns b's eye off on the canvas. This emits no result-update event, so the
+      // filter must react to the view-result set changing directly, or b's card would go stale.
+      h.viewResultIds.delete("b");
+      h.viewResultChanged.next({});
+
+      expect(component.shownResultIds).toEqual(["a"]);
+    });
+
+    it("cards only the chosen, viewed steps that actually produced a result", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["produces", "produces-nothing"]);
+      h.viewResultIds.add("produces");
+      h.viewResultIds.add("produces-nothing");
+      h.anyResultIds.add("produces"); // the other ran but yielded nothing (e.g. a download UDF)
+
+      (component as any).readConfig();
+
+      expect(component.resultIdsToShow).toEqual(["produces"]);
+      expect(component.hasResults).toBe(true);
+    });
+
+    it("has no results when nothing chosen has produced anything", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a"]);
+      h.viewResultIds.add("a");
+      (component as any).readConfig();
+
+      expect(component.hasResults).toBe(false);
+    });
+
+    it("calls a paginated result a table, and gates visualisation content on a snapshot", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).workflowResultService.hasPaginatedResult = (id: string) => id === "tab";
+
+      expect(component.isTabularResult("tab")).toBe(true);
+      expect(component.vizHasContent("tab")).toBe(false); // tables take the tabular branch
+      // A non-tabular op with a non-empty snapshot has viz content; an empty one does not.
+      h.snapshotById.set("viz", [{ a: 1 }]);
+      expect(component.vizHasContent("viz")).toBe(true);
+      expect(component.vizHasContent("blank")).toBe(false);
+    });
+
+    it("labels a result by the operator's friendly name, falling back to the id", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "CSVFileScan" });
+
+      expect(component.resultLabel("op-1")).toBe("CSVFileScan");
+      expect(component.resultLabel("gone")).toBe("gone");
+    });
+
+    it("keeps a result's frame identity stable until its version moves", () => {
+      build(formViewWorkflow).ngOnInit();
+      const before = component.resultKey("op-1");
+      expect(component.resultKey("op-1")).toBe(before);
+
+      (component as any).resultVersion.set("op-1", 1);
+
+      expect(component.resultKey("op-1")).not.toBe(before);
+      expect(component.trackByKey(0, "k")).toBe("k");
+    });
+
+    it("resizes a result within bounds, per result, and re-fits after", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+      expect(component.resultZoom("op-1")).toBe(1);
+
+      component.zoomResult("op-1", 1);
+      component.zoomResult("op-1", 1);
+      expect(component.resultZoom("op-1")).toBe(2); // clamped at 2
+
+      component.zoomResult("op-1", -1);
+      component.zoomResult("op-1", -1);
+      component.zoomResult("op-1", -1);
+      expect(component.resultZoom("op-1")).toBe(0); // clamped at 0
+      expect(component.resultZoom("op-2")).toBe(1); // untouched
+
+      // The deferred re-fit runs after the card height lands.
+      vi.advanceTimersByTime(60);
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("bumps the result version and re-fits on a result update", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+
+      h.resultUpdateStream.next({ "op-1": {} });
+      expect(component.resultKey("op-1")).toBe("op-1#1");
+      vi.advanceTimersByTime(300);
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("re-fits the charts once a finished run has results", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      vi.spyOn(component, "hasResults", "get").mockReturnValue(true);
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Completed } });
+      vi.advanceTimersByTime(400);
+
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("gives the result tables a realistic page height on init", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(h.panelResizeService.changePanelSize).toHaveBeenCalled();
     });
   });
 

@@ -65,10 +65,25 @@ export function setupHarness() {
   const selectedUnitStream = new Subject<any>();
   const validationStream = new Subject<{ errors: Record<string, unknown>; workflowEmpty: boolean }>();
   const connectionStream = new Subject<boolean>();
+  // A result changed; the form bumps versions and re-fits. Tests drive it directly.
+  const resultUpdateStream = new Subject<Record<string, unknown>>();
+  // Fires when the canvas's view-result set changes (a co-editor's eye toggle included).
+  const viewResultChanged = new Subject<unknown>();
   // The operators the graph holds: `hasOperatorIds` gates operatorSchemaFor, `graphOperators`
   // supplies each operator's type (which picks the custom widget). Tests add to them as needed.
   const hasOperatorIds = new Set<string>();
   const graphOperators: any[] = [];
+  // Operators with view-result ("the eye") on in the canvas; the form shows these on top of the
+  // always-shown terminal steps.
+  const viewResultIds = new Set<string>();
+  // Operators that produced a non-empty result -- drives hasNonEmptyResult in the result mock.
+  const anyResultIds = new Set<string>();
+  // Operators the engine treats as terminal (out-degree 0 on the ENABLED plan): the engine materializes
+  // a terminal's result with no eye set, so the form shows it too. A test marks an id terminal by adding
+  // it here (no downstream at all) or to disabledDownstream (its only downstream link is disabled) --
+  // both mean "no enabled downstream link", so getAllEnabledLinks emits no link from that operator.
+  const terminalIds = new Set<string>();
+  const disabledDownstream = new Set<string>();
   // The preview centres the embedded graph once it is built; tests assert this fired.
   const triggerCenterEvent = vi.fn();
 
@@ -89,6 +104,20 @@ export function setupHarness() {
       triggerCenterEvent,
       hasOperator: (id: string) => hasOperatorIds.has(id),
       getOperator: (id: string) => graphOperators.find(o => o.operatorID === id),
+      getAllOperators: () => graphOperators,
+      getOperatorsToViewResult: () => new Set(viewResultIds),
+      getViewResultOperatorsChangedStream: () => viewResultChanged.asObservable(),
+      // Enabled links only: a non-terminal operator emits one dummy outgoing link; a terminal operator
+      // (in terminalIds, or whose downstream is disabled via disabledDownstream) emits none. Drives the
+      // component's terminal detection (terminalOperatorIds).
+      getAllEnabledLinks: () =>
+        graphOperators
+          .filter(op => !terminalIds.has(op.operatorID) && !disabledDownstream.has(op.operatorID))
+          .map(op => ({
+            linkID: `${op.operatorID}-out`,
+            source: { operatorID: op.operatorID },
+            target: { operatorID: "downstream" },
+          })),
     }),
     // Exposing or un-exposing a property announces on this stream; the form re-reads its config.
     formBindingChanged$: new Subject<unknown>(),
@@ -102,6 +131,8 @@ export function setupHarness() {
     resolveFields: vi.fn().mockReturnValue([]),
     readValue: vi.fn().mockReturnValue(undefined),
     writeValue: vi.fn(),
+    // A result card's friendly label; the mock returns the operator's display name or its id.
+    operatorLabel: (op: any) => op?.customDisplayName ?? op?.operatorType ?? op?.operatorID,
   };
   // A field per property the tests expose. Real formly json-schema conversion is exercised by the
   // property panel's own spec; here a deterministic map keeps these tests about the component's
@@ -178,7 +209,18 @@ export function setupHarness() {
     killWorkflow: vi.fn(),
     resetExecutionAndWorkers: vi.fn(),
   };
-  const workflowResultService = { clearResults: vi.fn() };
+  // Results: `anyResultIds` marks which operators produced a non-empty result; `snapshotById`
+  // lets a test give an operator a snapshot (drives vizHasContent). `hasPaginatedResult` is off
+  // unless a test overrides it. `getResultUpdateStream` is the stream the form watches.
+  const snapshotById = new Map<string, ReadonlyArray<object>>();
+  const workflowResultService = {
+    clearResults: vi.fn(),
+    getResultUpdateStream: () => resultUpdateStream.asObservable(),
+    hasNonEmptyResult: (id: string) => anyResultIds.has(id),
+    hasPaginatedResult: (_id: string) => false,
+    getResultService: (id: string) => ({ getCurrentResultSnapshot: () => snapshotById.get(id) }),
+  };
+  const panelResizeService = { changePanelSize: vi.fn() };
   const notificationService = { error: vi.fn() };
   // Not logged in by default so opening a workflow does not save; the save tests log in.
   const userService = { getCurrentUser: () => undefined, isLogin: vi.fn().mockReturnValue(false) };
@@ -235,6 +277,7 @@ export function setupHarness() {
     computingUnitStatusService,
     workflowConsoleService,
     workflowWebsocketService,
+    panelResizeService,
     validationWorkflowService,
     host,
     datePipe,
@@ -248,8 +291,15 @@ export function setupHarness() {
     selectedUnitStream,
     validationStream,
     connectionStream,
+    resultUpdateStream,
+    viewResultChanged,
     hasOperatorIds,
     graphOperators,
+    viewResultIds,
+    anyResultIds,
+    terminalIds,
+    disabledDownstream,
+    snapshotById,
     triggerCenterEvent,
   };
 }
