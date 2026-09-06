@@ -28,8 +28,10 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 import java.sql.Timestamp
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random.{nextInt, nextLong}
+
 class IntervalOpExecSpec extends AnyFlatSpec with BeforeAndAfter {
+  private val rng = new scala.util.Random(42)
+
   val left: Int = 0
   val right: Int = 1
 
@@ -97,14 +99,14 @@ class IntervalOpExecSpec extends AnyFlatSpec with BeforeAndAfter {
   }
 
   def bruteForceJoin[T](
-      leftInput: Array[T],
-      rightInput: Array[T],
-      includeLeftBound: Boolean,
-      includeRightBound: Boolean,
-      constant: Long,
-      dataType: AttributeType,
-      timeIntervalType: TimeIntervalType = TimeIntervalType.DAY
-  ): Int = {
+                         leftInput: Array[T],
+                         rightInput: Array[T],
+                         includeLeftBound: Boolean,
+                         includeRightBound: Boolean,
+                         constant: Long,
+                         dataType: AttributeType,
+                         timeIntervalType: TimeIntervalType = TimeIntervalType.DAY
+                       ): Int = {
     var resultSize: Int = 0
     for (k <- leftInput.indices) {
       for (i <- rightInput.indices) {
@@ -193,12 +195,12 @@ class IntervalOpExecSpec extends AnyFlatSpec with BeforeAndAfter {
   }
 
   def compare(
-      input1: Long,
-      leftBound: Long,
-      rightBound: Long,
-      includeLeftBound: Boolean,
-      includeRightBound: Boolean
-  ): Boolean = {
+               input1: Long,
+               leftBound: Long,
+               rightBound: Long,
+               includeLeftBound: Boolean,
+               includeRightBound: Boolean
+             ): Boolean = {
     if (includeLeftBound && includeRightBound) {
       input1 >= leftBound && input1 <= rightBound
     } else if (includeLeftBound && !includeRightBound) {
@@ -211,16 +213,16 @@ class IntervalOpExecSpec extends AnyFlatSpec with BeforeAndAfter {
   }
 
   def testJoin[T](
-      leftKey: String,
-      rightKey: String,
-      includeLeftBound: Boolean,
-      includeRightBound: Boolean,
-      dataType: AttributeType,
-      timeIntervalType: TimeIntervalType,
-      intervalConstant: Long,
-      leftInput: Array[T],
-      rightInput: Array[T]
-  ): Unit = {
+                   leftKey: String,
+                   rightKey: String,
+                   includeLeftBound: Boolean,
+                   includeRightBound: Boolean,
+                   dataType: AttributeType,
+                   timeIntervalType: TimeIntervalType,
+                   intervalConstant: Long,
+                   leftInput: Array[T],
+                   rightInput: Array[T]
+                 ): Unit = {
     val inputSchemas =
       Map(
         PortIdentity() -> schema(leftKey, dataType),
@@ -240,8 +242,8 @@ class IntervalOpExecSpec extends AnyFlatSpec with BeforeAndAfter {
     counter = 0
     var leftIndex: Int = 0
     var rightIndex: Int = 0
-    val leftOrder = LazyList.continually(nextInt(10)).take(leftInput.length).toList
-    val rightOrder = LazyList.continually(nextInt(10)).take(rightInput.length).toList
+    val leftOrder = LazyList.continually(rng.nextInt(10)).take(leftInput.length).toList
+    val rightOrder = LazyList.continually(rng.nextInt(10)).take(rightInput.length).toList
     val outputTuples: ArrayBuffer[Tuple] = new ArrayBuffer[Tuple]
 
     while (leftIndex < leftOrder.size || rightIndex < rightOrder.size) {
@@ -483,8 +485,8 @@ class IntervalOpExecSpec extends AnyFlatSpec with BeforeAndAfter {
   }
 
   it should "test larger dataset(1k)" in {
-    val pointList: Array[Long] = LazyList.continually(nextLong()).take(1000).toArray
-    val rangeList: Array[Long] = LazyList.continually(nextLong()).take(1000).toArray
+    val pointList: Array[Long] = LazyList.continually(rng.nextLong()).take(1000).toArray
+    val rangeList: Array[Long] = LazyList.continually(rng.nextLong()).take(1000).toArray
     testJoin[Long](
       "point",
       "range",
@@ -492,7 +494,7 @@ class IntervalOpExecSpec extends AnyFlatSpec with BeforeAndAfter {
       includeRightBound = true,
       AttributeType.LONG,
       TimeIntervalType.DAY,
-      nextInt(1000).toLong,
+      rng.nextInt(1000).toLong,
       pointList,
       rangeList
     )
