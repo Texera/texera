@@ -221,6 +221,49 @@
         <texera-mini-map
           *ngIf="workflowEverOpened"
           class="box"></texera-mini-map>
+
+        <!-- Sibling of the panel, not nested inside it: the property editor opens its own stacking
+             context, and a button inside that context paints under its content -- visible but
+             unclickable. As a sibling the close button is simply above. -->
+        <button
+          class="panel-close"
+          *ngIf="selectedOperatorId"
+          type="button"
+          aria-label="Close step details"
+          (click)="closeOperatorPanel()">
+          <i
+            nz-icon
+            nzType="close"
+            aria-hidden="true"></i>
+        </button>
+
+        <!-- A reader can open a step to view its settings, read-only. Read-only is enforced twice,
+             at different layers, because neither layer alone is enough:
+             [actsAsEditor]="false" stops every write the panel can make (co-editor
+             awareness, operator version, operator properties) -- that is the one that matters, since
+             merely opening a step makes ajv fill in schema defaults and emit a change; and `inert`
+             stops the interaction, blocking pointer, keyboard and focus. Disabling the form is not a
+             substitute for `inert`: the preset save/apply/delete buttons, the array add/remove
+             buttons and the drag-to-reorder handles are plain controls that a disabled FormGroup
+             does not reach. Turning the panel live for choosing what to expose is the authoring PR.
+             The panel is the scroll container and takes the focus itself (tabindex, aria-label), so
+             a keyboard reader can still scroll a long panel that `inert` content cannot hold focus in.
+             [hidden], not *ngIf: the property editor shows its operator by REACTING to the highlight
+             stream (no initial pull), so it must already be mounted and subscribed when the click
+             highlights a step. Mounting it on selection (*ngIf) subscribes too late, misses that
+             emission, and the panel opens empty. So keep it mounted and just hide it. -->
+        <div
+          class="panel"
+          role="group"
+          tabindex="0"
+          aria-label="Step settings, read-only"
+          [hidden]="!selectedOperatorId">
+          <texera-property-editor
+            [exposeChoosing]="false"
+            [persistPlacement]="false"
+            [actsAsEditor]="false"
+            [attr.inert]="''"></texera-property-editor>
+        </div>
       </div>
     </section>
 
