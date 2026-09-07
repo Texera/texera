@@ -56,7 +56,8 @@ import { OperatorLink, OperatorPredicate } from "../../types/workflow-common.int
 import { tap } from "rxjs/operators";
 import { WorkflowVersionService } from "../../../dashboard/service/user/workflow-version/workflow-version.service";
 import { config as rxjsConfig, of, Subject } from "rxjs";
-import { NzContextMenuService, NzDropDownModule } from "ng-zorro-antd/dropdown";
+import { NzContextMenuService, NzDropDownModule, NzDropdownMenuComponent } from "ng-zorro-antd/dropdown";
+import { By } from "@angular/platform-browser";
 import { ActivatedRoute, Router } from "@angular/router";
 import { RouterTestingModule } from "@angular/router/testing";
 import { ContextMenuComponent } from "./context-menu/context-menu/context-menu.component";
@@ -138,6 +139,22 @@ describe("WorkflowEditorComponent", () => {
       // keeps the Status toggle off until the user enables it
       const editor = (component as any).editor as HTMLElement;
       expect(editor.classList.contains("hide-operator-status")).toBe(true);
+    });
+
+    it("carries its structure lock into the right-click menu", () => {
+      // The Form View's edit mode re-enables workflow modification for the property panel while its
+      // preview stays structure-locked; the menu must see the lock, or right-click could still cut,
+      // paste or delete from the preview.
+      component.structureLocked = true;
+      fixture.detectChanges();
+      const menu = fixture.debugElement.query(By.directive(NzDropdownMenuComponent)).componentInstance;
+      component.nzContextMenu.create(new MouseEvent("contextmenu", { clientX: 5, clientY: 5 }), menu);
+      fixture.detectChanges();
+
+      const contextMenu = fixture.debugElement.query(By.directive(ContextMenuComponent));
+      expect(contextMenu).not.toBeNull();
+      expect((contextMenu.componentInstance as ContextMenuComponent).structureLocked).toBe(true);
+      component.nzContextMenu.close();
     });
 
     // Drives the region-update stream the editor subscribes to in handleRegionEvents, creating

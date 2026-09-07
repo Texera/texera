@@ -179,10 +179,10 @@ export class FormBindingService {
   }
 
   /**
-   * Choose whether an operator's output is shown on the form after a run. This records the
-   * form's own selection only and never changes the canvas's view-result flags: the form
-   * offers exactly the operators the workflow already views, so their results are already
-   * materialised and nothing here needs to touch the graph. Read-only, one direction.
+   * Choose whether an operator's output is featured on the form after a run, on top of the final
+   * step's result, which always shows. This records the form's own selection only and never changes
+   * the canvas's view-result flags: the picker offers view-result operators, whose results are
+   * already materialised, so nothing here needs to touch the graph. Read-only, one direction.
    */
   public toggleResultOperator(operatorID: string): void {
     const shown = this.getConfig().resultOperatorIds;

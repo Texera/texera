@@ -1,0 +1,71 @@
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements.  See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership.  The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License.  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing,
+ software distributed under the License is distributed on an
+ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ KIND, either express or implied.  See the License for the
+ specific language governing permissions and limitations
+ under the License.
+-->
+
+<!-- Authoring: the label is the input, so what you type is what the reader reads. -->
+<div
+  class="lbl-row"
+  *ngIf="props.authoring">
+  <input
+    class="lbl-input"
+    [value]="props.authorName"
+    [placeholder]="props.schemaLabel"
+    (change)="onRename($event)"
+    [attr.aria-label]="'Label shown above this input'"
+    [title]="'Shown above this box. Empty keeps ' + props.schemaLabel" />
+  <!-- An input the reader can only lose by removing it altogether has no eye: offering
+       one here would be a second place to decide the same thing. -->
+  <button
+    *ngIf="props.canHide !== false"
+    type="button"
+    class="lbl-eye"
+    [class.off]="props.authorHidden"
+    (click)="onToggleHidden()"
+    [attr.aria-pressed]="props.authorHidden"
+    [attr.aria-label]="props.authorHidden ? 'Hidden from the form. Click to show' : 'Shown on the form. Click to hide'"
+    [title]="props.authorHidden ? 'Hidden from the form' : 'Shown on the form'">
+    <i
+      nz-icon
+      [nzType]="props.authorHidden ? 'eye-invisible' : 'eye'"
+      nzTheme="outline"></i>
+  </button>
+</div>
+
+<!-- The name box above edits the label; it is not the label. The control below still needs a
+     programmatic name (decorate blanks formly's own), so it gets one that follows the current name,
+     present for assistive technology only. -->
+<label
+  class="lbl-sr-only"
+  *ngIf="props.authoring"
+  [attr.for]="id">
+  {{ props.authorName || props.schemaLabel }}
+</label>
+
+<!-- Everyone else just reads it. This wrapper blanks formly's own label (decorate sets label to ""),
+     so this one has to do that label's job in full: `for` ties it to the control (formly gives the
+     control the field id), or the reader's input would show a name and announce none. -->
+<label
+  class="lbl-static"
+  *ngIf="!props.authoring && (props.authorName || props.schemaLabel)"
+  [attr.for]="id">
+  {{ props.authorName || props.schemaLabel }}
+</label>
+
+<div [class.dimmed]="props.authoring && props.authorHidden">
+  <ng-container #fieldComponent></ng-container>
+</div>
