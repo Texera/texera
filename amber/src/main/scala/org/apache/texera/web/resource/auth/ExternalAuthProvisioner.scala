@@ -51,11 +51,13 @@ final case class ExternalProfile(
 )
 
 /**
-  * An identity a provider authenticates without asserting any address — Apple, which omits `email`
+  * An identity a provider authenticates without asserting any address — ORCID, whose
+  * `/authenticate` scope yields an iD and a name and nothing else, and Apple, which omits `email`
   * for Sign in with Apple at Work & School accounts.
   *
   * A separate type rather than an optional `email` on [[ExternalProfile]]: the difference is what
-  * the provider vouches for, not how much of it happens to be filled in. Provisioned through
+  * the provider vouches for, not how much of it is filled in, and an email-asserting provider's
+  * contract should stay a plain `String`. Provisioned through
   * [[ExternalAuthProvisioner.loginOrProvisionIdentityOnly]].
   */
 final case class ExternalIdentity(
@@ -67,8 +69,9 @@ final case class ExternalIdentity(
 object ExternalAuthProvisioner extends LazyLogging {
 
   /**
-    * What provisioning works with: the fields a provider may or may not have asserted. Private, so
-    * the optionality never reaches a caller — each public entry point states which kind it serves.
+    * What provisioning actually works with: the fields a provider may or may not have asserted.
+    * Private, so the optionality never reaches a caller — each public entry point below states
+    * plainly which kind of provider it serves.
     */
   private final case class Asserted(
       providerType: ProviderTypeEnum,
@@ -106,13 +109,16 @@ object ExternalAuthProvisioner extends LazyLogging {
   /**
     * As [[loginOrProvision]], for a provider that asserts no address.
     *
-    * The account is created with a NULL email and is deliberately never matched to an existing one:
-    * the only address available for matching would be one the user typed, and linking on that is
-    * the takeover [[ExternalProfile]] describes. Such an account signs in but is inert for the
-    * email-keyed parts of the product until the address is collected — see `AuthResource.setEmail`.
+    * The account is created with a NULL email and is deliberately never matched to an existing
+    * one: the only address available for matching would be one the user typed, and linking on
+    * that is the takeover [[ExternalProfile]] describes. Such an account signs in but is inert
+    * for the email-keyed parts of the product (dataset paths, access grants) until the address is
+    * collected — see `AuthResource.setEmail`.
     */
   def loginOrProvisionIdentityOnly(identity: ExternalIdentity): User =
-    attempt(Asserted(identity.providerType, identity.providerId, identity.name, None, None))
+    attempt(
+      Asserted(identity.providerType, identity.providerId, identity.name, None, None)
+    )
 
   private def attempt(profile: Asserted): User = {
     try {
@@ -146,8 +152,8 @@ object ExternalAuthProvisioner extends LazyLogging {
           }
 
         case None =>
-          // An identity-only provider skips the lookup rather than matching on nothing, so it
-          // always lands in the insert branch below.
+          // An identity-only provider skips the lookup entirely rather than matching on nothing,
+          // so it always lands in the insert branch below.
           val user = profile.email.flatMap(userByEmailIgnoreCase(ctx, _)) match {
             case Some(existing) =>
               existing.tap { user =>
@@ -190,9 +196,9 @@ object ExternalAuthProvisioner extends LazyLogging {
     * Mutate `user` in place to match `profile`, returning true iff anything changed
     * (so the caller only issues an UPDATE when needed).
     *
-    * A field the provider did not assert is left alone rather than blanked: on a returning login an
-    * identity-only account may have gained an address through `AuthResource.setEmail`, which this
-    * must not undo.
+    * A field the provider did not assert is left as it is rather than blanked: an identity-only
+    * provider carries no address, and on a returning login the account may well have one by then
+    * — collected through `AuthResource.setEmail` — which this must not undo.
     */
   private def refresh(user: User, profile: Asserted): Boolean = {
     var changed = false
