@@ -96,6 +96,16 @@
     color: #fff;
     background: rgba(0, 0, 0, 0.55);
   }
+
+  /* The default-view toggle shows its state: filled with the accent while the workflow opens
+     in the Form View, the same cue the list row's toggle gives. */
+  &.default-view-toggle.defaults-to-form-on {
+    background: #1890ff;
+
+    &:hover {
+      background: #40a9ff;
+    }
+  }
 }
 
 .owner-info {
