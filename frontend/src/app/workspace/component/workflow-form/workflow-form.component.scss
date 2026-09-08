@@ -22,6 +22,8 @@ $blue: #1890ff;
 $text: rgba(0, 0, 0, 0.85);
 $text-2: rgba(0, 0, 0, 0.45);
 $divider: #f0f0f0;
+$border: #d9d9d9;
+$shell: #fafafa;
 
 :host {
   display: block;
@@ -64,16 +66,32 @@ $divider: #f0f0f0;
      padding; matching that is what lines the two titles up. */
   gap: 0;
 
-  /* Every value here is the operator canvas's .workflow-name, so the two title rows read
-     as the same row: the same size, weight and padding. Shown here; the editable input is
-     the next PR. */
+  /* An input, not a label: the workflow can be renamed from either view. Every value here is
+     the operator canvas's .workflow-name, so the two title rows read as the same row --
+     content-box sizing with the same padding, no border, chromeless until you reach for it,
+     and a width set from the text by the same measure-in-a-span trick. */
   .wf-name {
     min-width: 100px;
     max-width: 800px;
     font-size: 18px;
     font-weight: 400;
     padding: 2px 8px;
+    border: none;
+    box-sizing: content-box;
+    background: none;
     color: $text;
+    outline: none;
+
+    &:hover {
+      background: $shell;
+    }
+  }
+
+  /* Immediately after the name, in the body colour and size of ordinary text, exactly as on
+     the operator canvas; the name field's own padding makes the gap. */
+  .saved-state {
+    color: $text;
+    white-space: nowrap;
   }
 
   .topbar-spacer {
@@ -163,4 +181,390 @@ $divider: #f0f0f0;
 .pc-loading {
   color: $text-2;
   padding: 40px 0;
+}
+
+/* A section of the page: the inputs and the workflow preview here, results in later PRs. */
+.card {
+  border: 1px solid $border;
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* ---------- instruction ---------- */
+
+.instr {
+  margin-bottom: 26px;
+
+  .instr-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 13px 16px;
+    cursor: pointer;
+    user-select: none;
+    appearance: none;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .lead {
+      color: $blue;
+    }
+
+    .chev {
+      color: $text-2;
+      transform: rotate(-90deg);
+      transition: transform 0.2s;
+    }
+  }
+
+  &.open .instr-bar .chev {
+    transform: rotate(0deg);
+  }
+
+  .instr-body {
+    border-top: 1px solid $divider;
+    padding: 16px;
+    /* A long explanation scrolls rather than pushing the form off screen, and can be dragged
+       taller by anyone who wants to read it all at once. */
+    max-height: 340px;
+    overflow-y: auto;
+    resize: vertical;
+  }
+}
+
+.md {
+  :first-child {
+    margin-top: 0;
+  }
+
+  :last-child {
+    margin-bottom: 0;
+  }
+
+  img {
+    max-width: 100%;
+    border: 1px solid $divider;
+    border-radius: 6px;
+  }
+
+  code {
+    background: $divider;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+}
+
+/* ---------- inputs ---------- */
+
+.pc-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-2;
+}
+
+.empty {
+  padding: 28px;
+  text-align: center;
+  color: $text-2;
+  border: 1px dashed $border;
+  border-radius: 8px;
+}
+
+.params {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.param {
+  padding: 16px 18px;
+
+  /* A read-only viewer sees the values but cannot change them. The bound controls are already
+     disabled through props.disabled; this blocks every other interactive element a custom widget
+     draws of its own -- a file picker's Browse button, an uploader, a picker's dropdown -- which
+     do not consult the form's disabled state. */
+  &.read-only {
+    pointer-events: none;
+  }
+
+  /* The author's one line of guidance under an input, when they wrote one. */
+  .param-help-text {
+    margin: 8px 0 0;
+    color: $text-2;
+    font-size: 13px;
+  }
+
+  /* The operator's property editor lays its fields out for a narrow docked panel: a fixed label
+     column on the left, controls squeezed into what is left. Dropped into a full-width card that
+     reads as a third of a form floating in an empty page. Here the label sits above its control
+     and both run the width of the card. formly's own structural elements are inline by default,
+     so each field shrank to its content until they are told to fill first. */
+  .param-form,
+  ::ng-deep formly-form,
+  ::ng-deep formly-field,
+  ::ng-deep formly-group,
+  ::ng-deep formly-wrapper-nz-form-field,
+  ::ng-deep formly-field-nz-input,
+  ::ng-deep nz-form-item,
+  ::ng-deep nz-form-control {
+    display: block;
+    width: 100%;
+    max-width: none;
+  }
+
+  ::ng-deep .ant-form-item {
+    margin-bottom: 0;
+    width: 100%;
+  }
+
+  ::ng-deep .ant-form-item-row,
+  ::ng-deep nz-form-item > .ant-row {
+    display: block;
+  }
+
+  ::ng-deep .ant-form-item-label {
+    width: auto !important;
+    max-width: none !important;
+    flex: none !important;
+    text-align: left !important;
+    padding: 0 0 2px !important;
+    line-height: 1.5;
+
+    > label {
+      height: auto;
+      font-size: 13px;
+      color: $text;
+
+      &::after {
+        display: none;
+      }
+    }
+  }
+
+  ::ng-deep .ant-form-item-control {
+    width: 100% !important;
+    max-width: none !important;
+    flex: 1 1 auto !important;
+  }
+
+  /* Inputs, selects and the file picker all stretch instead of sitting at their default widths
+     against a wall of white. */
+  ::ng-deep .ant-form-item-control-input-content > input,
+  ::ng-deep .ant-form-item-control-input-content > textarea,
+  ::ng-deep .ant-form-item-control-input-content > nz-select,
+  ::ng-deep .ant-input,
+  ::ng-deep .ant-input-number,
+  ::ng-deep .ant-select {
+    width: 100%;
+  }
+
+  /* The file picker's button sits under its box; give them the same left edge and a little air,
+     rather than the button hugging the input. */
+  ::ng-deep texera-dataset-file-selector button,
+  ::ng-deep .ant-form-item-control-input-content > button {
+    margin-top: 6px;
+  }
+}
+
+/* ---------- run ---------- */
+
+.runbar {
+  display: flex;
+  align-items: center;
+  margin-top: 26px;
+}
+
+/* Run and its computing unit as one control. The seam between them is what says the two belong
+   together. */
+.run-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+
+  /* Quiet beside Run: it is something you glance at, not a control. Tabular figures stop the row
+     twitching as the seconds tick over. */
+  .run-clock {
+    align-self: center;
+    margin-left: 4px;
+    color: #5c6672;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+
+  .run-unit {
+    display: flex;
+    align-items: center;
+
+    /* The selector reserves 220px and right-aligns inside it, which on the toolbar keeps a row of
+       controls steady but here left a wide gap between Run and a box that belongs next to it. Let
+       it be as wide as its content. */
+    ::ng-deep .computing-units-selection {
+      min-width: 0;
+    }
+
+    /* Matched to Run's height so the pair reads as one row of controls. */
+    ::ng-deep .computing-units-dropdown-button {
+      height: 40px;
+    }
+  }
+}
+
+.run {
+  height: 40px;
+  // Fixed width, content centred, so the button is the same size in every state (Run / Stop /
+  // Connect / Connecting / Invalid / Empty) instead of shrinking to "Run" and jumping wide for the
+  // others. Sized to the longest label ("Connecting"); the disabled states are kept to one word so
+  // this stays compact.
+  min-width: 160px;
+  padding: 0 26px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid $blue;
+  background: $blue;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  cursor: pointer;
+
+  &:hover {
+    background: #40a9ff;
+    border-color: #40a9ff;
+  }
+
+  &.stop {
+    background: #fff;
+    color: #ff4d4f;
+    border-color: #ff4d4f;
+
+    &:hover {
+      background: #fff1f0;
+    }
+  }
+
+  &:disabled {
+    background: $shell;
+    border-color: $border;
+    color: rgba(0, 0, 0, 0.25);
+    cursor: not-allowed;
+  }
+}
+
+.run-note {
+  font-size: 13px;
+  color: $text-2;
+  margin: 9px 0 0;
+
+  &.err {
+    color: #ff4d4f;
+  }
+}
+
+/* ---------- workflow preview ---------- */
+
+.wf {
+  margin-top: 28px;
+
+  // A native button so it is keyboard-operable and announces its expanded state, reset to
+  // read as the plain card header it looks like.
+  .wf-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 13px 16px;
+    cursor: pointer;
+    user-select: none;
+    appearance: none;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+
+    .wf-title {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .wf-sub {
+      display: block;
+      margin-top: 2px;
+      font-size: 13px;
+      color: $text-2;
+    }
+
+    .chev {
+      color: $text-2;
+      transform: rotate(-90deg);
+      transition: transform 0.2s;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $blue;
+      outline-offset: -2px;
+    }
+  }
+
+  &.open .wf-bar .chev {
+    transform: rotate(0deg);
+  }
+
+  .wf-body {
+    position: relative;
+    border-top: 1px solid $divider;
+    height: 380px;
+    resize: vertical;
+    overflow: hidden;
+    background: #f7f8f9;
+
+    texera-workflow-editor {
+      display: block;
+      height: 100%;
+      width: 100%;
+    }
+
+    // The canvas mini-map, parked in the corner for navigating a large graph. Reused as-is at
+    // its natural 300x200 (as the workspace/Hub do) -- no size override, so the whole graph
+    // shows instead of being clipped behind the toolbar. No overflow:hidden either: the inner
+    // #mini-map-container already clips the paper, and clipping here would hide the collapsed
+    // mini-map's own re-open button, so it could never be brought back.
+    .box {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      border: 1px solid $divider;
+      border-radius: 6px;
+      background: #fff;
+    }
+  }
 }
