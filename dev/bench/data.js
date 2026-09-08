@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788787252246,
+  "lastUpdate": 1788880797045,
   "repoUrl": "https://github.com/apache/texera",
   "entries": {
     "Arrow Flight E2E Throughput": [
@@ -12824,6 +12824,163 @@ window.BENCHMARK_DATA = {
           {
             "name": "throughput / bs=1000 sw=50 sl=512",
             "value": 494.1065388071474,
+            "unit": "tuples/sec"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "yangzhang75",
+            "username": "yangzhang75",
+            "email": "yangz75@uci.edu"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "a268c1cc0d36ef9452fee54de6336483aefae17a",
+          "message": "feat(workflow-form): run the workflow from the form and show the author's instruction (#8440)\n\n### What changes were proposed in this PR?\n\nCloses #8023. Part of the Form View stack (parent issue #8011), stacked\non #8438 (PR11) and #8437 (PR10).\n\nThe Form View can now render inputs and write them back. This PR makes\nit usable end to end: it runs the workflow, and shows the author's\ninstruction above the inputs.\n\n- **Run.** A Run button that shares the operator canvas's disable\nconditions (an invalid or empty workflow, a unit still connecting, or no\nunit chosen each disable it and say why), but deliberately simplifies\nthe execution states a reader needs down to Run and Stop, with no\npause/resume. The unit is chosen in the embedded computing-unit\nselector. Running is the same execution call the canvas makes, so empty\nor invalid inputs surface as a real engine error rather than a\nclient-side gate; a run clock counts off the engine's own event, and a\nfailed run collapses an opaque trace to one plain sentence (a required\ninput left empty reads as \"please fill in the required fields\").\n- **Instruction.** The author's optional instruction renders above the\ninputs as a collapsible, read-only markdown card, shown only when there\nis text. It is bound through `[innerHTML]` with Angular's default\nsanitizer, so author markdown cannot inject script. Editing it is part\nof the authoring PR.\n\nShowing the chosen results is the next PR (#8024).\n\n### Any related issues, documentation, discussions?\n\nCloses #8023. Part of the Form View feature (parent issue #8011).\n\n### How was this PR tested?\n\nUnit tests (vitest). Direct-construction tests cover every run-button\nprecedence branch, `onRun` (kill while running, no-op when disabled,\nelse execute and clear the error), the five failed-run message paths,\nthe run clock and its tick, and the status/validation/connection\nsubscriptions; the instruction is covered for the markdown render,\n`hasInstruction`, and the toggle. TestBed template tests stand up the\ninstruction card, the run bar, and the run-button click binding. 100%\nstatement and function coverage on the changed source (the remaining\nuncovered branches are the pre-existing defensive `??`/`||` fallbacks).\n`ng test` (99 tests), `ng build gui`, eslint and prettier all pass, in\nboth the single-user and collaboration paths.\n\n#### Screenshot\n\nThe run bar (Run button + computing-unit selector + clock) and the\nauthor's instruction card above the inputs.\n<img width=\"1323\" height=\"488\" alt=\"Screenshot 2026-09-06 at 12 07\n57 PM\"\nsrc=\"https://github.com/user-attachments/assets/024d3bf5-be01-4449-8a0f-7538961cb83a\"\n/>\n\n\n\n### Was this PR authored or co-authored using generative AI tooling?\n\nYes. Co-authored with Claude (Anthropic), reviewed line by line by the\nauthor before submission.\n\nCo-authored-by: Claude Opus 4.8 <noreply@anthropic.com>\nCo-authored-by: Meng Wang <mengw15@uci.edu>",
+          "timestamp": "2026-09-07T11:53:35Z",
+          "url": "https://github.com/apache/texera/commit/a268c1cc0d36ef9452fee54de6336483aefae17a"
+        },
+        "date": 1788880796798,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "throughput / bs=10 sw=1 sl=8",
+            "value": 660.0944085241676,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=8",
+            "value": 1290.5690303716017,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=8",
+            "value": 1400.0128754676116,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=64",
+            "value": 913.8726956308157,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=64",
+            "value": 1347.8845134222972,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=64",
+            "value": 1389.6241135212608,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=512",
+            "value": 948.0040748988196,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=512",
+            "value": 1345.5759646589117,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=512",
+            "value": 1412.8511584740993,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=8",
+            "value": 763.1737480246087,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=8",
+            "value": 1060.579232161665,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=8",
+            "value": 1100.2977522040942,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=64",
+            "value": 806.2729629714554,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=64",
+            "value": 1068.390822271188,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=64",
+            "value": 1102.8659600795404,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=512",
+            "value": 803.9002626459929,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=512",
+            "value": 1050.1619698069915,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=512",
+            "value": 1072.8021022264427,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=8",
+            "value": 472.6519389776674,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=8",
+            "value": 578.6050914151697,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=8",
+            "value": 579.3694012597118,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=64",
+            "value": 473.8187963988078,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=64",
+            "value": 566.2482054084257,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=64",
+            "value": 581.5888155012661,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=512",
+            "value": 456.09169266294674,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=512",
+            "value": 553.4997256417126,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=512",
+            "value": 555.6197008005091,
             "unit": "tuples/sec"
           }
         ]
