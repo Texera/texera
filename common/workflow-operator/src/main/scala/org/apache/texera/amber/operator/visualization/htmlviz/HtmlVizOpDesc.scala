@@ -76,9 +76,6 @@ class HtmlVizOpDesc extends LogicalOp with StandaloneCodeGenerator {
       OperatorGroupConstants.VISUALIZATION_MEDIA_GROUP
     )
 
-  // Output is a plain table (one "html-content" column), not a Plotly figure.
-  override def producesDataFrame(): Boolean = true
-
   // Mirrors HtmlVizOpExec: emit one row per input row whose single
   // "html-content" column is the value of htmlContentAttrName, passed through
   // unconverted (the exec does not coerce either).

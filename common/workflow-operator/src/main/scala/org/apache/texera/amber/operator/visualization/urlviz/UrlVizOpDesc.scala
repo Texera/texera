@@ -85,9 +85,6 @@ class UrlVizOpDesc extends LogicalOp with StandaloneCodeGenerator {
       OperatorGroupConstants.VISUALIZATION_MEDIA_GROUP
     )
 
-  // Output is a plain table (one "html-content" column), not a Plotly figure.
-  override def producesDataFrame(): Boolean = true
-
   // Mirrors UrlVizOpExec: wrap each urlContentAttrName value in the exact same
   // iframe HTML document and emit it as the "html-content" column.
   override def generateStandaloneCode(): String = {
