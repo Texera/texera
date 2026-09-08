@@ -166,11 +166,33 @@ export class FiltersComponent implements OnInit, OnChanges {
     }
   }
 
+  /**
+   * Drops the owner and id selections, and the tags carrying them. The host calls this before it
+   * searches a new kind: the selections belong to the facet being replaced, and a search that still
+   * carries them asks the new kind for an owner it has no facet for.
+   */
+  public clearFacetSelections(): void {
+    this.selectedOwners = [];
+    this.selectedIDs = [];
+    this.owners.forEach(owner => (owner.checked = false));
+    this.wids.forEach(wid => (wid.checked = false));
+    this.setMasterFilterList(
+      this.masterFilterList.filter(tag => !tag.startsWith("owner: ") && !tag.startsWith("id: ")),
+      false
+    );
+  }
+
   /** Refetches both facets for the kind and scope now in effect. */
   private reloadFacets(): void {
+    this.clearFacets();
+    this.facetReload$.next();
+  }
+
+  /** Empties both facets and whatever was selected from them. */
+  private clearFacets(): void {
     this.owners = [];
     this.wids = [];
-    this.facetReload$.next();
+    this.clearFacetSelections();
   }
 
   /** The owners this page should offer; none for a signed-out visitor, whose endpoints are gated. */
@@ -208,8 +230,8 @@ export class FiltersComponent implements OnInit, OnChanges {
         } else {
           // Signing out: clear rather than refetch, or an expired session fires the authenticated
           // endpoints anyway and the empty result drops the chips with an "Invalid owner name" toast.
-          this.owners = [];
-          this.wids = [];
+          // The selections go too, or the anonymous hub stays filtered by an owner it no longer offers.
+          this.clearFacets();
         }
         this.cdr.detectChanges();
       });

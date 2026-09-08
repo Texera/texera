@@ -63,6 +63,7 @@ class MockFiltersComponent {
   masterFilterList: ReadonlyArray<string> = [];
   getSearchKeywords = (): string[] => [...this.masterFilterList];
   getSearchFilterParameters = () => ({});
+  clearFacetSelections = vi.fn();
 }
 
 @Component({
@@ -290,6 +291,19 @@ describe("SearchComponent", () => {
 
     expect(component.selectedType).toBe("workflow");
     expect(searchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the previous tab's facet selections before it searches", () => {
+    // search() reads the filter parameters in the same turn, long before the new facet lands, so a
+    // selection cleared afterwards would still go out with the first request.
+    fixture.detectChanges(); // resolves the filters ViewChild
+    const order: string[] = [];
+    vi.spyOn(component.filters, "clearFacetSelections").mockImplementation(() => void order.push("clear"));
+    vi.spyOn(component, "search").mockImplementation(async () => void order.push("search"));
+
+    component.filterByType("dataset");
+
+    expect(order).toEqual(["clear", "search"]);
   });
 
   it("navigates back on goBack", () => {

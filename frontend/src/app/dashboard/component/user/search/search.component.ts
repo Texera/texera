@@ -156,6 +156,10 @@ export class SearchComponent implements AfterViewInit {
 
   filterByType(type: "workflow" | "dataset" | "model" | null): void {
     this.selectedType = type;
+    // Before searching, not after: search() reads the filter parameters in the same turn, so a
+    // selection left over from the previous tab would go out with the first request. Guarded on the
+    // backing field, since the getter throws until the ViewChild resolves (#6328).
+    this._filters?.clearFacetSelections();
     this.search();
   }
 
