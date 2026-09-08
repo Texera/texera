@@ -64,7 +64,7 @@ spec:
             # The pod's own prefix and the browser-facing address are rendered from one
             # basePath, so they cannot drift apart.
             - name: KUBERNETES_JUPYTER_BASE_URL
-              value: {{ .Values.jupyterPool.basePath }}
+              value: {{ include "texera.jupyter.basePath" . }}
             {{- $origin := .Values.notebookMigrationService.publicOrigin }}
             {{- if and (not $origin) .Values.gatewayConfig .Values.gatewayConfig.hostname }}
             {{- /* Both listeners always render, so only a configured certificate says
@@ -77,7 +77,7 @@ spec:
             {{- end }}
             {{- if $origin }}
             - name: KUBERNETES_JUPYTER_PUBLIC_URL_TEMPLATE
-              value: {{ $origin }}{{ .Values.jupyterPool.basePath }}/{uid}
+              value: {{ $origin }}{{ include "texera.jupyter.basePath" . }}/{uid}
             - name: KUBERNETES_JUPYTER_TEXERA_ORIGIN
               value: {{ $origin }}
             {{- end }}

@@ -48,7 +48,8 @@ class JupyterKubernetesClient(client: io.fabric8.kubernetes.client.KubernetesCli
     * present Texera credentials on the requests Jupyter's own scripts make, so the gateway
     * has to read the owner out of the URL instead.
     */
-  def basePathFor(uid: Int): String = s"${KubernetesConfig.jupyterBaseUrl.stripSuffix("/")}/$uid"
+  def basePathFor(uid: Int): String =
+    s"/${KubernetesConfig.jupyterBaseUrl.stripPrefix("/").stripSuffix("/")}/$uid"
 
   def podExists(uid: Int): Boolean = getPodByName(generatePodName(uid)).isDefined
 

@@ -157,7 +157,7 @@ spec:
         # that user's pod; the per-user Jupyter token is what authorizes the request.
         - path:
             type: PathPrefix
-            value: {{ .Values.jupyterPool.basePath }}
+            value: {{ include "texera.jupyter.basePath" . }}
         {{- end }}
       backendRefs:
         - group: gateway.envoyproxy.io
