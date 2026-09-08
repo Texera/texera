@@ -112,8 +112,6 @@ class HuggingFaceSentimentAnalysisOpDesc
        |        yield tuple_""".encode
   }
 
-  override def producesDataFrame(): Boolean = true
-
   // Standalone mirror of generatePythonCode: load the model once, then apply the
   // same per-row softmax-over-3-labels logic to in1df, adding the three DOUBLE
   // result columns (in the same order as getOutputSchemas) to produce out1df.

@@ -91,8 +91,6 @@ class HuggingFaceSpamSMSDetectionOpDesc
        |        yield tuple_""".encode
   }
 
-  override def producesDataFrame(): Boolean = true
-
   // Standalone mirror of generatePythonCode: build the text-classification
   // pipeline once, run it per row, and add the BOOLEAN spam flag (LABEL_1) and
   // the DOUBLE score columns (in getOutputSchemas order) to produce out1df.

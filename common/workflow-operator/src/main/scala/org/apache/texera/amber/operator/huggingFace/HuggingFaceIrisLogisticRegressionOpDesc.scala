@@ -128,8 +128,6 @@ class HuggingFaceIrisLogisticRegressionOpDesc
        |        yield tuple_""".encode
   }
 
-  override def producesDataFrame(): Boolean = true
-
   // Standalone mirror of generatePythonCode: rebuild+load the pretrained linear
   // model once, then apply the same per-row standardize→sigmoid→threshold logic,
   // adding the STRING predicted class and DOUBLE probability columns (in

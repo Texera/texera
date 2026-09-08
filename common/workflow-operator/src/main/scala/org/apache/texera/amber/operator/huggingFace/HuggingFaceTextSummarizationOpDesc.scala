@@ -92,8 +92,6 @@ class HuggingFaceTextSummarizationOpDesc
        |        yield tuple_""".encode
   }
 
-  override def producesDataFrame(): Boolean = true
-
   // Standalone mirror of generatePythonCode: load the encoder-decoder model
   // once, generate a summary per row, and add the STRING result column to
   // produce out1df.
