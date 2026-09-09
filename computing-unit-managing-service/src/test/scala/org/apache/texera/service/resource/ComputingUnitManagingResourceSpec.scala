@@ -467,15 +467,26 @@ class ComputingUnitManagingResourceSpec
       resource.getComputingUnitResourceLimit("99999", user)
   }
 
+  // The six variables requiredComputingUnitEnv looks up. Kept here because the production
+  // list is private, so a name added there without a test here shows up as a size mismatch.
+  private val requiredEnvNames = Seq(
+    EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
+    EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
+    EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR,
+    EnvironmentalVariable.ENV_USER_SYS_ENABLED,
+    EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
+    EnvironmentalVariable.ENV_AUTH_JWT_SECRET
+  )
+
   // A missing variable used to fail with None.get, which the caller saw as "There was an
   // error processing your request" -- no variable named, no cause.
   "requiredComputingUnitEnv" should "return every variable when all are set" in {
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name => Some(s"value-$name"))
-    env should have size 6
+    env.keySet shouldBe requiredEnvNames.toSet
     env.values.foreach(_ should startWith("value-"))
   }
 
-  it should "name the single missing variable" in {
+  it should "name the missing variable and leave the ones that are set out of it" in {
     val absent = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
     val thrown = intercept[ServiceUnavailableException] {
       ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
@@ -483,6 +494,11 @@ class ComputingUnitManagingResourceSpec
       )
     }
     thrown.getMessage should include(absent)
+    // Naming a variable that is set sends whoever reads this off to check it for nothing --
+    // the search the message exists to end. So the five that are set stay out of it.
+    requiredEnvNames
+      .filterNot(_ == absent)
+      .foreach(name => thrown.getMessage should not include name)
   }
 
   // The chart renders every value as "{{ .value }}", so an unset variable arrives as ""
@@ -521,14 +537,7 @@ class ComputingUnitManagingResourceSpec
     val thrown = intercept[ServiceUnavailableException] {
       ComputingUnitManagingResource.requiredComputingUnitEnv(_ => None)
     }
-    Seq(
-      EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
-      EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
-      EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR,
-      EnvironmentalVariable.ENV_USER_SYS_ENABLED,
-      EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
-      EnvironmentalVariable.ENV_AUTH_JWT_SECRET
-    ).foreach(name => thrown.getMessage should include(name))
+    requiredEnvNames.foreach(name => thrown.getMessage should include(name))
   }
 
 }
