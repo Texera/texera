@@ -117,7 +117,7 @@ abstract class SklearnMLOperatorDescriptor[T <: ParamClass]
 
   // The label the estimator fits against. Test-only steering: without it the first
   // column wins, which on a feature/label table is a feature.
-  @SampleColumn("species")
+  @SampleColumn("a\"b\\c_species")
   @JsonProperty(required = true)
   @JsonSchemaTitle("Ground Truth Attribute Column")
   @JsonPropertyDescription("Ground truth attribute column")
