@@ -259,12 +259,12 @@ class RadarPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    categories = [$attrList]
        |    if not categories:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No columns selected as axes."))
        |    else:
        |        table = in1df
@@ -333,8 +333,8 @@ class RadarPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode
        |            width=600,
        |            height=600
        |        )
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Radar plot saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Radar plot saved to " + outputHtml)""".stripMargin
   }
 }

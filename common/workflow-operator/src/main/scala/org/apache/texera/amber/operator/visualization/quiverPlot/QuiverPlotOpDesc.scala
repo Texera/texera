@@ -177,20 +177,20 @@ class QuiverPlotOpDesc extends PythonOperatorDescriptor with StandaloneCodeGener
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    table = in1df
        |    required_columns = {$xLit, $yLit, $uLit, $vLit}
        |    if not required_columns.issubset(table.columns):
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error(f"Input table must contain columns: {', '.join(required_columns)}"))
        |    else:
        |        table = table.dropna()
        |        def type_check(value):
        |            return isinstance(value, (int, float))
        |        if any(not table[col].apply(type_check).all() for col in required_columns):
-       |            with open("output.html", "w", encoding="utf-8") as output:
+       |            with open(outputHtml, "w", encoding="utf-8") as output:
        |                output.write("Type error: All columns should only contain numerical data")
        |        else:
        |            try:
@@ -199,11 +199,11 @@ class QuiverPlotOpDesc extends PythonOperatorDescriptor with StandaloneCodeGener
        |                    table[$uLit], table[$vLit],
        |                    scale=0.1
        |                )
-       |                fig.write_json("output.json")
-       |                fig.write_html("output.html")
-       |                print("Quiver plot saved to output.html")
+       |                fig.write_json(outputJson)
+       |                fig.write_html(outputHtml)
+       |                print("Quiver plot saved to " + outputHtml)
        |            except Exception as e:
-       |                with open("output.html", "w", encoding="utf-8") as output:
+       |                with open(outputHtml, "w", encoding="utf-8") as output:
        |                    output.write(render_error(f"Plotly error: {str(e)}"))""".stripMargin
   }
 

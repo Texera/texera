@@ -180,7 +180,7 @@ class RadarChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    table = in1df.copy()
@@ -191,7 +191,7 @@ class RadarChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |        table[col] = pd.to_numeric(table[col], errors='coerce')
        |    table.dropna(subset=value_cols, inplace=True)
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("input table is empty after removing missing values."))
        |    else:
        |        fig = go.Figure()
@@ -217,9 +217,9 @@ class RadarChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |            showlegend=True,
        |            margin=dict(t=40, b=40, l=40, r=40)
        |        )
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Radar chart saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Radar chart saved to " + outputHtml)""".stripMargin
   }
 
 }

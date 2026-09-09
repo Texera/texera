@@ -136,13 +136,25 @@ class ContourPlotOpDescSpec extends AnyFlatSpec with Matchers {
     plottingCode should include("def render_error(self, error_msg)")
   }
 
+  "ContourPlotOpDesc.generateStandaloneCode" should
+    "leave the rest of the script running when it cannot contour" in {
+    // The exported block is one operator among many in a single script, so the
+    // guard branches around the plot rather than ending the process.
+    val code = configured.generateStandaloneCode()
+    code should include("no area to contour")
+    code should not include "SystemExit"
+    code should not include "sys.exit"
+  }
+
   /** The emitted code for a fully configured operator, which the guards above read. */
-  private def plottingCode: String = {
+  private def plottingCode: String = configured.generatePythonCode()
+
+  private def configured: ContourPlotOpDesc = {
     val d = new ContourPlotOpDesc
     d.x = "lon"
     d.y = "lat"
     d.z = "elev"
     d.coloringMethod = ContourPlotColoringFunction.HEATMAP
-    d.generatePythonCode()
+    d
   }
 }

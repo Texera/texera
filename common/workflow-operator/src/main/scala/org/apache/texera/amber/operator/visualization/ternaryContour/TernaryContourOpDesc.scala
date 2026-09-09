@@ -193,7 +193,7 @@ class TernaryContourOpDesc extends PythonOperatorDescriptor with StandaloneCodeG
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    table = in1df.copy()
@@ -202,7 +202,7 @@ class TernaryContourOpDesc extends PythonOperatorDescriptor with StandaloneCodeG
        |    s = table[$firstLit] + table[$secondLit] + table[$thirdLit]
        |    table = table[s > 0]
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No valid rows left (every row has at least 1 missing value)."))
        |    else:
        |        A = table[$firstLit].to_numpy()
@@ -215,9 +215,9 @@ class TernaryContourOpDesc extends PythonOperatorDescriptor with StandaloneCodeG
        |            pole_labels=[$firstLit, $secondLit, $thirdLit],
        |            interp_mode='cartesian'
        |        )
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Ternary contour saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Ternary contour saved to " + outputHtml)""".stripMargin
   }
 
 }

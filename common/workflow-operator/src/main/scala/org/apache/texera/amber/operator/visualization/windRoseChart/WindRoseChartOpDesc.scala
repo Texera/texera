@@ -154,10 +154,10 @@ class WindRoseChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalone
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |elif in1df[$rLit].dtype.kind not in ["i", "u", "f"]:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Radial column must be numeric (int, float, or double)."))
        |else:
        |    table = in1df
@@ -167,9 +167,9 @@ class WindRoseChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalone
        |        theta=${pyStringLiteral(thetaColumn)},$colorArg
        |        color_discrete_sequence=px.colors.sequential.Plasma_r
        |    )
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Wind rose chart saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Wind rose chart saved to " + outputHtml)""".stripMargin
   }
 
 }

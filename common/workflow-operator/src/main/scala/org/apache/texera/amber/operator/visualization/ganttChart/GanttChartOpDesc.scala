@@ -169,20 +169,20 @@ class GanttChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    table = in1df[(in1df[$startLit].notnull()) & (in1df[$finishLit].notnull())$optionalFilter].copy()
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("One or more of your input columns have all missing values"))
        |    else:
        |        fig = px.timeline(table, x_start=$startLit, x_end=$finishLit, y=$taskLit$colorSetting$patternSetting)
        |        fig.update_yaxes(autorange='reversed')
        |        fig.update_layout(margin=dict(t=0, b=0, l=0, r=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Gantt chart saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Gantt chart saved to " + outputHtml)""".stripMargin
   }
 
 }

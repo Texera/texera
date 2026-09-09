@@ -223,7 +223,7 @@ class GaugeChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |    return colors
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    gauge_value = $valueLit
@@ -231,7 +231,7 @@ class GaugeChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |    threshold_val = $thresholdExpr
        |    table = in1df.dropna(subset=[gauge_value])
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No non-null rows found for the value column."))
        |    else:
        |        valid_steps = $stepsExpr
@@ -286,10 +286,10 @@ class GaugeChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |            except Exception as e:
        |                html_chunks.append(render_error(f"Error generating chart: {str(e)}"))
        |
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write("<div>" + "".join(html_chunks) + "</div>")
        |        if first_fig is not None:
-       |            first_fig.write_json("output.json")
-       |        print("Gauge chart saved to output.html")""".stripMargin
+       |            first_fig.write_json(outputJson)
+       |        print("Gauge chart saved to " + outputHtml)""".stripMargin
   }
 }

@@ -232,7 +232,7 @@ class DumbbellPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneC
        |    if table.empty:
        |        _error = "input table has no rows with all of the configured columns filled in."
        |if _error is not None:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error(_error))
        |else:
        |    entityNames = list(table[$comparedLit].unique())
@@ -266,8 +266,8 @@ class DumbbellPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneC
        |                                     mode='markers',
        |                                     name=entity + ' ' + dotColumn,
        |                                     marker=dict(color='black', size=5)))
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Dumbbell plot saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Dumbbell plot saved to " + outputHtml)""".stripMargin
   }
 }

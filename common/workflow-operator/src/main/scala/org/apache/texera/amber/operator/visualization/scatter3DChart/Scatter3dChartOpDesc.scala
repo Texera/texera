@@ -141,7 +141,7 @@ class Scatter3dChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    table = in1df
@@ -165,9 +165,9 @@ class Scatter3dChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
        |        ),
        |        margin=dict(t=0, b=0, l=0, r=0)
        |    )
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Scatter3D chart saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Scatter3D chart saved to " + outputHtml)""".stripMargin
   }
 
 }

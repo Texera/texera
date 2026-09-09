@@ -154,9 +154,9 @@ class CarpetPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |        b=table[$bLit],
        |        y=table[$yLit]
        |    ))
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Carpet plot saved to output.json and output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Carpet plot saved to " + outputJson + " and " + outputHtml)""".stripMargin
   }
 
 }

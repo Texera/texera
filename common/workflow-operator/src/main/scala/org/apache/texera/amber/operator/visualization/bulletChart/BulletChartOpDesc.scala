@@ -293,19 +293,19 @@ class BulletChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |    return valid_steps, step_errors
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    try:
        |        value_col = $valueLit
        |        delta_ref = $deltaReferenceExpr
        |        if value_col not in in1df.columns:
-       |            with open("output.html", "w", encoding="utf-8") as output:
+       |            with open(outputHtml, "w", encoding="utf-8") as output:
        |                output.write(render_error(f"Column '{value_col}' not found in input table."))
        |        else:
        |            table = in1df.dropna(subset=[value_col])
        |            if table.empty:
-       |                with open("output.html", "w", encoding="utf-8") as output:
+       |                with open(outputHtml, "w", encoding="utf-8") as output:
        |                    output.write(render_error("No valid data rows found after dropping nulls."))
        |            else:
        |                threshold_val = $thresholdExpr
@@ -355,11 +355,11 @@ class BulletChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |                    except Exception as e:
        |                        html_chunks.append(render_error(f"Error generating bullet chart: {str(e)}"))
        |                if first_fig is not None:
-       |                    first_fig.write_json("output.json")
-       |                with open("output.html", "w", encoding="utf-8") as output:
+       |                    first_fig.write_json(outputJson)
+       |                with open(outputHtml, "w", encoding="utf-8") as output:
        |                    output.write("<div>" + "".join(html_chunks) + "</div>")
        |    except Exception as e:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error(f"General error: {str(e)}"))""".stripMargin
   }
 }

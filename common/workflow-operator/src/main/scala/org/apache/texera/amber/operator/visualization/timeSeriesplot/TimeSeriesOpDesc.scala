@@ -186,7 +186,7 @@ class TimeSeriesOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |    return f"<h1>Time Series Plot is not available.</h1><p>Reason: {msg}</p>"
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    try:
@@ -194,7 +194,7 @@ class TimeSeriesOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |        table[$timeLit] = pd.to_datetime(table[$timeLit], errors='coerce')
        |        table = table.dropna(subset=$dropnaStr).sort_values(by=$timeLit)
        |        if table.empty:
-       |            with open("output.html", "w", encoding="utf-8") as output:
+       |            with open(outputHtml, "w", encoding="utf-8") as output:
        |                output.write(render_error("Table became empty after filtering."))
        |        else:
        |            fig = $plotFunc(table, x=$timeLit, y=$valueLit$colorArg$facetArg)
@@ -207,11 +207,11 @@ class TimeSeriesOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |                yaxis_title=$valueLit,
        |                template="plotly_white"
        |            )
-       |            fig.write_json("output.json")
-       |            fig.write_html("output.html")
-       |            print("Time series plot saved to output.html")
+       |            fig.write_json(outputJson)
+       |            fig.write_html(outputHtml)
+       |            print("Time series plot saved to " + outputHtml)
        |    except Exception as e:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error(str(e)))""".stripMargin
   }
 

@@ -138,13 +138,13 @@ class PolarChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
     s"""import numpy as np
        |
        |if in1df is None or in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write('<h3>No data available for Polar Chart</h3>')
        |elif $rLit not in in1df.columns or $thetaLit not in in1df.columns:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write('<h3>Selected columns not found in input table</h3>')
        |elif not np.issubdtype(in1df[$rLit].dtype, np.number) or not np.issubdtype(in1df[$thetaLit].dtype, np.number):
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write('<h3>Selected columns must be numeric</h3>')
        |else:
        |    fig = go.Figure(data=go.Scatterpolargl(
@@ -154,9 +154,9 @@ class PolarChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |        marker=dict(size=10, opacity=0.7, line=dict(color='white'))
        |    ))
        |    fig.update_layout(title='Polar Chart', showlegend=False)
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Polar chart saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Polar chart saved to " + outputHtml)""".stripMargin
   }
 
 }

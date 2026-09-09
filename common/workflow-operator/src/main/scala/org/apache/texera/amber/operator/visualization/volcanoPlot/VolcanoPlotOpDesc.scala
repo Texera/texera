@@ -140,15 +140,15 @@ class VolcanoPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |    return f"<h1>Volcano Plot failed</h1><p>{msg}</p>"
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |elif $pvalueLit not in in1df.columns or $effectLit not in in1df.columns:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Missing required columns in table."))
        |else:
        |    table = in1df[in1df[$pvalueLit] > 0].copy()
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No rows with valid p-values."))
        |    else:
        |        table["-log10(pvalue)"] = -np.log10(table[$pvalueLit])
@@ -161,9 +161,9 @@ class VolcanoPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |            color_continuous_scale="RdBu",
        |            title="Volcano Plot"
        |        )
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Volcano plot saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Volcano plot saved to " + outputHtml)""".stripMargin
   }
 
 }

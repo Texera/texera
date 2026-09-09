@@ -176,7 +176,7 @@ class ContourPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |               '''.format(error_msg)
        |
        |def _write_error(message):
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error(message))
        |
        |# A row missing any of the three has no point to contribute, and griddata
@@ -198,28 +198,29 @@ class ContourPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |    # needs them to span a plane. Points that all fall on one line leave Qhull
        |    # without a simplex to start from and it raises instead.
        |    points = np.unique(np.column_stack((x, y)), axis=0)
+       |    # An else rather than an exit: this block shares a script with the rest of
+       |    # the plan, which has to go on running after a plot that cannot be drawn.
        |    if np.linalg.matrix_rank(points - points.mean(axis=0)) < 2:
        |        _write_error("The x and y values all fall on one line, so there is no area to contour.")
-       |        raise SystemExit(0)
+       |    else:
+       |        grid_size = ${gridSize.getOrElse(ContourPlotOpDesc.DefaultGridSize)}
+       |        connGaps = True if ${pyStringLiteral(connectGaps.toString)} == "true" else False
        |
-       |    grid_size = ${gridSize.getOrElse(ContourPlotOpDesc.DefaultGridSize)}
-       |    connGaps = True if ${pyStringLiteral(connectGaps.toString)} == "true" else False
+       |        grid_x, grid_y = np.meshgrid(np.linspace(min(x), max(x), grid_size), np.linspace(min(y), max(y), grid_size))
+       |        grid_z = griddata((x, y), z, (grid_x, grid_y), method='cubic')
        |
-       |    grid_x, grid_y = np.meshgrid(np.linspace(min(x), max(x), grid_size), np.linspace(min(y), max(y), grid_size))
-       |    grid_z = griddata((x, y), z, (grid_x, grid_y), method='cubic')
-       |
-       |    fig = go.Figure(data=go.Contour(
-       |        x=np.linspace(min(x), max(x), grid_size),
-       |        y=np.linspace(min(y), max(y), grid_size),
-       |        z=grid_z,
-       |        connectgaps=connGaps,
-       |        contours_coloring='${coloringMethod.getColoringMethod}',
-       |        colorbar_title=${pyStringLiteral(z)}
-       |    ))
-       |    fig.update_layout(title='Contour Plot')
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Contour plot saved to output.json and output.html")""".stripMargin
+       |        fig = go.Figure(data=go.Contour(
+       |            x=np.linspace(min(x), max(x), grid_size),
+       |            y=np.linspace(min(y), max(y), grid_size),
+       |            z=grid_z,
+       |            connectgaps=connGaps,
+       |            contours_coloring='${coloringMethod.getColoringMethod}',
+       |            colorbar_title=${pyStringLiteral(z)}
+       |        ))
+       |        fig.update_layout(title='Contour Plot')
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Contour plot saved to " + outputJson + " and " + outputHtml)""".stripMargin
 }
 
 object ContourPlotOpDesc {

@@ -239,16 +239,16 @@ class FilledAreaPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
        |if error == "":
        |    fig = px.area(in1df, x=$xLit, y=$yLit$colorArg$facetColumnArg$lineGroupArg$patternParam)
        |    fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Filled area plot saved to output.html")
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Filled area plot saved to " + outputHtml)
        |elif error == "X attributes not shared across groups":
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write('''<h1>Plot is not available, because:</h1>
        |                      <li>X attribute is not shared across all line groups</li>
        |                      </ul>''')
        |elif error == "missing attributes":
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write('''<h1>Plot is not available, because:</h1>
        |                      <li>X or Y attribute does not exist</li>
        |                      </ul>''')""".stripMargin
