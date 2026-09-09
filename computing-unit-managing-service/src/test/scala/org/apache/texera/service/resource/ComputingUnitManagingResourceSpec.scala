@@ -467,13 +467,13 @@ class ComputingUnitManagingResourceSpec
       resource.getComputingUnitResourceLimit("99999", user)
   }
 
-  // The six variables requiredComputingUnitEnv looks up. Kept here because the production
-  // list is private, so a name added there without a test here shows up as a size mismatch.
+  // The variables requiredComputingUnitEnv looks up. Kept here because the production list
+  // is private, so a name added or dropped there without a test here fails the all-set case.
+  // Each one is read inside the unit: the two endpoints by LakeFSFileDocument and
+  // ResultExportService, the payload size by ApplicationConfig, the secret by AuthConfig.
   private val requiredEnvNames = Seq(
     EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
     EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
-    EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR,
-    EnvironmentalVariable.ENV_USER_SYS_ENABLED,
     EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
     EnvironmentalVariable.ENV_AUTH_JWT_SECRET
   )
@@ -486,6 +486,20 @@ class ComputingUnitManagingResourceSpec
     env.values.foreach(_ should startWith("value-"))
   }
 
+  // USER_SYS_ENABLED and SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR lost their
+  // conf keys in #3831 and #3542, so nothing reads them in the unit. Requiring them would
+  // refuse to start a unit over a variable that changes nothing whatever it is set to.
+  it should "not require a variable no longer read anywhere" in {
+    val retired = Seq(
+      EnvironmentalVariable.ENV_USER_SYS_ENABLED,
+      EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR
+    )
+    val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
+      if (retired.contains(name)) None else Some("set")
+    )
+    retired.foreach(name => env.keySet should not contain name)
+  }
+
   it should "name the missing variable and leave the ones that are set out of it" in {
     val absent = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
     val thrown = intercept[ServiceUnavailableException] {
@@ -495,7 +509,7 @@ class ComputingUnitManagingResourceSpec
     }
     thrown.getMessage should include(absent)
     // Naming a variable that is set sends whoever reads this off to check it for nothing --
-    // the search the message exists to end. So the five that are set stay out of it.
+    // the search the message exists to end. So the ones that are set stay out of it.
     requiredEnvNames
       .filterNot(_ == absent)
       .foreach(name => thrown.getMessage should not include name)
@@ -513,10 +527,21 @@ class ComputingUnitManagingResourceSpec
     thrown.getMessage should include(blank)
   }
 
-  // Only the blank decision trims. The value itself goes on untouched: this service signs the
-  // unit's token with AUTH_JWT_SECRET as AuthConfig read it, and AuthConfig does not trim, so
-  // handing the unit a trimmed copy would leave the two verifying against different keys.
-  it should "hand on the value untrimmed" in {
+  // A padded value passes the blank check, so trimming it is what keeps it from reaching the
+  // pod intact: HOCON reads " 1024" as a string and refuses it as an int, and the unit dies
+  // at startup naming no variable -- the failure this whole guard exists to replace.
+  it should "trim the value it forwards" in {
+    val padded = EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB
+    val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
+      if (name == padded) Some(" 1024\n") else Some("set")
+    )
+    env(padded) shouldBe "1024"
+  }
+
+  // The secret is the exception. This service signs the unit's token with AUTH_JWT_SECRET as
+  // AuthConfig read it, and AuthConfig does not trim, so handing the unit a trimmed copy
+  // would leave the two verifying against different keys -- a silent auth failure.
+  it should "hand on the secret untrimmed" in {
     val padded = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
       if (name == padded) Some(" s3cret ") else Some("set")

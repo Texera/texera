@@ -93,13 +93,30 @@ object ComputingUnitManagingResource {
     }
   }
 
-  /** Variables only the deployment knows. The helm chart supplies every one. */
+  /**
+    * Variables only the deployment knows, each one read inside the unit: the two endpoints
+    * by LakeFSFileDocument and ResultExportService, the payload size by ApplicationConfig,
+    * the secret by AuthConfig. The helm chart supplies every one.
+    *
+    * USER_SYS_ENABLED and SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR are not
+    * here: their conf keys went away with #3831 and #3542, so nothing reads them and
+    * requiring one would refuse a unit over a variable that changes nothing.
+    */
   private val requiredComputingUnitEnvNames: Seq[String] = Seq(
     EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
     EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
-    EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR,
-    EnvironmentalVariable.ENV_USER_SYS_ENABLED,
+    // TODO: use AmberConfig for the payload size. Currently AmberConfig is only accessible
+    // in workflow-executing-service
     EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
+    EnvironmentalVariable.ENV_AUTH_JWT_SECRET
+  )
+
+  /**
+    * Forwarded byte-for-byte rather than trimmed. This service signs the unit's token with
+    * AUTH_JWT_SECRET as AuthConfig read it, and AuthConfig does not trim, so a trimmed copy
+    * would leave the two verifying against different keys -- a silent auth failure.
+    */
+  private val untrimmedComputingUnitEnvNames: Set[String] = Set(
     EnvironmentalVariable.ENV_AUTH_JWT_SECRET
   )
 
@@ -115,9 +132,7 @@ object ComputingUnitManagingResource {
       lookup: String => Option[String]
   ): Map[String, String] = {
     // Blank counts as missing, as elsewhere in config: the chart renders every value as
-    // "{{ .value }}", so an unset one arrives as "" rather than absent. Only the decision
-    // trims -- the value goes on raw, because AUTH_JWT_SECRET has to stay byte-identical to
-    // the one this service signs the unit's token with, and AuthConfig does not trim either.
+    // "{{ .value }}", so an unset one arrives as "" rather than absent.
     val looked =
       requiredComputingUnitEnvNames.map(name => name -> lookup(name).filter(_.trim.nonEmpty))
     val missing = looked.collect { case (name, None) => name }
@@ -129,7 +144,13 @@ object ComputingUnitManagingResource {
           s"variable(s): ${missing.mkString(", ")}."
       )
     }
-    looked.collect { case (name, Some(value)) => name -> value }.toMap
+    // A padded value passes the blank check, so what is forwarded is trimmed: HOCON reads
+    // " 1024" as a string and refuses it as an int, and the unit dies at startup naming no
+    // variable. The secret is the exception -- see untrimmedComputingUnitEnvNames.
+    looked.collect {
+      case (name, Some(raw)) =>
+        name -> (if (untrimmedComputingUnitEnvNames(name)) raw else raw.trim)
+    }.toMap
   }
 
   // Environment variables passed to the created computing unit(pod)
@@ -148,9 +169,7 @@ object ComputingUnitManagingResource {
       EnvironmentalVariable.ENV_S3_REGION -> StorageConfig.s3Region,
       EnvironmentalVariable.ENV_S3_AUTH_USERNAME -> StorageConfig.s3Username,
       EnvironmentalVariable.ENV_S3_AUTH_PASSWORD -> StorageConfig.s3Password
-    ) ++
-      // TODO: use AmberConfig for the amber items. Currently AmberConfig is only accessible in workflow-executing-service
-      requiredComputingUnitEnv(EnvironmentalVariable.get)
+    ) ++ requiredComputingUnitEnv(EnvironmentalVariable.get)
 
   case class WorkflowComputingUnitCreationParams(
       name: String,
