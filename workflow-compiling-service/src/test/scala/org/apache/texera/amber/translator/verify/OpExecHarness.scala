@@ -42,11 +42,10 @@ import scala.jdk.CollectionConverters._
   * Generic harness that drives an OpDesc's OpExec(s) directly, bypassing the
   * Pekko/actor runtime.
   *
-  * Works uniformly for: single-OpExec ops (filter, sort, projection), multi-
-  * OpExec ops (hash join build+probe), multi-output ops (split), and source
-  * ops (empty input map). All wiring info — number of OpExecs, internal links,
-  * input-port dependency order — is derived from `opDesc.getPhysicalPlan(...)`,
-  * so adding a new operator requires no harness changes.
+  * The wiring — how many OpExecs, the internal links, the input-port dependency
+  * order — is derived from `opDesc.getPhysicalPlan(...)`, so a join's build and
+  * probe, a split's two outputs and a source's empty input map all work without
+  * a harness change.
   *
   * I/O is JSON Lines with sidecar schemas. Each input/output `*.jsonl` file
   * has a companion `*.jsonl.schema.json` describing its [[Schema]].
