@@ -15,18 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Every `.Values.x.y` a template reads must exist in values.yaml.
+# Every value a template reads must exist in values.yaml, or be listed as deliberately
+# absent below.
 #
 # Helm does not fail on a missing value, it renders an empty string -- so a chart with a
 # typo, or one whose template was added without its values, installs and then misbehaves
-# at runtime. A missing block is worse: `nil pointer evaluating interface {}` aborts the
-# render, which at least fails loudly, but only if someone runs `helm template` first.
-#
-# Scans every rendered file under templates/ -- `_helpers.tpl` included, since that is
-# where the shared naming logic lives -- and reads both the `.Values.a.b` and the
-# `index .Values "a" "b"` accessors. References rooted at a subchart are checked only
-# when that subchart has been vendored (`helm dependency build`), because otherwise its
-# defaults are not on disk to check against; the run reports how many it left alone.
+# at runtime with nothing pointing at the cause.
 #
 # Needs no helm and no cluster, so it runs anywhere the repo does.
 
@@ -45,9 +39,8 @@ chart_dir = sys.argv[1]
 try:
     import yaml
 except ImportError:
-    # Exiting 0 here would make this suite a green no-op the moment the dependency
-    # stops being installed -- a missing chart value would then merge unnoticed,
-    # which is worse than not having the check at all. Fail instead, loudly.
+    # Skipping here would turn this suite into a green no-op the moment the dependency
+    # goes missing, which is worse than not having the check.
     print(
         "FAIL: PyYAML is required by this check but is not installed.\n"
         "  Install it with: python -m pip install -r amber/dev-requirements.txt",
@@ -55,56 +48,15 @@ except ImportError:
     )
     sys.exit(1)
 
+with open(os.path.join(chart_dir, "values.yaml"), encoding="utf-8") as handle:
+    values = yaml.safe_load(handle) or {}
 
-def load_yaml(path):
-    with open(path, encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
-
-
-values = load_yaml(os.path.join(chart_dir, "values.yaml"))
-
-# Subcharts own their own defaults. Helm renders `.Values.<dep>.x` against
-# merge(subchart values.yaml, parent values.yaml), so a parent template may legitimately
-# read a key this chart never overrides -- resolving those against values.yaml alone
-# reports valid references as missing. If the dependencies have been vendored
-# (`helm dependency build` leaves them under charts/) their defaults are merged in below
-# and the references are checked for real; otherwise they are counted as unverifiable
-# rather than failed.
-chart = load_yaml(os.path.join(chart_dir, "Chart.yaml"))
-subchart_roots = {}
-for dependency in chart.get("dependencies") or []:
-    name = dependency.get("name")
-    if not name:
-        continue
-    # The values key is the alias when one is set; the vendored directory is always
-    # named after the chart itself.
-    subchart_roots[dependency.get("alias") or name] = name
-
-
-def merge_defaults(base, defaults):
-    """Overlay `base` onto `defaults`, the way Helm merges parent values over a subchart's."""
-    if base is None:
-        # The parent leaves this key alone, so the subchart's default is what renders.
-        return defaults
-    if not isinstance(base, dict) or not isinstance(defaults, dict):
-        return base
-    merged = dict(defaults)
-    for key, value in base.items():
-        merged[key] = merge_defaults(value, merged.get(key))
-    return merged
-
-
-unverifiable_roots = set()
-for root, name in subchart_roots.items():
-    vendored = os.path.join(chart_dir, "charts", name, "values.yaml")
-    if os.path.isfile(vendored):
-        values[root] = merge_defaults(values.get(root), load_yaml(vendored))
-    else:
-        unverifiable_roots.add(root)
-
-# Optional by design: read only inside an `if eq .Values....type "NodePort"` guard, so a
-# deployment that does not use NodePort services leaves them unset.
+# Read by a template but deliberately not defined here: a value behind a guard a default
+# deployment never enters, or a subchart default this chart inherits. Every entry needs
+# its reason -- an unexplained one is indistinguishable from a suppressed break.
 ALLOWED_ABSENT = {
+    # Read only inside `if eq .Values....type "NodePort"`, so a deployment that does not
+    # use NodePort services leaves them unset.
     "fileService.service.nodePort",
     "webserver.service.nodePort",
     "workflowCompilingService.service.nodePort",
@@ -112,78 +64,73 @@ ALLOWED_ABSENT = {
 }
 
 # Helm renders everything under templates/ except what .helmignore drops, so scan by
-# exclusion rather than by extension -- an extension allowlist silently skipped
-# _helpers.tpl, where the shared naming logic lives, and would skip NOTES.txt too.
-# Mirrors .helmignore: editor and OS leftovers are not rendered, and a stale *.bak copy
-# of a template would otherwise contribute references the chart no longer has.
+# exclusion: an extension allowlist skips _helpers.tpl, where the shared naming logic
+# lives, and a stale *.bak would contribute references the chart no longer has.
 IGNORED_SUFFIXES = (".md", ".bak", ".tmp", ".orig", ".swp", "~")
 
-# `.Values.a.b` covers the dotted form; `index .Values "a" "b"` is the accessor Helm
-# needs for keys a dotted path cannot express (hyphens) and reads the same values, so
-# both have to be collected or a rename slips through the gap between them.
+# Both accessors reach the same values; `index` is the only form for keys a dotted path
+# cannot express.
 DOTTED = re.compile(r"\.Values\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 INDEXED = re.compile(r"index\s+\$?\.Values\s+((?:\"[^\"]*\"\s*)+)")
 QUOTED = re.compile(r"\"([^\"]*)\"")
+DOTTABLE = re.compile(r"[A-Za-z0-9_]+\Z")
 
+# Held as tuples of key segments: a key may itself contain a dot, so joining and
+# re-splitting on "." would take `index .Values "a" "b.c"` apart at the wrong place.
 references = set()
 scanned = 0
-for directory, _, filenames in os.walk(os.path.join(chart_dir, "templates")):
+templates_dir = os.path.join(chart_dir, "templates")
+for directory, _, filenames in os.walk(templates_dir):
     for filename in sorted(filenames):
         if filename.startswith(".") or filename.endswith(IGNORED_SUFFIXES):
             continue
         scanned += 1
         with open(os.path.join(directory, filename), encoding="utf-8") as handle:
             text = handle.read()
-        references.update(DOTTED.findall(text))
-        references.update(".".join(QUOTED.findall(match)) for match in INDEXED.findall(text))
+        references.update(tuple(match.split(".")) for match in DOTTED.findall(text))
+        references.update(tuple(QUOTED.findall(match)) for match in INDEXED.findall(text))
+
+if not scanned:
+    # Otherwise a moved or renamed templates/ reports "0 references, all fine".
+    print(f"FAIL: no template files found under {templates_dir}", file=sys.stderr)
+    sys.exit(1)
+
+
+def render(reference):
+    if all(DOTTABLE.match(part) for part in reference):
+        return ".Values." + ".".join(reference)
+    return "index .Values " + " ".join(f'"{part}"' for part in reference)
 
 
 def resolve(reference):
     node = values
-    for part in reference.split("."):
-        if isinstance(node, dict) and part in node:
-            node = node[part]
-        else:
+    for part in reference:
+        if not isinstance(node, dict) or part not in node:
             return False
+        node = node[part]
     return True
 
 
-missing = []
-checked = 0
-skipped = []
-for reference in sorted(references):
-    if reference in ALLOWED_ABSENT:
-        continue
-    if reference.split(".")[0] in unverifiable_roots:
-        skipped.append(reference)
-        continue
-    checked += 1
-    if not resolve(reference):
-        missing.append(reference)
+allowed = {tuple(reference.split(".")) for reference in ALLOWED_ABSENT}
+missing = sorted(r for r in references if r not in allowed and not resolve(r))
+# An exemption no template reads any more would go on suppressing a real break if the
+# name were reused.
+stale = sorted(allowed - references)
 
-# An exemption that no template reads any more is dead weight that would go on
-# suppressing a real failure if the name were ever reused.
-stale_exemptions = sorted(ALLOWED_ABSENT - references)
-
-if missing or stale_exemptions:
+if missing or stale:
     if missing:
         print(f"FAIL: {len(missing)} template value(s) missing from values.yaml:")
         for reference in missing:
-            print(f"  .Values.{reference}")
-    if stale_exemptions:
-        print(f"FAIL: {len(stale_exemptions)} ALLOWED_ABSENT entr(y/ies) no template reads:")
-        for reference in stale_exemptions:
-            print(f"  {reference}")
+            print(f"  {render(reference)}")
+        print("  Define each in values.yaml, or add it to ALLOWED_ABSENT with the reason.")
+    if stale:
+        print(f"FAIL: {len(stale)} ALLOWED_ABSENT entr(y/ies) no template reads:")
+        for reference in stale:
+            print(f"  {render(reference)}")
     sys.exit(1)
 
 print(
-    f"PASS: all {checked} checked template value references exist in values.yaml "
-    f"({scanned} template file(s); {len(ALLOWED_ABSENT)} exempt)"
+    f"PASS: {len(references) - len(allowed)} template value reference(s) checked "
+    f"across {scanned} file(s); {len(allowed)} exempt"
 )
-if skipped:
-    print(
-        f"NOTE: {len(skipped)} reference(s) under subchart(s) "
-        f"{', '.join(sorted(unverifiable_roots))} not checked -- their defaults live in the "
-        "subchart. Run `helm dependency build` in the chart dir to have them checked too."
-    )
 PY
