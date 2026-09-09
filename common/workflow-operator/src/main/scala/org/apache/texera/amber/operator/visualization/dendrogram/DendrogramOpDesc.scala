@@ -168,7 +168,7 @@ class DendrogramOpDesc extends PythonOperatorDescriptor with StandaloneCodeGener
        |               '''.format(error_msg)
        |
        |def _write_error(message):
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error(message))
        |
        |if in1df.empty:
@@ -192,9 +192,9 @@ class DendrogramOpDesc extends PythonOperatorDescriptor with StandaloneCodeGener
        |        labels = chart_df[${pyStringLiteral(labels)}].tolist()
        |        fig = ff.create_dendrogram(data, labels=labels, color_threshold=$thresholdExpr)
        |        fig.update_layout(yaxis_title="Linkage Distance", margin=dict(l=0, r=0, b=0, t=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Dendrogram saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Dendrogram saved to " + outputHtml)""".stripMargin
   }
 
 }

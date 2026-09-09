@@ -222,12 +222,12 @@ class NetworkGraphOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneC
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Table should not have any empty/null values or fields."))
        |else:
        |    table = in1df.dropna(subset=[$sourceLit]).dropna(subset=[$destinationLit]).copy()
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("Table should not have any empty/null values or fields."))
        |    else:
        |        sources = table[$sourceLit]
@@ -318,9 +318,9 @@ class NetworkGraphOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneC
        |                itemdoubleclick=False
        |            )
        |        )
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Network graph saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Network graph saved to " + outputHtml)""".stripMargin
   }
 
 }

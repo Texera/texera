@@ -161,12 +161,12 @@ class SankeyDiagramOpDesc extends PythonOperatorDescriptor with PlotlyStandalone
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    table = in1df.groupby([$sourceLit, $targetLit])[$valueLit].sum().reset_index(name="value")
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No valid rows left (every row has at least 1 missing value)."))
        |    else:
        |        labels = pd.concat([table[$sourceLit], table[$targetLit]]).unique().tolist()
@@ -187,9 +187,9 @@ class SankeyDiagramOpDesc extends PythonOperatorDescriptor with PlotlyStandalone
        |            )
        |        )])
        |        fig.update_layout(title_text="Sankey Diagram", font_size=10)
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Sankey diagram saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Sankey diagram saved to " + outputHtml)""".stripMargin
   }
 
 }

@@ -148,18 +148,18 @@ class HierarchyChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
   override def generateStandaloneCode(): String = {
     val attributes = hierarchy.map(section => pyStringLiteral(section.attributeName)).mkString(", ")
     val valueLit = pyStringLiteral(value)
-    // The error page is written to output.html, the same file a plotted chart lands
-    // in, so a reason for "no chart" is where the reader looks for the chart —
-    // printing it to the terminal alone left output.html absent. render_error's
-    // continuation line keeps the runtime path's indentation, since the HTML is
-    // triple-quoted and those spaces reach the browser.
+    // The error page is written to the same file a plotted chart lands in, so a
+    // reason for "no chart" is where the reader looks for the chart — printing it
+    // to the terminal alone left that file absent. render_error's continuation
+    // line keeps the runtime path's indentation, since the HTML is triple-quoted
+    // and those spaces reach the browser.
     s"""def render_error(error_msg):
        |    return '''<h1>Hierarchy chart is not available.</h1>
        |                  <p>Reason is: {} </p>
        |               '''.format(error_msg)
        |
        |def fail(error_msg):
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error(error_msg))
        |    print(f"Hierarchy chart error: {error_msg}")
        |
@@ -178,9 +178,9 @@ class HierarchyChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
        |                         color=$valueLit, hover_data=[$attributes],
        |                         color_continuous_scale='RdBu')
        |        fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Hierarchy chart saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Hierarchy chart saved to " + outputHtml)""".stripMargin
   }
 
 }

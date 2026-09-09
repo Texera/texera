@@ -356,7 +356,7 @@ class TreePlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode 
        |    return {labels[index]: coords[index] for index in range(len(labels))}
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    edges = []
@@ -369,7 +369,7 @@ class TreePlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode 
        |            pass
        |
        |    if not edges:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No valid [parent, child] pairs found in column " + ${pyStringLiteral(
       edgeListColumn
     )} + "."))
@@ -416,11 +416,11 @@ class TreePlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode 
        |                              dragmode='pan',
        |                              hovermode='closest',
        |                              plot_bgcolor='rgb(248,248,248)')
-       |            fig.write_json("output.json")
-       |            fig.write_html("output.html")
-       |            print("Tree plot saved to output.html")
+       |            fig.write_json(outputJson)
+       |            fig.write_html(outputHtml)
+       |            print("Tree plot saved to " + outputHtml)
        |        except TreeLayoutError as e:
-       |            with open("output.html", "w", encoding="utf-8") as output:
+       |            with open(outputHtml, "w", encoding="utf-8") as output:
        |                output.write(render_error(str(e)))""".stripMargin
   }
 

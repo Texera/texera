@@ -140,13 +140,13 @@ class WordCloudOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenera
        |
        |table = in1df
        |if table.empty:
-       |    with open("output.html", "w", encoding="utf-8") as f:
+       |    with open(outputHtml, "w", encoding="utf-8") as f:
        |        f.write(render_error("input table is empty."))
        |else:
        |    table = table.dropna(subset=[$textLit])
        |    table = table[table[$textLit].str.contains(r'\\w', regex=True)]
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as f:
+       |        with open(outputHtml, "w", encoding="utf-8") as f:
        |            f.write(render_error("text column does not contain words or contains only nulls."))
        |    else:
        |        text = ' '.join(table[$textLit])
@@ -159,7 +159,7 @@ class WordCloudOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenera
        |        import base64
        |        encoded_image_str = base64.b64encode(binary_image_data).decode("utf-8")
        |        html = f'<img src="data:image;base64,{encoded_image_str}" alt="Image" style="max-width: 100vw; max-height: 90vh; width: auto; height: auto;">'
-       |        with open("output.html", "w", encoding="utf-8") as f:
+       |        with open(outputHtml, "w", encoding="utf-8") as f:
        |            f.write(html)""".stripMargin
   }
 }
