@@ -213,22 +213,32 @@ class FileScanOpDescSpec extends AnyFlatSpec with BeforeAndAfter {
     }
   }
 
-  it should "materialize the lines and slice them when a limit or offset is set" in {
+  it should "slice the raw lines before converting them when a limit or offset is set" in {
     fileScanOpDesc.attributeType = FileAttributeType.INTEGER
 
     fileScanOpDesc.fileScanOffset = Option(3)
     fileScanOpDesc.fileScanLimit = None
-    assert(fileScanOpDesc.generateStandaloneCode().contains("    _rows.extend(_lines[3:])"))
+    assert(
+      fileScanOpDesc
+        .generateStandaloneCode()
+        .contains("        _rows.extend(int(l.rstrip()) for l in _f.readlines()[3:])")
+    )
 
     fileScanOpDesc.fileScanOffset = None
     fileScanOpDesc.fileScanLimit = Option(5)
-    assert(fileScanOpDesc.generateStandaloneCode().contains("    _rows.extend(_lines[0:5])"))
+    assert(
+      fileScanOpDesc
+        .generateStandaloneCode()
+        .contains("        _rows.extend(int(l.rstrip()) for l in _f.readlines()[:5])")
+    )
 
     fileScanOpDesc.fileScanOffset = Option(3)
     fileScanOpDesc.fileScanLimit = Option(5)
-    val code = fileScanOpDesc.generateStandaloneCode()
-    assert(code.contains("        _lines = [int(l.rstrip()) for l in _f]"))
-    assert(code.contains("    _rows.extend(_lines[3:8])"))
+    assert(
+      fileScanOpDesc
+        .generateStandaloneCode()
+        .contains("        _rows.extend(int(l.rstrip()) for l in _f.readlines()[3:][:5])")
+    )
   }
 
   it should "warn that archive extraction is unsupported when extract is on" in {

@@ -106,27 +106,23 @@ class FileScanSourceOpDesc
         case FileAttributeType.TIMESTAMP => "pd.Timestamp(l.rstrip())"
         case _                           => """l.rstrip("\n")"""
       }
-      val hasSlice = fileScanOffset.isDefined || fileScanLimit.isDefined
-      if (hasSlice) {
-        val start = fileScanOffset.getOrElse(0)
-        val sliceExpr = fileScanLimit match {
-          case Some(l) => s"_lines[$start:${start + l}]"
-          case None    => s"_lines[$start:]"
+      // The slice applies to the raw lines, as the engine drops and takes
+      // before parsing: a line outside the window is never converted, so an
+      // unparseable one there costs nothing. Taking after dropping also keeps
+      // a large limit from overflowing the end index.
+      val linesExpr =
+        if (fileScanOffset.isEmpty && fileScanLimit.isEmpty) "_f"
+        else {
+          val dropped =
+            fileScanOffset.filter(_ > 0).fold("_f.readlines()")(o => s"_f.readlines()[$o:]")
+          fileScanLimit.fold(dropped)(l => s"$dropped[:${l.max(0)}]")
         }
-        val dfCols =
-          if (outputFileName) s"""{"filename": $basenameLit, $colLit: $sliceExpr}"""
-          else s"""{$colLit: $sliceExpr}"""
-        buf += s"""with open($basenameLit, "r", encoding=$encLit) as _f:"""
-        buf += s"""    _lines = [$castExpr for l in _f]"""
-        buf += s"""    out1df = pd.DataFrame($dfCols)"""
-      } else {
-        val dfCols =
-          if (outputFileName)
-            s"""{"filename": $basenameLit, $colLit: [$castExpr for l in _f]}"""
-          else s"""{$colLit: [$castExpr for l in _f]}"""
-        buf += s"""with open($basenameLit, "r", encoding=$encLit) as _f:"""
-        buf += s"""    out1df = pd.DataFrame($dfCols)"""
-      }
+      val dfCols =
+        if (outputFileName)
+          s"""{"filename": $basenameLit, $colLit: [$castExpr for l in $linesExpr]}"""
+        else s"""{$colLit: [$castExpr for l in $linesExpr]}"""
+      buf += s"""with open($basenameLit, "r", encoding=$encLit) as _f:"""
+      buf += s"""    out1df = pd.DataFrame($dfCols)"""
     }
 
     buf.mkString("\n")
