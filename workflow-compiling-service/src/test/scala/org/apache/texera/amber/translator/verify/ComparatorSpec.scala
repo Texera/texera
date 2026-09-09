@@ -51,6 +51,14 @@ class ComparatorSpec extends AnyFlatSpec with Matchers {
     p
   }
 
+  // Written by hand rather than through TupleIO: these cases need a column set
+  // the fixed schema above does not carry.
+  private def writeLines(dir: Path, name: String, lines: Seq[String]): Path = {
+    val p = dir.resolve(name)
+    Files.writeString(p, lines.map(_ + "\n").mkString)
+    p
+  }
+
   "Comparator.assertEqual" should "pass when JSONL files contain identical rows" in {
     val dir = Files.createTempDirectory("comparator-spec-equal-")
     val rows = Seq(row(1, "alice"), row(2, "bob"))
@@ -93,5 +101,33 @@ class ComparatorSpec extends AnyFlatSpec with Matchers {
     intercept[ComparatorMismatchException] {
       Comparator.assertEqual(a, b, orderSensitive = false)
     }
+  }
+
+  it should "report a model column only one side produced" in {
+    // Model columns are compared by behavior and then dropped from both frames,
+    // so a side that never wrote one has to fail here: once the column is gone,
+    // the frame diff sees two identical column sets and passes.
+    val dir = Files.createTempDirectory("comparator-spec-model-missing-")
+    val withModel = writeLines(dir, "with-model.jsonl", Seq("""{"model":"eA==","score":1.0}"""))
+    val withoutModel = writeLines(dir, "without-model.jsonl", Seq("""{"score":1.0}"""))
+    val probe = writeLines(dir, "probe.jsonl", Seq("""{"petal_length":1.0,"label":0}"""))
+
+    intercept[ComparatorMismatchException] {
+      Comparator.assertEqual(
+        withModel,
+        withoutModel,
+        modelColumns = Seq("model"),
+        probePath = Some(probe)
+      )
+    }.getMessage should include("missing from expected")
+
+    intercept[ComparatorMismatchException] {
+      Comparator.assertEqual(
+        withoutModel,
+        withModel,
+        modelColumns = Seq("model"),
+        probePath = Some(probe)
+      )
+    }.getMessage should include("missing from actual")
   }
 }

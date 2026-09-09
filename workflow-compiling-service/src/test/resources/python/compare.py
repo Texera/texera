@@ -113,8 +113,19 @@ def _compare_model_predictions(actual, expected, model_cols, probe_path) -> None
         )
 
     for col in model_cols:
-        if col not in actual.columns or col not in expected.columns:
-            continue
+        # A requested column is one the engine declared as a model, so a side
+        # that never emitted it IS the divergence. Skipping it here would hide
+        # that: the column is dropped from both frames afterwards, and a path
+        # that produced no model at all would compare equal.
+        missing = [
+            side
+            for side, frame in (("actual", actual), ("expected", expected))
+            if col not in frame.columns
+        ]
+        if missing:
+            raise AssertionError(
+                f"model column {col!r} missing from {' and '.join(missing)}"
+            )
         if len(actual) != len(expected):
             raise AssertionError(
                 f"model column {col!r}: row count differs "
