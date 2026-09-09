@@ -22,6 +22,7 @@ package org.apache.texera.amber.translator
 import org.apache.texera.amber.core.workflow.PortIdentity
 import org.apache.texera.amber.operator.LogicalOp
 import org.apache.texera.amber.operator.distinct.DistinctOpDesc
+import org.apache.texera.amber.operator.projection.{AttributeUnit, ProjectionOpDesc}
 import org.apache.texera.amber.operator.union.UnionOpDesc
 import org.apache.texera.common.compiler.model.{LogicalLink, LogicalPlan}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -122,6 +123,50 @@ class WorkflowToPythonTranslatorSpec extends AnyFlatSpec with Matchers {
       )
     )
     script should include("df2 = df1.drop_duplicates(ignore_index=True)")
+  }
+
+  /** Nothing stops a column from being named after a placeholder. The
+    * substitution rewrites the variable a block reads with, never the column
+    * name it asks that variable for.
+    */
+  it should "leave a column named after a placeholder alone" in {
+    val source = upstream("source")
+    val projection = new ProjectionOpDesc
+    projection.setOperatorId("projection")
+    projection.attributes ++= List(new AttributeUnit("in1df", "in1df"))
+    val script = new WorkflowToPythonTranslator().translate(
+      LogicalPlan(
+        List(source, projection),
+        List(
+          LogicalLink(
+            source.operatorIdentifier,
+            PortIdentity(0),
+            projection.operatorIdentifier,
+            PortIdentity(0)
+          )
+        )
+      )
+    )
+    script should include("""df2 = df1[["in1df"]].copy()""")
+  }
+
+  /** Two operators that write a file write two of them. The plan runs as one
+    * program in one directory, so a name either of them had chosen for itself
+    * would leave one picture where the workflow drew two.
+    */
+  it should "give each operator writing a file a name of its own" in {
+    val ops = List("a", "b").map { id =>
+      val op = new DistinctOpDesc {
+        override def generateStandaloneCode(): String =
+          "fig.write_json(outputJson)\nfig.write_html(outputHtml)"
+      }
+      op.setOperatorId(id)
+      op
+    }
+    val script = new WorkflowToPythonTranslator().translate(LogicalPlan(ops, List.empty))
+    script should include("""fig.write_json("distinct_1.json")""")
+    script should include("""fig.write_html("distinct_1.html")""")
+    script should include("""fig.write_html("distinct_2.html")""")
   }
 
   /** The translator's own contract when it meets an operator it cannot render:
