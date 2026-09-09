@@ -29,10 +29,8 @@ import java.nio.file.Path
   * written for a single operator.
   *
   * Which table an operator runs on is its own axis, separate from who writes its
-  * config. [[CanonicalFixture]] is the wide mixed-type table every operator takes;
-  * the sklearn families take [[ProjectedFixture]] views of it, since
-  * `X = table.drop(target)` feeds every remaining column to `fit`, which a string
-  * or timestamp column ends.
+  * config. [[CanonicalFixture]] is the wide mixed-type table every operator
+  * takes; the sklearn families take [[ProjectedFixture]] views of it.
   */
 trait SharedFixture {
 
@@ -124,18 +122,53 @@ final case class ProjectedFixture(
     b.build()
   }.toVector
 
-  /** Every port gets the whole table. An estimator pair trains on port 0 and
-    * tests on port 1, and the point of the pair is the two ports rather than two
-    * datasets: what the comparison sees is the fitted model, which port 1 has no
-    * hand in, so giving the ports different rows buys nothing.
+  /** Every port gets the whole table. What the comparison sees is the fitted
+    * model, which port 1 has no hand in, so giving the ports different rows buys
+    * nothing.
     *
-    * The whole table rather than the source's ten-row window, because the
-    * estimators that cross-validate pass no fold count and so take sklearn's
-    * default of five: the window would leave the smaller class at four, and one
-    * fold holding none of a class is a fold that asks nothing (sklearn warns and
-    * splits anyway rather than refusing).
+    * The whole table rather than the source's ten-row window, because a
+    * cross-validating estimator passes no fold count and takes sklearn's default
+    * of five: the window would leave the smaller class at four, and a fold
+    * holding none of a class asks nothing.
     */
   override def rowsFor(port: Int): Seq[Tuple] = rows
+}
+
+object HostileColumn {
+
+  /** Columns of [[CanonicalFixture]] whose NAMES hold the characters that end a
+    * Python string literal, so an operator pointed at one has to escape the name
+    * it writes. They are the table's own columns renamed rather than columns added
+    * beside them: the arrangements an operator needs already live here, and a
+    * second set under hostile names would be the same table twice.
+    */
+  private val prefix = "a\"b\\c_"
+
+  /** Three components summing to 100 in every row (the ternary family). */
+  val Numeric: Seq[String] = Seq("simplex_a", "simplex_b", "simplex_c").map(prefix + _)
+
+  val IntegerLike: Seq[String] = Seq(prefix + "species_pred")
+
+  /** Carries a single quote and a newline besides, the two that end a `'...'`
+    * literal and a `#` comment. Only one column needs them to put the question.
+    */
+  val Text: Seq[String] = Seq("a\"b'c\\d\ne_uniq_name")
+
+  val Timestamp: Seq[String] = Seq(prefix + "finish_ts")
+
+  val all: Seq[String] = Numeric ++ IntegerLike ++ Text ++ Timestamp
+
+  /** The ones carrying `t`, in the order a caller hands them to siblings. */
+  def forType(t: org.apache.texera.amber.core.tuple.AttributeType): Seq[String] = {
+    import org.apache.texera.amber.core.tuple.AttributeType._
+    t match {
+      case STRING         => Text
+      case TIMESTAMP      => Timestamp
+      case INTEGER | LONG => IntegerLike
+      case DOUBLE         => Numeric
+      case _              => Seq.empty
+    }
+  }
 }
 
 object SharedFixture {
