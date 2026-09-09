@@ -497,6 +497,25 @@ class ComputingUnitManagingResourceSpec
     thrown.getMessage should include(blank)
   }
 
+  // Padding is judged, so it is also removed: HOCON in the pod refuses to read " 1024" as an
+  // int or " true" as a boolean, and the pod would crashloop naming neither.
+  it should "hand on the trimmed value, not the padded one" in {
+    val padded = EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB
+    val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
+      if (name == padded) Some(" 1024\n") else Some("set")
+    )
+    env(padded) shouldBe "1024"
+  }
+
+  // The variable is there in the pod's env, so calling it "missing" would send whoever reads
+  // this to check, find it, and conclude the message is wrong.
+  it should "say unset or blank rather than missing" in {
+    val thrown = intercept[ServiceUnavailableException] {
+      ComputingUnitManagingResource.requiredComputingUnitEnv(_ => Some(" "))
+    }
+    thrown.getMessage should include("Unset or blank environment variable(s)")
+  }
+
   it should "name every missing variable at once" in {
     val thrown = intercept[ServiceUnavailableException] {
       ComputingUnitManagingResource.requiredComputingUnitEnv(_ => None)

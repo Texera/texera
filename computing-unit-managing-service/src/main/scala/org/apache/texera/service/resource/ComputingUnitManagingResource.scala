@@ -115,14 +115,18 @@ object ComputingUnitManagingResource {
       lookup: String => Option[String]
   ): Map[String, String] = {
     // Blank counts as missing, as elsewhere in config: the chart renders every value as
-    // "{{ .value }}", so an unset one arrives as "" rather than absent.
+    // "{{ .value }}", so an unset one arrives as "" rather than absent. The trimmed value is
+    // what is kept, too -- LakeFSFileDocument trims these on the way back out, and a padded
+    // boolean or int is a value HOCON refuses to parse in the pod.
     val looked =
-      requiredComputingUnitEnvNames.map(name => name -> lookup(name).filter(_.trim.nonEmpty))
+      requiredComputingUnitEnvNames.map(name => name -> lookup(name).map(_.trim).filter(_.nonEmpty))
     val missing = looked.collect { case (name, None) => name }
     if (missing.nonEmpty) {
+      // "unset or blank", because a variable set to whitespace is reported here as well, and
+      // telling someone a variable they can see in the pod is "missing" strands them.
       throw new ServiceUnavailableException(
-        "This deployment cannot create a computing unit: required configuration is not " +
-          s"set. Missing environment variable(s): ${missing.mkString(", ")}."
+        "This deployment cannot create a computing unit. Unset or blank environment " +
+          s"variable(s): ${missing.mkString(", ")}."
       )
     }
     looked.collect { case (name, Some(value)) => name -> value }.toMap
