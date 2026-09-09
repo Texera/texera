@@ -59,7 +59,7 @@ class PieChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode 
   @JsonSchemaTitle("Name Column")
   @JsonPropertyDescription("The name of the slice of pie")
   @AutofillAttributeName
-  @SampleColumn("uniq_name")
+  @SampleColumn("a\"b'c\\d\ne_uniq_name")
   @NotNull(message = "Name Column cannot be empty")
   var name: EncodableString = ""
 
