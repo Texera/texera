@@ -472,9 +472,10 @@ class ComputingUnitManagingResourceSpec
   private val requiredEnvNames = Seq(
     EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
     EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
-    EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
     EnvironmentalVariable.ENV_AUTH_JWT_SECRET
   )
+
+  private val payloadSize = EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB
 
   "requiredComputingUnitEnv" should "return every variable when all are set" in {
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name => Some(s"value-$name"))
@@ -482,16 +483,19 @@ class ComputingUnitManagingResourceSpec
     env.values.foreach(_ should startWith("value-"))
   }
 
-  // Both lost their conf keys (#3831, #3542), so nothing in the unit reads them.
-  it should "not require a variable no longer read anywhere" in {
-    val retired = Seq(
+  // USER_SYS_ENABLED and SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR lost their
+  // conf keys (#3831, #3542); the payload size defaults to 1024 in application.conf. None of
+  // the three stops a unit from starting, so none may refuse to create one.
+  it should "not require a variable the unit does not need" in {
+    val notNeeded = Seq(
       EnvironmentalVariable.ENV_USER_SYS_ENABLED,
-      EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR
+      EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR,
+      payloadSize
     )
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
-      if (retired.contains(name)) None else Some("set")
+      if (notNeeded.contains(name)) None else Some("set")
     )
-    retired.foreach(name => env.keySet should not contain name)
+    notNeeded.foreach(name => env.keySet should not contain name)
   }
 
   it should "name the missing variable and leave the ones that are set out of it" in {
@@ -518,22 +522,12 @@ class ComputingUnitManagingResourceSpec
     thrown.getMessage should include(blank)
   }
 
-  // HOCON refuses " 1024" as an int, and the unit then dies at startup naming nothing.
-  it should "trim the value it forwards" in {
-    val padded = EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB
-    val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
-      if (name == padded) Some(" 1024\n") else Some("set")
-    )
-    env(padded) shouldBe "1024"
-  }
-
-  // AuthConfig does not trim, so a trimmed copy would verify against a different key.
-  it should "hand on the secret untrimmed" in {
-    val padded = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
-    val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
-      if (name == padded) Some(" s3cret ") else Some("set")
-    )
-    env(padded) shouldBe " s3cret "
+  // AuthConfig does not trim, so a trimmed copy would verify against a different key. The
+  // endpoints are trimmed by their own readers, so they need nothing here either.
+  it should "hand on the value untrimmed" in {
+    val env =
+      ComputingUnitManagingResource.requiredComputingUnitEnv(_ => Some(" s3cret "))
+    env(EnvironmentalVariable.ENV_AUTH_JWT_SECRET) shouldBe " s3cret "
   }
 
   // The variable is there in the pod's env, so calling it "missing" would read as wrong.
@@ -549,6 +543,24 @@ class ComputingUnitManagingResourceSpec
       ComputingUnitManagingResource.requiredComputingUnitEnv(_ => None)
     }
     requiredEnvNames.foreach(name => thrown.getMessage should include(name))
+  }
+
+  "optionalComputingUnitEnv" should "forward an override that is set" in {
+    ComputingUnitManagingResource.optionalComputingUnitEnv(_ => Some("2048")) shouldBe
+      Map(payloadSize -> "2048")
+  }
+
+  // HOCON refuses " 2048" as an int, and the unit then dies at startup naming nothing.
+  it should "trim what it forwards" in {
+    ComputingUnitManagingResource.optionalComputingUnitEnv(_ => Some(" 2048\n")) shouldBe
+      Map(payloadSize -> "2048")
+  }
+
+  // application.conf already defaults this to 1024; forwarding "" would override the default
+  // with a value HOCON cannot read as an int.
+  it should "forward nothing when unset or blank" in {
+    ComputingUnitManagingResource.optionalComputingUnitEnv(_ => None) shouldBe empty
+    ComputingUnitManagingResource.optionalComputingUnitEnv(_ => Some("  ")) shouldBe empty
   }
 
 }

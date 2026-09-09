@@ -93,22 +93,24 @@ object ComputingUnitManagingResource {
     }
   }
 
-  // Required by the unit: the endpoints by LakeFSFileDocument and ResultExportService, the
-  // payload size by ApplicationConfig, the secret by AuthConfig. USER_SYS_ENABLED and
-  // SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR lost their conf keys in #3831
-  // and #3542, so nothing reads them.
+  // Required: the endpoints default to localhost:9092 (LakeFSFileDocument,
+  // ResultExportService) and the secret to a published literal (auth.conf), none of which
+  // suits a real deployment. Forwarded raw -- the endpoints are trimmed by their own readers,
+  // and trimming the secret would leave the unit and this service verifying the token against
+  // different keys, since AuthConfig does not trim.
   private val requiredComputingUnitEnvNames: Seq[String] = Seq(
     EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
     EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
-    // TODO: use AmberConfig here; it is only accessible in workflow-executing-service
-    EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
     EnvironmentalVariable.ENV_AUTH_JWT_SECRET
   )
 
-  // Forwarded raw. AuthConfig does not trim, so a trimmed copy would leave the unit and this
-  // service verifying the token against different keys.
-  private val untrimmedComputingUnitEnvNames: Set[String] = Set(
-    EnvironmentalVariable.ENV_AUTH_JWT_SECRET
+  // Overrides, forwarded only when set: application.conf defaults the payload size to 1024,
+  // so its absence is not an error. USER_SYS_ENABLED and
+  // SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR are absent from both lists --
+  // their conf keys went away with #3831 and #3542, so nothing reads them.
+  // TODO: use AmberConfig here; it is only accessible in workflow-executing-service
+  private val optionalComputingUnitEnvNames: Seq[String] = Seq(
+    EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB
   )
 
   /**
@@ -131,12 +133,20 @@ object ComputingUnitManagingResource {
           s"variable(s): ${missing.mkString(", ")}."
       )
     }
-    // Trimmed, because HOCON refuses " 1024" as an int and the unit then dies naming nothing.
-    looked.collect {
-      case (name, Some(raw)) =>
-        name -> (if (untrimmedComputingUnitEnvNames(name)) raw else raw.trim)
-    }.toMap
+    looked.collect { case (name, Some(value)) => name -> value }.toMap
   }
+
+  /**
+    * The overrides that are set, trimmed. A blank one is dropped rather than forwarded, and
+    * a padded one is trimmed, because HOCON reads " 1024" as a string and refuses it as an
+    * int -- the unit then dies at startup naming nothing.
+    */
+  private[resource] def optionalComputingUnitEnv(
+      lookup: String => Option[String]
+  ): Map[String, String] =
+    optionalComputingUnitEnvNames.flatMap { name =>
+      lookup(name).map(_.trim).filter(_.nonEmpty).map(name -> _)
+    }.toMap
 
   // Environment variables passed to the created computing unit(pod)
   private lazy val computingUnitEnvironmentVariables: Map[String, Any] =
@@ -154,7 +164,8 @@ object ComputingUnitManagingResource {
       EnvironmentalVariable.ENV_S3_REGION -> StorageConfig.s3Region,
       EnvironmentalVariable.ENV_S3_AUTH_USERNAME -> StorageConfig.s3Username,
       EnvironmentalVariable.ENV_S3_AUTH_PASSWORD -> StorageConfig.s3Password
-    ) ++ requiredComputingUnitEnv(EnvironmentalVariable.get)
+    ) ++ requiredComputingUnitEnv(EnvironmentalVariable.get) ++
+      optionalComputingUnitEnv(EnvironmentalVariable.get)
 
   case class WorkflowComputingUnitCreationParams(
       name: String,
