@@ -1223,13 +1223,14 @@ export class OperatorPropertyEditFrameComponent implements OnInit, OnChanges, On
             `"${field.formControl?.value}" is already set by another row`,
         };
         // Whether a row repeats another is a property of the whole column, but Angular reruns a
-        // validator only on the control that changed. A change is answered by rechecking every
-        // row, so the row that resolves a duplicate clears the one it left behind, and a row
-        // changed onto a parameter another row holds marks that row too.
+        // validator only on the control that changed. The list as a whole is watched instead, so
+        // that a row deleted counts as a change as much as a row edited: the row that resolves a
+        // duplicate, by any means, clears the one it left behind, and a row changed onto a
+        // parameter another row holds marks that row too.
         mappedField.hooks = {
           ...mappedField.hooks,
           onInit: (field: FormlyFieldConfig) => {
-            field.formControl?.valueChanges
+            field.parent?.parent?.formControl?.valueChanges
               .pipe(untilDestroyed(this))
               .subscribe(() =>
                 field.parent?.parent?.fieldGroup?.forEach(row =>

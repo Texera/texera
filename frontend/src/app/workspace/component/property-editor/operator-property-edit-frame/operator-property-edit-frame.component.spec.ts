@@ -2360,6 +2360,17 @@ describe("OperatorPropertyEditFrameComponent", () => {
         expect(rowControl(1).hasError("uniqueAmongRows")).toBe(false);
       });
 
+      it("clears the row left behind when the duplicate row is deleted", () => {
+        renderTwoRows("C", "C");
+        expect(rowControl(0).hasError("uniqueAmongRows")).toBe(true);
+
+        const removeButtons = realFixture.debugElement.queryAll(By.css("button[nzDanger]"));
+        removeButtons[1].nativeElement.click();
+        realFixture.detectChanges();
+
+        expect(rowControl(0).hasError("uniqueAmongRows")).toBe(false);
+      });
+
       it("marks the row already holding the parameter a row is changed onto", () => {
         renderTwoRows("C", "kernel");
         expect(rowControl(0).hasError("uniqueAmongRows")).toBe(false);
