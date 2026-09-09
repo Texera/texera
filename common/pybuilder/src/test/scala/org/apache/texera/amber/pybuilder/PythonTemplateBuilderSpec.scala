@@ -536,7 +536,7 @@ class PythonTemplateBuilderSpec extends AnyFunSuite {
     val failures = mismatches.result()
     assert(
       failures.isEmpty,
-      s"${failures.size} of $checked adjacency cases did not abort with the neighbour reason:\n" +
+      s"${failures.size} of $checked adjacency cases did not abort with the neighbor reason:\n" +
         failures.mkString("\n")
     )
   }
