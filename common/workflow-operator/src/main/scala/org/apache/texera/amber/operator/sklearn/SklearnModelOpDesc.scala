@@ -76,7 +76,7 @@ abstract class SklearnModelOpDesc extends PythonOperatorDescriptor with SklearnF
 
   // The label the estimator fits against. Test-only steering: without it the
   // first column wins, which on a feature/label table is a feature.
-  @SampleColumn("species")
+  @SampleColumn("a\"b\\c_species")
   @JsonSchemaTitle("Target Attribute")
   @JsonPropertyDescription("Attribute in your dataset corresponding to target.")
   @JsonProperty(required = true)
