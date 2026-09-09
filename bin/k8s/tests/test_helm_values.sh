@@ -30,6 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHART_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 python3 - "$CHART_DIR" <<'PY'
+import fnmatch
 import os
 import re
 import sys
@@ -63,10 +64,40 @@ ALLOWED_ABSENT = {
     "workflowComputingUnitManager.service.nodePort",
 }
 
-# Helm renders everything under templates/ except what .helmignore drops, so scan by
+# Helm renders everything under templates/ that .helmignore does not drop, so scan by
 # exclusion: an extension allowlist skips _helpers.tpl, where the shared naming logic
-# lives, and a stale *.bak would contribute references the chart no longer has.
-IGNORED_SUFFIXES = (".md", ".bak", ".tmp", ".orig", ".swp", "~")
+# lives, and a rename there would go through unnoticed.
+#
+# Read the chart's own .helmignore rather than keeping a second copy of it here. A
+# hardcoded list drifts the moment either side is edited, and then the check either fails
+# on a file Helm never renders or stops looking at one it does.
+def helmignore(root):
+    path = os.path.join(root, ".helmignore")
+    if not os.path.exists(path):
+        # Helm with no .helmignore renders every file under templates/. Match that rather
+        # than inventing exclusions the chart did not ask for.
+        return []
+    with open(path, encoding="utf-8") as handle:
+        lines = (line.strip() for line in handle)
+        return [line for line in lines if line and not line.startswith("#")]
+
+
+def helmignored(relative, is_dir, patterns):
+    # helm's own format (pkg/ignore): a pattern with no separator matches the base name,
+    # one with a separator matches the chart-relative path, a leading "/" anchors to the
+    # chart root, and a trailing "/" restricts the pattern to directories. Negation and
+    # "**" are not part of it.
+    for pattern in patterns:
+        if pattern.endswith("/") and not is_dir:
+            continue
+        pattern = pattern.rstrip("/")
+        anchored = pattern.startswith("/")
+        pattern = pattern.lstrip("/")
+        target = relative if anchored or "/" in pattern else os.path.basename(relative)
+        if fnmatch.fnmatchcase(target, pattern):
+            return True
+    return False
+
 
 # Both accessors reach the same values; `index` is the only form for keys a dotted path
 # cannot express.
@@ -76,28 +107,73 @@ QUOTED = re.compile(r"\"([^\"]*)\"")
 DOTTABLE = re.compile(r"[A-Za-z0-9_]+\Z")
 # `with .Values.x` rebinds the dot, so the keys read inside it appear as bare `.field`
 # and drop out of the reference set -- the check would go on passing while no longer
-# seeing them. Keep .Values paths fully spelled.
-SCOPED = re.compile(r"\{\{-?\s*with\s+\$?\.Values\b[^}]*")
+# seeing them. `include "h" .Values.x` opens the same hole through a helper, where the
+# rebound dot is read in another file entirely. Neither is resolvable from the file the
+# reference is written in, so both are rejected; the parentheses Go templates allow
+# around the argument are part of the form, not a way around this.
+REBINDING = (
+    re.compile(r"\{\{-?\s*with\s+\(*\s*\$?\.Values\b[^}]*"),
+    re.compile(r"(?:include|template)\s+\"[^\"]*\"\s+\(*\s*\$?\.Values\b[^}]*"),
+)
+# A variable *is* resolvable -- the assignment spells the full path out in the same file
+# -- so follow it instead of rejecting it: aliasing a subtree to avoid repeating it is
+# what the persistence templates already do, and `$p := .Values.a.b` followed by
+# `$p.storageClass` would otherwise hide that key exactly as `with` does. Anchored at
+# `{{` so `range $k, $v := .Values.m` is not mistaken for an alias of the map: `$v` is an
+# element, and its fields are data rather than chart keys.
+ALIAS = re.compile(
+    r"\{\{-?\s*\$([A-Za-z0-9_]+)\s*:=\s*\$?\.Values\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)"
+)
+ALIAS_CHAIN = re.compile(
+    r"\{\{-?\s*\$([A-Za-z0-9_]+)\s*:=\s*\$([A-Za-z0-9_]+)((?:\.[A-Za-z0-9_]+)+)"
+)
+ALIAS_READ = re.compile(r"\$([A-Za-z0-9_]+)((?:\.[A-Za-z0-9_]+)+)")
 
 # Held as tuples of key segments: a key may itself contain a dot, so joining and
 # re-splitting on "." would take `index .Values "a" "b.c"` apart at the wrong place.
 references = set()
 rebound = []
 scanned = 0
+patterns = helmignore(chart_dir)
 templates_dir = os.path.join(chart_dir, "templates")
-for directory, _, filenames in os.walk(templates_dir):
+for directory, dirnames, filenames in os.walk(templates_dir):
+    dirnames[:] = sorted(
+        name
+        for name in dirnames
+        if not helmignored(
+            os.path.relpath(os.path.join(directory, name), chart_dir), True, patterns
+        )
+    )
     for filename in sorted(filenames):
-        if filename.startswith(".") or filename.endswith(IGNORED_SUFFIXES):
-            continue
         path = os.path.join(directory, filename)
+        relative = os.path.relpath(path, chart_dir)
+        if helmignored(relative, False, patterns):
+            continue
         scanned += 1
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
         references.update(tuple(match.split(".")) for match in DOTTED.findall(text))
         references.update(tuple(QUOTED.findall(match)) for match in INDEXED.findall(text))
-        for match in SCOPED.finditer(text):
-            line = text.count("\n", 0, match.start()) + 1
-            rebound.append(f"{os.path.relpath(path, chart_dir)}:{line}: {match.group().strip()}")
+        # Variables are file-scoped, so resolve them per file. An alias of an alias
+        # ($storageClass := $persistence.storageClass) needs the first resolved before the
+        # second can be, and nothing orders the assignments, so iterate to a fixpoint.
+        aliases = {name: tuple(read.split(".")) for name, read in ALIAS.findall(text)}
+        while True:
+            resolved = {
+                name: aliases[source] + tuple(suffix.strip(".").split("."))
+                for name, source, suffix in ALIAS_CHAIN.findall(text)
+                if name not in aliases and source in aliases
+            }
+            if not resolved:
+                break
+            aliases.update(resolved)
+        for name, suffix in ALIAS_READ.findall(text):
+            if name in aliases:
+                references.add(aliases[name] + tuple(suffix.strip(".").split(".")))
+        for pattern in REBINDING:
+            for match in pattern.finditer(text):
+                line = text.count("\n", 0, match.start()) + 1
+                rebound.append(f"{relative}:{line}: {match.group().strip()}")
 
 if not scanned:
     # Otherwise a moved or renamed templates/ reports "0 references, all fine".
@@ -107,10 +183,11 @@ if not scanned:
 if rebound:
     # On its own: every verdict below reads the reference set, and the keys hidden
     # inside these blocks are missing from it.
-    print(f"FAIL: {len(rebound)} `with .Values...` block(s) hide the keys read inside:")
+    print(f"FAIL: {len(rebound)} rebinding(s) of the dot hide the keys read inside:")
     for location in rebound:
         print(f"  {location}")
-    print("  Spell the .Values path out at each use so this check can see it.")
+    print("  Spell the .Values path out at each use, or bind it to a variable")
+    print("  (`$p := .Values.a.b`, then `$p.key`), which this check follows.")
     sys.exit(1)
 
 
