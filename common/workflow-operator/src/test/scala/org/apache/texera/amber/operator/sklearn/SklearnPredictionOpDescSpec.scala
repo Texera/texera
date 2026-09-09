@@ -169,6 +169,25 @@ class SklearnPredictionOpDescSpec extends AnyFlatSpec with Matchers {
     code should include("X = X[list(_fitted)]")
   }
 
+  // The executor leaves a row's result empty where a feature is missing and keeps
+  // the row. Predicting the frame in one call cannot do that: scikit-learn ends the
+  // run on the first missing value, so the exported script would lose every row's
+  // prediction over one blank cell. Both branches predict on the complete rows.
+  it should "predict on the complete rows and leave the rest empty" in {
+    val d = new SklearnPredictionOpDesc
+    d.model = "model"
+    d.resultAttribute = "prediction"
+    Seq("y", "").foreach { groundTruth =>
+      d.groundTruthAttribute = groundTruth
+      val code = d.generateStandaloneCode()
+      code should include("_complete = X.notna().all(axis=1)")
+      code should include("model.predict(X[_complete])")
+      code should include("out1df[\"prediction\"] = None")
+      code should include("out1df.loc[_complete, \"prediction\"] = _predicted")
+      code should not include "model.predict(X)"
+    }
+  }
+
   "SklearnPredictionOpDesc" should
     "round-trip its config fields through the polymorphic base" in {
     val d = new SklearnPredictionOpDesc

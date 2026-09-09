@@ -114,6 +114,28 @@ class SklearnPredictionOpDesc extends PythonOperatorDescriptor with StandaloneCo
       |if _fitted is not None:
       |    X = X[list(_fitted)]""".stripMargin
 
+  /** Python that predicts on the rows whose features are all present.
+    *
+    * The executor takes a row at a time and leaves the result empty where a
+    * feature is missing, so the row keeps its place. One call over the whole
+    * frame cannot do that: scikit-learn ends the run on the first missing value
+    * rather than leaving a gap. So predict on the complete rows and write those
+    * answers back where they came from. A frame with nothing missing is
+    * assigned in one piece, which keeps the type `predict` returned.
+    */
+  private def predictLeavingIncompleteRowsEmpty(resultLit: String, asText: Boolean): String = {
+    val predicted =
+      if (asText) "[str(_p) for _p in model.predict(X[_complete])]"
+      else "model.predict(X[_complete]).tolist()"
+    s"""_complete = X.notna().all(axis=1)
+       |_predicted = $predicted if _complete.any() else []
+       |if _complete.all():
+       |    out1df[$resultLit] = _predicted
+       |else:
+       |    out1df[$resultLit] = None
+       |    out1df.loc[_complete, $resultLit] = _predicted""".stripMargin
+  }
+
   override def generateStandaloneCode(): String = {
     val modelLit = pyStringLiteral(model)
     val resultLit = pyStringLiteral(resultAttribute)
@@ -124,7 +146,7 @@ class SklearnPredictionOpDesc extends PythonOperatorDescriptor with StandaloneCo
          |out1df = in2df.copy()
          |X = in2df.drop(${pyStringLiteral(groundTruthAttribute)}, axis=1)
          |$narrowToFittedFeatures
-         |out1df[$resultLit] = model.predict(X)""".stripMargin
+         |${predictLeavingIncompleteRowsEmpty(resultLit, asText = false)}""".stripMargin
     } else {
       s"""from sklearn.pipeline import Pipeline
          |
@@ -132,7 +154,7 @@ class SklearnPredictionOpDesc extends PythonOperatorDescriptor with StandaloneCo
          |out1df = in2df.copy()
          |X = in2df
          |$narrowToFittedFeatures
-         |out1df[$resultLit] = [str(p) for p in model.predict(X)]""".stripMargin
+         |${predictLeavingIncompleteRowsEmpty(resultLit, asText = true)}""".stripMargin
     }
   }
 }
