@@ -74,25 +74,43 @@ DOTTED = re.compile(r"\.Values\.([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*)")
 INDEXED = re.compile(r"index\s+\$?\.Values\s+((?:\"[^\"]*\"\s*)+)")
 QUOTED = re.compile(r"\"([^\"]*)\"")
 DOTTABLE = re.compile(r"[A-Za-z0-9_]+\Z")
+# `with .Values.x` rebinds the dot, so the keys read inside it appear as bare `.field`
+# and drop out of the reference set -- the check would go on passing while no longer
+# seeing them. Keep .Values paths fully spelled.
+SCOPED = re.compile(r"\{\{-?\s*with\s+\$?\.Values\b[^}]*")
 
 # Held as tuples of key segments: a key may itself contain a dot, so joining and
 # re-splitting on "." would take `index .Values "a" "b.c"` apart at the wrong place.
 references = set()
+rebound = []
 scanned = 0
 templates_dir = os.path.join(chart_dir, "templates")
 for directory, _, filenames in os.walk(templates_dir):
     for filename in sorted(filenames):
         if filename.startswith(".") or filename.endswith(IGNORED_SUFFIXES):
             continue
+        path = os.path.join(directory, filename)
         scanned += 1
-        with open(os.path.join(directory, filename), encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             text = handle.read()
         references.update(tuple(match.split(".")) for match in DOTTED.findall(text))
         references.update(tuple(QUOTED.findall(match)) for match in INDEXED.findall(text))
+        for match in SCOPED.finditer(text):
+            line = text.count("\n", 0, match.start()) + 1
+            rebound.append(f"{os.path.relpath(path, chart_dir)}:{line}: {match.group().strip()}")
 
 if not scanned:
     # Otherwise a moved or renamed templates/ reports "0 references, all fine".
     print(f"FAIL: no template files found under {templates_dir}", file=sys.stderr)
+    sys.exit(1)
+
+if rebound:
+    # On its own: every verdict below reads the reference set, and the keys hidden
+    # inside these blocks are missing from it.
+    print(f"FAIL: {len(rebound)} `with .Values...` block(s) hide the keys read inside:")
+    for location in rebound:
+        print(f"  {location}")
+    print("  Spell the .Values path out at each use so this check can see it.")
     sys.exit(1)
 
 
@@ -113,9 +131,15 @@ def resolve(reference):
 
 allowed = {tuple(reference.split(".")) for reference in ALLOWED_ABSENT}
 missing = sorted(r for r in references if r not in allowed and not resolve(r))
-# An exemption no template reads any more would go on suppressing a real break if the
-# name were reused.
-stale = sorted(allowed - references)
+# An exemption stops earning its place either when no template reads it or when
+# values.yaml starts defining it. Left in, it goes on suppressing that key, so a later
+# rename of the value it covers would pass unnoticed.
+stale = []
+for reference in sorted(allowed):
+    if reference not in references:
+        stale.append((reference, "no template reads it"))
+    elif resolve(reference):
+        stale.append((reference, "values.yaml now defines it"))
 
 if missing or stale:
     if missing:
@@ -124,9 +148,9 @@ if missing or stale:
             print(f"  {render(reference)}")
         print("  Define each in values.yaml, or add it to ALLOWED_ABSENT with the reason.")
     if stale:
-        print(f"FAIL: {len(stale)} ALLOWED_ABSENT entr(y/ies) no template reads:")
-        for reference in stale:
-            print(f"  {render(reference)}")
+        print(f"FAIL: {len(stale)} ALLOWED_ABSENT entr(y/ies) no longer earning a place:")
+        for reference, reason in stale:
+            print(f"  {render(reference)} -- {reason}")
     sys.exit(1)
 
 print(
