@@ -155,21 +155,21 @@ class ParallelCoordinatesPlotOpDesc extends PythonOperatorDescriptor with Plotly
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    table = in1df[in1df[$dimCols].notnull().all(axis=1)$colorFilter].copy()
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No valid rows after filtering."))
        |    else:
        |        fig = px.parallel_coordinates(
        |            table,
        |            dimensions=$dimCols$colorArg
        |        )
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Parallel coordinates plot saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Parallel coordinates plot saved to " + outputHtml)""".stripMargin
   }
 
 }

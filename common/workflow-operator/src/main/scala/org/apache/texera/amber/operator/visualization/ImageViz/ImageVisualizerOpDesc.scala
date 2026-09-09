@@ -133,9 +133,9 @@ class ImageVisualizerOpDesc extends PythonOperatorDescriptor with StandaloneCode
        |    for binary_image_data in in1df[${pyStringLiteral(binaryContent)}]
        |) + f"{LT}/div{GT}"
        |
-       |with open("output.html", "w", encoding="utf-8") as output:
+       |with open(outputHtml, "w", encoding="utf-8") as output:
        |    output.write(all_images_html)
-       |print("Image visualizer saved to output.html")""".stripMargin
+       |print("Image visualizer saved to " + outputHtml)""".stripMargin
   }
 
 }

@@ -166,7 +166,7 @@ class NestedTableOpDesc extends PythonOperatorDescriptor with StandaloneCodeGene
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    columns = pd.MultiIndex.from_tuples([
@@ -210,8 +210,8 @@ class NestedTableOpDesc extends PythonOperatorDescriptor with StandaloneCodeGene
        |    )
        |
        |    html = styled_table.to_html()
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(html)
-       |    print("Nested table saved to output.html")""".stripMargin
+       |    print("Nested table saved to " + outputHtml)""".stripMargin
   }
 }

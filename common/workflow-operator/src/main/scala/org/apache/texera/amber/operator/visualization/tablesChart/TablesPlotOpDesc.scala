@@ -133,12 +133,12 @@ class TablesPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |
        |attributes = $columnsList
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    table = in1df.dropna(subset=attributes)
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("value column contains only non-positive numbers or nulls."))
        |    else:
        |        filtered_table = table[attributes]
@@ -150,8 +150,8 @@ class TablesPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |            cells=dict(values=cell_values)
        |        )])
        |        fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Tables plot saved to output.json")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Tables plot saved to " + outputJson)""".stripMargin
   }
 }

@@ -136,7 +136,7 @@ class WaterfallChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    table = in1df
@@ -155,9 +155,9 @@ class WaterfallChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
        |    ))
        |
        |    fig.update_layout(showlegend=True, waterfallgap=0.3, xaxis_type="category")
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Waterfall chart saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Waterfall chart saved to " + outputHtml)""".stripMargin
   }
 
 }

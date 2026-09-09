@@ -164,12 +164,12 @@ class FigureFactoryTableOpDesc extends PythonOperatorDescriptor with StandaloneC
        |           '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    table = in1df.dropna(subset=[$attributes])
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("value column contains only non-positive numbers or nulls."))
        |    else:
        |        filtered_table = table[[$attributes]]
@@ -182,8 +182,8 @@ class FigureFactoryTableOpDesc extends PythonOperatorDescriptor with StandaloneC
        |        for i in range(len(fig.layout.annotations)):
        |            fig.layout.annotations[i].font.size = $fontSize
        |        fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Figure factory table saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Figure factory table saved to " + outputHtml)""".stripMargin
   }
 }

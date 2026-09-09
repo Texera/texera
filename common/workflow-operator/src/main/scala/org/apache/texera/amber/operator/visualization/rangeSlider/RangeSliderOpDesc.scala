@@ -157,10 +157,10 @@ class RangeSliderOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |elif $yAxisLit.strip() == "" or $xAxisLit.strip() == "":
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Y-axis or X-axis is empty"))
        |else:
        |    table = in1df
@@ -181,9 +181,9 @@ class RangeSliderOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |            )
        |        )
        |    )
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Range slider saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Range slider saved to " + outputHtml)""".stripMargin
   }
 
 }
