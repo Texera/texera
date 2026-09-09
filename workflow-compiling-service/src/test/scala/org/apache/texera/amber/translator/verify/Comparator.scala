@@ -29,11 +29,13 @@ import scala.sys.process._
 
 /**
   * Runs the Python comparator (`compare.py`) on two JSONL files emitted by
-  * [[OpExecHarness]] (actual) and [[StandaloneRunner]] (expected). The
-  * comparator uses `pandas.testing.assert_frame_equal` with `check_like=True`
-  * and `check_dtype=False` so row/column-order differences and the
-  * pandas-int64/float64 coercion that happens when JSONL round-trips through
-  * `pd.read_json` don't trigger false negatives. Float tolerance: `rtol=1e-5`.
+  * [[OpExecHarness]] (actual) and [[StandaloneRunner]] (expected). It uses
+  * `pandas.testing.assert_frame_equal` with `check_like=True`, so column order
+  * does not matter, and `check_dtype=False`, so the int64/float64 coercion a
+  * JSONL round trip through `pd.read_json` performs is not a difference. Float
+  * tolerance is `rtol=1e-5`. ROW order is a separate question, settled by
+  * `--unordered`, which lex-sorts both frames unless the operator declares
+  * itself order-sensitive.
   *
   * Throws [[ComparatorMismatchException]] on any non-zero exit code, carrying
   * the pandas diff from `stderr`.
