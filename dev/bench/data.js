@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788880799885,
+  "lastUpdate": 1788988088812,
   "repoUrl": "https://github.com/apache/texera",
   "entries": {
     "Arrow Flight E2E Throughput": [
@@ -12981,6 +12981,163 @@ window.BENCHMARK_DATA = {
           {
             "name": "throughput / bs=1000 sw=50 sl=512",
             "value": 555.6197008005091,
+            "unit": "tuples/sec"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Xinyuan Lin",
+            "username": "aglinxinyuan",
+            "email": "xinyual3@uci.edu"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ec3a9dd3ca9c361cbd7f339d8bc78669024e84e8",
+          "message": "test(pybuilder): make the bad-neighbour boundary sweep actually compile its snippets (#8405)\n\n### What changes were proposed in this PR?\n\n`PythonTemplateBuilderSpec`'s exhaustive bad-neighbour test passed\nvacuously. Its private helper wrapped every snippet in a package clause\nbefore handing it to a runtime `ToolBox`:\n\n```scala\nprivate def inPybuilderPkg(code: String): String =\n  s\"\"\"package org.apache.texera.amber.pybuilder {\n     |$code\n     |}\"\"\".stripMargin\n\nprivate def assertToolboxDoesNotCompile(code: String): Unit = {\n  intercept[Throwable] { tb.compile(tb.parse(inPybuilderPkg(code))) }\n  ()\n}\n```\n\nA `ToolBox` cannot wrap a `PackageDef` into its synthetic `__wrapper`\nmethod, so `tb.compile` dies during typer with a bare\n`java.lang.AssertionError` for **any** input. Note the type: not\n`ToolBoxError`, which is why `intercept[Throwable]` was needed for the\nhelper to pass.\n\nI ran the helper against inputs that obviously must not be rejected.\nEvery one \"does not compile\":\n\n| input fed to the helper | `tb.parse` | `tb.compile` |\n|---|---|---|\n| `\"\"` (the empty string) | OK -> `PackageDef` |\n`java.lang.AssertionError: assertion failed: method wrapper` |\n| `object Trivial { val x = 1 }` | OK -> `PackageDef` | same |\n| a correct `pyb\"foo $ui bar\"` (whitespace neighbours) | OK ->\n`PackageDef` | same |\n| `,` as a left neighbour — a *good* neighbour | OK -> `PackageDef` |\nsame |\n| syntactically broken garbage | throws `ToolBoxError` | (not reached) |\n\nThe measured message body is `assertion failed: / method wrapper / while\ncompiling: <no file> / during phase: typer / library version: version\n2.13.18 / compiler version: version 2.13.18 / reconstructed args: / last\ntree to typer: ...`. The compilation dies wrapping the tree, before\nmacro expansion. `tb.parse` on the same input succeeds, so the failure\nis entirely in `tb.compile`. Compiling the identical body as a *block*\ninstead of a package clause reaches the macro and aborts properly, which\nis what the rewrite relies on.\n\nThe helper was used at two call sites, inside the test that iterates the\n`isBadNeighbor` subset of printable ASCII and asserts left- and\nright-adjacency per character. All 130 of those assertions passed\nwithout the `pyb` macro ever expanding.\n\n**Before -> after:**\n\n```\nbefore:  assertToolboxDoesNotCompile(<package block>)  ->  AssertionError, always, for every input\nafter:   macroError(<block>)  ->  ToolBoxError whose MESSAGE says which rule fired\n```\n\nThe rewrite uses the technique `BoundaryValidatorSpec` already documents\nin its header: compile a *block*, not a package; the snippet always\nfails (the expansion calls the `private[amber]` `fromInterpolated`,\nwhich the ToolBox's `__wrapper` package cannot reach), but the macro\nfully expands first, so the two outcomes are distinguishable by message\n— a `validateCompileTime` abort carrying the specific boundary reason,\nversus a benign expansion whose only failure is the `fromInterpolated`\naccess error.\n\nConcretely:\n\n- Each of the 65 bad-neighbour characters is asserted twice — once as\nthe left neighbour, once as the right — to abort with the abort marker\n*and* its own templated reason, e.g. ``must not be immediately adjacent\nto 'z' on the left``. 130 real macro expansions.\n- New test, the discriminating direction: the 29 safe-neighbour\ncharacters must produce the *benign* outcome (57 cases; `#` on the left\nis excluded and pinned separately). Without this, weakening the\nneighbour rule to \"always abort\" would leave the first sweep green.\n- New test: `#` as a left neighbour aborts for the comment rule, not the\nneighbour rule.\n- The character sets are spelled out rather than derived from\n`PythonLexerUtils.isBadNeighbor`. Deriving them was a second, subtler\nvacuity: shrinking the predicate would silently shrink the sweep's input\ninstead of failing it.\n- Removed: `inPybuilderPkg`, `assertToolboxDoesNotCompile`, and\n`scalaUnicodeEscape`, which had no other user. The escape helper was\nbroken on its own terms too: it emitted `\\\\u0041` — **two** backslashes\n— into the generated source, nothing rewrites that inside the generated\ntriple-quoted literal, and the abort message proves what the macro\nactually saw: the left neighbour was the digit `1`, never `A`. So the\nold sweep fed the same wrong neighbour for all 65 characters. The new\nsnippets embed the raw character instead.\n\n**What this PR does not do:** it touches no production code and adds no\ntests to any other area. Measured from the JUnit XML, the file goes from\n65 to 67 test cases: 1 test rewritten, 2 added, 0 removed and 0 renamed,\nso **64** tests, their names and the file's structure are untouched. The\nfile contains **nine** `assertDoesNotCompile` tests using ScalaTest's\nown macro (not the broken helper), **four** of them single-case\nadjacency tests; those nine are unchanged, and three of the four\nadjacency ones demonstrably fire under Mutation C below.\n\n### Any related issues, documentation, discussions?\n\nCloses #8401\n\n### How was this PR tested?\n\nBaseline on `1cbe857007`, `PyBuilder/test`: **184 tests, 5 suites, 0\nfailures**. After: **186 tests, 5 suites, 0 failures**. Comparing\ntest-case identities from\n`common/pybuilder/target/test-reports/TEST-*.xml` rather than counts: 0\nremoved, 0 renamed, and the 2 additions are exactly the new tests named\nabove. Every suite reports `failures=\"0\"` on both sides.\n`PyBuilder/scalafmtCheck`, `PyBuilder/Test/scalafmtCheck` and\n`PyBuilder/scalafixAll --check` all pass.\n\nNon-vacuity, both directions, measured:\n\n| check | result |\n|---|---|\n| bad-neighbour sweep | 130 of 130 cases abort with the expected reason\n*and* the expected character |\n| safe-neighbour sweep | 57 of 57 cases benign (no abort marker,\n`fromInterpolated` present) |\n| `#` left neighbour | aborts with the comment reason, not a neighbour\nreason |\n| real ToolBox compilations | 187 (130 + 57), each one a genuine macro\nexpansion |\n\nBoth sweeps carry loop-ran guards (`assert(checked == 130)` /\n`assert(checked == 57)`) and set-size guards (`assert(size == 65)` /\n`assert(size == 29)`), and report every mismatching case rather than\nfailing fast, so a regression names the characters.\n\nMutation A — `PythonLexerUtils.isBadNeighbor` changed to `... ||\n(isIdentChar(c) && c != 'z')`:\n\n```\nrewritten test: RED - 1 test failed, \"2 of 130 adjacency cases did not abort with the neighbour reason\":\n  left  [z] (U+007A): ... method fromInterpolated ... cannot be accessed ...\n  right [z] (U+007A): ... method fromInterpolated ... cannot be accessed ...\n\nold test, same mutation: GREEN - PyBuilder/test = 184 succeeded, 0 failed, 5 suites\n```\n\nThat contrast is the clearest evidence here: under a mutation that\nremoves one character from the bad-neighbour set, the old test and every\nother suite in the module stayed green; the rewritten sweep names the\nexact character, both sides, and quotes the benign message as the\nreason. `PythonLexerUtilsSpec` does not catch it either — it only\n*samples* the predicate (`'`, `\"`, `a`, `Z`, `0`, `_`, plus two\nnegatives) and never tests `z`. The rewritten sweep catches it only\nbecause the character set is no longer derived from the predicate.\n\nMutation B — the right-neighbour abort in\n`BoundaryValidator.validateCompileTime` disabled (`if (false &&\nisBadNeighbor(rightNeighbor))`):\n\n```\nrewritten test: RED - \"65 of 130 adjacency cases\" (exactly the right-side arm; the 65 left-side cases still pass)\n```\n\nMutation C — *both* compile-time neighbour arms disabled:\n\n```\nrewritten test: RED - \"130 of 130 adjacency cases\"\nalso RED: 3 pre-existing single-case tests -\n  \"UI glued to identifier on the left does not compile\"\n  \"UI glued to identifier on the right does not compile\"\n  \"UI glued to a quote on the right does not compile\"\ntotal: 4 failed, 63 succeeded\n```\n\nThe fourth adjacency test (\"PyString (EncodableString) glued to\nidentifier on the left\") stays green under Mutation C — it is pinned\nthrough a different path, not the compile-time neighbour arms.\n\nAll three mutations were reverted by copying back pre-mutation file\ncopies, never `git checkout`/`git restore`. `git diff 1cbe857007 --\n'*/src/main/*'` is empty on the committed branch.\n\n**Corrections after review.** Three claims in an earlier draft of this\ndescription were wrong and are fixed above; recording them rather than\nediting them away:\n\n| earlier claim | measured |\n|---|---|\n| \"the other 63 tests ... untouched\" | 64 (65 -> 67 cases, 1 rewritten,\n2 added, 0 removed) |\n| \"Two pre-existing single-case boundary tests\" | 9\n`assertDoesNotCompile` tests, 4 of them adjacency; \"two\" was the count\nthat happened to fire under Mutation B, not a property of the file |\n| the escape helper \"fed `A` ... as six literal characters\" | it emitted\n`\\\\u0041`, two backslashes; the macro's neighbour was the digit `1` |\n\nA fourth: an earlier draft put the sweep runtime at \"~4.2 s\". Wall-clock\nfor ToolBox work is not stable enough to quote — three runs on the same\nmachine measured the two sweeps at 4.02 s, 4.90 s and 5.70 s — so the\nfigure is dropped in favour of the compilation count, which is exact.\n\nOne thing worth recording, because it looks like a bug and is not:\n`pyb\"pre ${ui}\\\" post\"` — a `\"` written as a Scala escape — is *not*\nrejected. `StringContext.parts` for a custom interpolator are raw, so\nboth the validator and `fromInterpolated` see `\\` as the neighbour, and\n`fromInterpolated` is documented as taking raw parts and does not call\n`processEscapes`. The validator and the renderer agree, so there is\nnothing to fix. The new snippets sidestep it by using triple-quoted\nScala literals, where the character is verbatim.\n\n### Was this PR authored or co-authored using generative AI tooling?\n\nGenerated-by: Claude Code (Opus 5)\n\n---------\n\nSigned-off-by: Xinyuan Lin <xinyual3@uci.edu>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-09-09T06:04:25Z",
+          "url": "https://github.com/apache/texera/commit/ec3a9dd3ca9c361cbd7f339d8bc78669024e84e8"
+        },
+        "date": 1788988088203,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "throughput / bs=10 sw=1 sl=8",
+            "value": 629.043609283269,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=8",
+            "value": 1088.4257761001875,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=8",
+            "value": 1156.7736469474012,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=64",
+            "value": 793.521233360753,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=64",
+            "value": 1126.7590011527313,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=64",
+            "value": 1159.4176592204194,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=512",
+            "value": 848.3174878350752,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=512",
+            "value": 1117.883809675191,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=512",
+            "value": 1153.4899395137397,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=8",
+            "value": 690.4743955222399,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=8",
+            "value": 899.5295286281429,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=8",
+            "value": 919.2576708290223,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=64",
+            "value": 704.8429449320226,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=64",
+            "value": 900.1783517832291,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=64",
+            "value": 927.2203473032687,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=512",
+            "value": 735.3387727161029,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=512",
+            "value": 898.8303005594935,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=512",
+            "value": 916.4762416028318,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=8",
+            "value": 451.26049179599886,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=8",
+            "value": 522.571247059949,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=8",
+            "value": 528.3326228785293,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=64",
+            "value": 458.77715485951086,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=64",
+            "value": 526.7729180769609,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=64",
+            "value": 525.9449949194357,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=512",
+            "value": 428.6541096724635,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=512",
+            "value": 496.85299477811077,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=512",
+            "value": 507.13582134328993,
             "unit": "tuples/sec"
           }
         ]
