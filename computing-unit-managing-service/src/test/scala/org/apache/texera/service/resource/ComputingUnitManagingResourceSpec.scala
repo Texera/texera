@@ -19,7 +19,13 @@
 
 package org.apache.texera.service.resource
 
-import jakarta.ws.rs.{BadRequestException, ForbiddenException, NotFoundException}
+import jakarta.ws.rs.{
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException
+}
+import org.apache.texera.common.config.EnvironmentalVariable
 import org.apache.texera.auth.SessionUser
 import org.apache.texera.common.config.KubernetesConfig.maxNumOfRunningComputingUnitsPerUser
 import org.apache.texera.dao.MockTexeraDB
@@ -460,4 +466,49 @@ class ComputingUnitManagingResourceSpec
     a[NotFoundException] should be thrownBy
       resource.getComputingUnitResourceLimit("99999", user)
   }
+
+  // A missing variable used to fail with None.get, which the caller saw as "There was an
+  // error processing your request" -- no variable named, no cause.
+  "requiredComputingUnitEnv" should "return every variable when all are set" in {
+    val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name => Some(s"value-$name"))
+    env should have size 6
+    env.values.foreach(_ should startWith("value-"))
+  }
+
+  it should "name the single missing variable" in {
+    val absent = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
+    val thrown = intercept[ServiceUnavailableException] {
+      ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
+        if (name == absent) None else Some("set")
+      )
+    }
+    thrown.getMessage should include(absent)
+  }
+
+  // The chart renders every value as "{{ .value }}", so an unset variable arrives as ""
+  // rather than absent -- which would otherwise start a unit with, say, no JWT secret.
+  it should "treat a blank variable as missing" in {
+    val blank = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
+    val thrown = intercept[ServiceUnavailableException] {
+      ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
+        if (name == blank) Some("   ") else Some("set")
+      )
+    }
+    thrown.getMessage should include(blank)
+  }
+
+  it should "name every missing variable at once" in {
+    val thrown = intercept[ServiceUnavailableException] {
+      ComputingUnitManagingResource.requiredComputingUnitEnv(_ => None)
+    }
+    Seq(
+      EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
+      EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
+      EnvironmentalVariable.ENV_SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR,
+      EnvironmentalVariable.ENV_USER_SYS_ENABLED,
+      EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
+      EnvironmentalVariable.ENV_AUTH_JWT_SECRET
+    ).foreach(name => thrown.getMessage should include(name))
+  }
+
 }

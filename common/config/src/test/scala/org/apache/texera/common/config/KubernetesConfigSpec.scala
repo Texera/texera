@@ -48,8 +48,10 @@ class KubernetesConfigSpec extends AnyFlatSpec with Matchers {
     ifUnset("KUBERNETES_COMPUTE_UNIT_POOL_NAMESPACE")(
       KubernetesConfig.computeUnitPoolNamespace shouldBe "texera-workflow-computing-unit-pool"
     )
+    // The published image, not the personal repository the default used to name.
     ifUnset("KUBERNETES_IMAGE_NAME")(
-      KubernetesConfig.computeUnitImageName shouldBe "bobbai/texera-workflow-computing-unit:dev"
+      KubernetesConfig.computeUnitImageName shouldBe
+        "ghcr.io/apache/texera-workflow-execution-coordinator:latest"
     )
     ifUnset("KUBERNETES_IMAGE_PULL_POLICY")(
       KubernetesConfig.computingUnitImagePullPolicy shouldBe "Always"
