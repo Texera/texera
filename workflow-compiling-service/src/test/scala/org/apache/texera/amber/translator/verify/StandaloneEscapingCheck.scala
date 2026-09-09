@@ -40,6 +40,12 @@ import scala.util.Try
   * The check has to be behavioural. A generator that builds its quoted literal
   * inside a helper shows no quotes in its template, which is how RadarPlot and
   * Aggregate survived a source-level sweep that reported zero remaining sites.
+  *
+  * The `hostileColumns` run covers the same ground by running the script, which
+  * this end cannot. What it cannot do is make every knob hostile at once: a
+  * fixture holds one hostile column per type, so whichever knob takes it leaves
+  * a chart's `color` and `pattern` on ordinary names. Renaming in place carries
+  * the old column in the new name, so no number of knobs can collide.
   */
 object StandaloneEscapingCheck {
 

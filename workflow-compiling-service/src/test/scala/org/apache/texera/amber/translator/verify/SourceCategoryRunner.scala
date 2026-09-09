@@ -52,9 +52,8 @@ import scala.util.{Try, Using}
   * `line` column, and some carry their data inline — keeps a hand-written
   * [[SourceHandler]] instead. Anything else is flagged, never silently skipped.
   *
-  * The runner itself is operator-agnostic: it builds an OpDesc, drives
-  * [[OpExecHarness]] (Path A) and [[StandaloneRunner]] (Path B), compares via
-  * [[Comparator]]. Sources have no input ports so `inputs = Map.empty` for both.
+  * The runner itself is operator-agnostic, and drives the same two paths every
+  * other operator takes, with no inputs on either.
   */
 object SourceCategoryRunner {
 

@@ -28,21 +28,15 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /**
-  * Auto-discovered behavioral-parity tests: for every operator registered
-  * with [[LogicalOp]]'s `@JsonSubTypes` that implements
-  * [[StandaloneCodeGenerator]], emit a test that runs both Path A (Texera
-  * exec) and Path B (translator-generated Python via [[StandaloneRunner]])
-  * and asserts their outputs are equivalent.
+  * A parity test per operator: every one registered in [[LogicalOp]]'s
+  * `@JsonSubTypes` that implements [[StandaloneCodeGenerator]] runs through the
+  * Texera executor and through its generated Python, and the two outputs are
+  * compared. Adding an operator needs no edit here.
   *
-  * [[TransformVerificationRunner]] decides how each non-source transform is
-  * configured and whether it can run at all; sources go to
-  * [[SourceCategoryRunner]]. An operator it cannot run is registered as an
-  * ignored test carrying the reason, so the report lists every operator rather
-  * than reading as though the unrunnable ones do not exist.
-  *
-  * No edits to this spec are needed when a new operator is added — reflection
-  * discovers it automatically via `@JsonSubTypes`. The tier label appears in
-  * the test name so the report shows which path exercised each operator.
+  * [[TransformVerificationRunner]] configures each non-source transform and
+  * decides whether it can run; sources go to [[SourceCategoryRunner]]. Every
+  * test's NAME carries its verdict, the tier that ran it or the reason it could
+  * not, so the report lists every operator and says what it did not check.
   *
   * Requires Python 3 with pandas on the [[Comparator]] / [[StandaloneRunner]]
   * resolution chain (`UDF_PYTHON_PATH` env var, then `python3.12`).
@@ -53,16 +47,12 @@ import org.scalatest.matchers.should.Matchers
 @IntegrationTest
 class OperatorBehaviorSpec extends AnyFlatSpec with Matchers with ParallelTestExecution {
 
-  // Build the test list at class construction. Each branch below registers
-  // one test (`in` for runnable, `ignore` for skipped) so the test report
-  // shows every translator-eligible operator and why it did or didn't run.
+  // The test list is built at class construction, one test per operator.
   OperatorBehaviorSpec.discoverStandaloneOperators().foreach { opClass =>
     val name = opClass.getSimpleName
 
     if (!OperatorBehaviorSpec.isSelected(name)) {
-      // Narrowed out by VERIFY_ONLY / VERIFY_SKIP, which only a local run sets.
-      // Still registered, as an `ignore`, so the report lists every operator
-      // rather than reading as though the narrowed-out ones do not exist.
+      // Only a local run sets those, and CI therefore runs the lot.
       name should "NARROWED OUT — outside this run's VERIFY_ONLY / VERIFY_SKIP" ignore {}
     } else if (classOf[SourceOperatorDescriptor].isAssignableFrom(opClass)) {
       // Sources keep their handler-per-source design: each needs a real file
@@ -81,10 +71,8 @@ class OperatorBehaviorSpec extends AnyFlatSpec with Matchers with ParallelTestEx
             TransformVerificationRunner.run(opClass)
           }
         case TransformVerificationRunner.Flagged(reason) =>
-          name should s"FLAGGED — $reason" ignore {
-            // Reason is in the test name so the report carries it; the
-            // coverage table in ConfigCoverageSpec aggregates these.
-          }
+          // ConfigCoverageSpec aggregates these into its table.
+          name should s"FLAGGED — $reason" ignore {}
       }
     }
   }
@@ -106,17 +94,12 @@ class OperatorBehaviorSpec extends AnyFlatSpec with Matchers with ParallelTestEx
 
 object OperatorBehaviorSpec {
 
-  // Narrowing knobs for a local run, both unset by default, so the default run
-  // is every operator: VERIFY_ONLY names the only ones to run, VERIFY_SKIP the
-  // ones to leave out. Case-sensitive substrings against the operator's simple
-  // name, comma-separated. Neither is set in CI, which therefore runs the lot.
+  // Case-sensitive substrings of the operator's simple name, comma-separated.
   //
-  // There is deliberately no third list withholding operators by default. What
-  // stays withheld is narrower than an operator and lives where it can say why:
-  // a single variant in [[TransformVerificationRunner.variantsNotRun]], or an
-  // operator that cannot be run at all in its `knownIssues`, each against an
-  // issue or a reason. A name here would withdraw an operator's every variant
-  // and record nothing about what is wrong with it.
+  // There is deliberately no third list withholding operators by default: a
+  // name here would withdraw an operator's every variant and record nothing
+  // about what is wrong with it. Withholding lives where it can say why, in
+  // [[TransformVerificationRunner]]'s `variantsNotRun` or its `knownIssues`.
   private def patterns(envVar: String): Seq[String] =
     sys.env.getOrElse(envVar, "").split(",").iterator.map(_.trim).filter(_.nonEmpty).toSeq
 
