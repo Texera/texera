@@ -62,7 +62,7 @@ class TernaryContourOpDesc extends PythonOperatorDescriptor with StandaloneCodeG
   @JsonSchemaTitle("Variable 1")
   @JsonPropertyDescription("First variable data field")
   @AutofillAttributeName
-  @SampleColumn("simplex_a")
+  @SampleColumn("a\"b\\c_simplex_a")
   @NotNull(message = "Variable 1 cannot be empty")
   var firstVariable: EncodableString = ""
 
@@ -71,7 +71,7 @@ class TernaryContourOpDesc extends PythonOperatorDescriptor with StandaloneCodeG
   @JsonSchemaTitle("Variable 2")
   @JsonPropertyDescription("Second variable data field")
   @AutofillAttributeName
-  @SampleColumn("simplex_b")
+  @SampleColumn("a\"b\\c_simplex_b")
   @NotNull(message = "Variable 2 cannot be empty")
   var secondVariable: EncodableString = ""
 
@@ -80,7 +80,7 @@ class TernaryContourOpDesc extends PythonOperatorDescriptor with StandaloneCodeG
   @JsonSchemaTitle("Variable 3")
   @JsonPropertyDescription("Third variable data field")
   @AutofillAttributeName
-  @SampleColumn("simplex_c")
+  @SampleColumn("a\"b\\c_simplex_c")
   @NotNull(message = "Variable 3 cannot be empty")
   var thirdVariable: EncodableString = ""
 
