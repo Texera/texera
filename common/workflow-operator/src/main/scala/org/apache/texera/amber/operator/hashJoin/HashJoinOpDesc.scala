@@ -217,9 +217,14 @@ class HashJoinOpDesc[K] extends LogicalOp with StandaloneCodeGenerator {
     val merge =
       s"""out1df = in1df.merge(in2df, how=${pyStringLiteral(how)}, left_on=$buildKeyLit, """ +
         s"""right_on=$probeKeyLit, suffixes=("", "#@1"))"""
+    // When the left frame already carries the probe key's name, the merge
+    // suffixes the right key and leaves the left column alone, so dropping the
+    // bare name would take the left payload instead of the key.
+    val suffixedProbeKeyLit = objectMapper.writeValueAsString(probeAttributeName + "#@1")
     val tail =
       if (buildAttributeName != probeAttributeName)
-        s"out1df = out1df.drop(columns=[$probeKeyLit]).reset_index(drop=True)"
+        s"out1df = out1df.drop(columns=[$suffixedProbeKeyLit if $probeKeyLit in in1df.columns " +
+          s"else $probeKeyLit]).reset_index(drop=True)"
       else
         "out1df = out1df.reset_index(drop=True)"
     s"$merge\n$tail"
