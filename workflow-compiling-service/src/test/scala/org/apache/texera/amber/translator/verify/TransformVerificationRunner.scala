@@ -115,10 +115,8 @@ import scala.util.{Failure, Success, Try}
 object TransformVerificationRunner {
 
   /**
-    * Per-operator knob handling: a value this operator's variants must carry,
-    * and where it applies. Two needs, one table, because both answer the same
-    * question — what does the generator have to be told about this operator's
-    * knobs that its metadata does not say.
+    * A value this operator's variants must carry, and where it applies: what the
+    * generator has to be told about a knob that its metadata does not say.
     *
     * `Pinned` holds a knob at one value and keeps it out of the sweep, for a
     * knob whose other value selects non-determinism rather than another
@@ -212,6 +210,7 @@ object TransformVerificationRunner {
     val Nulls = "nulls"
     val EnumSweep = "enumSweep"
     val HostileText = "hostileText"
+    val HostileColumns = "hostileColumns"
     val CountVectorizerText = "countVectorizer_text"
     val TfidfText = "tfidf_text"
     val NonFeatureColumn = "nonFeatureColumn"

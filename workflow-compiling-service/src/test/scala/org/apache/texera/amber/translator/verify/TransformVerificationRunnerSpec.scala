@@ -130,7 +130,7 @@ class TransformVerificationRunnerSpec extends AnyFlatSpec with Matchers {
 
   it should "route the scorer to the auto tier now the table holds a label pair" in {
     // What kept it curated was the canonical table, not the operator: scoring reads
-    // one label through two columns, and until `species_pred` joined `species` there
+    // one label through two columns, and until a prediction column joined the label
     // was no such pair for @SampleColumn to name.
     disposition(classOf[MachineLearningScorerOpDesc]) shouldBe Runnable("auto")
   }
