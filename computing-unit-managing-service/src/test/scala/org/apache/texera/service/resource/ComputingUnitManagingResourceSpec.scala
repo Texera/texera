@@ -467,10 +467,8 @@ class ComputingUnitManagingResourceSpec
       resource.getComputingUnitResourceLimit("99999", user)
   }
 
-  // The variables requiredComputingUnitEnv looks up. Kept here because the production list
-  // is private, so a name added or dropped there without a test here fails the all-set case.
-  // Each one is read inside the unit: the two endpoints by LakeFSFileDocument and
-  // ResultExportService, the payload size by ApplicationConfig, the secret by AuthConfig.
+  // Mirrors the private production list, so a name added or dropped there fails the all-set
+  // case.
   private val requiredEnvNames = Seq(
     EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
     EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
@@ -478,17 +476,13 @@ class ComputingUnitManagingResourceSpec
     EnvironmentalVariable.ENV_AUTH_JWT_SECRET
   )
 
-  // A missing variable used to fail with None.get, which the caller saw as "There was an
-  // error processing your request" -- no variable named, no cause.
   "requiredComputingUnitEnv" should "return every variable when all are set" in {
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name => Some(s"value-$name"))
     env.keySet shouldBe requiredEnvNames.toSet
     env.values.foreach(_ should startWith("value-"))
   }
 
-  // USER_SYS_ENABLED and SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR lost their
-  // conf keys in #3831 and #3542, so nothing reads them in the unit. Requiring them would
-  // refuse to start a unit over a variable that changes nothing whatever it is set to.
+  // Both lost their conf keys (#3831, #3542), so nothing in the unit reads them.
   it should "not require a variable no longer read anywhere" in {
     val retired = Seq(
       EnvironmentalVariable.ENV_USER_SYS_ENABLED,
@@ -508,15 +502,12 @@ class ComputingUnitManagingResourceSpec
       )
     }
     thrown.getMessage should include(absent)
-    // Naming a variable that is set sends whoever reads this off to check it for nothing --
-    // the search the message exists to end. So the ones that are set stay out of it.
     requiredEnvNames
       .filterNot(_ == absent)
       .foreach(name => thrown.getMessage should not include name)
   }
 
-  // The chart renders every value as "{{ .value }}", so an unset variable arrives as ""
-  // rather than absent -- which would otherwise start a unit with, say, no JWT secret.
+  // The chart renders every value as "{{ .value }}", so an unset one arrives as "".
   it should "treat a blank variable as missing" in {
     val blank = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
     val thrown = intercept[ServiceUnavailableException] {
@@ -527,9 +518,7 @@ class ComputingUnitManagingResourceSpec
     thrown.getMessage should include(blank)
   }
 
-  // A padded value passes the blank check, so trimming it is what keeps it from reaching the
-  // pod intact: HOCON reads " 1024" as a string and refuses it as an int, and the unit dies
-  // at startup naming no variable -- the failure this whole guard exists to replace.
+  // HOCON refuses " 1024" as an int, and the unit then dies at startup naming nothing.
   it should "trim the value it forwards" in {
     val padded = EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
@@ -538,9 +527,7 @@ class ComputingUnitManagingResourceSpec
     env(padded) shouldBe "1024"
   }
 
-  // The secret is the exception. This service signs the unit's token with AUTH_JWT_SECRET as
-  // AuthConfig read it, and AuthConfig does not trim, so handing the unit a trimmed copy
-  // would leave the two verifying against different keys -- a silent auth failure.
+  // AuthConfig does not trim, so a trimmed copy would verify against a different key.
   it should "hand on the secret untrimmed" in {
     val padded = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
@@ -549,8 +536,7 @@ class ComputingUnitManagingResourceSpec
     env(padded) shouldBe " s3cret "
   }
 
-  // The variable is there in the pod's env, so calling it "missing" would send whoever reads
-  // this to check, find it, and conclude the message is wrong.
+  // The variable is there in the pod's env, so calling it "missing" would read as wrong.
   it should "say unset or blank rather than missing" in {
     val thrown = intercept[ServiceUnavailableException] {
       ComputingUnitManagingResource.requiredComputingUnitEnv(_ => Some(" "))

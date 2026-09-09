@@ -93,60 +93,45 @@ object ComputingUnitManagingResource {
     }
   }
 
-  /**
-    * Variables only the deployment knows, each one read inside the unit: the two endpoints
-    * by LakeFSFileDocument and ResultExportService, the payload size by ApplicationConfig,
-    * the secret by AuthConfig. The helm chart supplies every one.
-    *
-    * USER_SYS_ENABLED and SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR are not
-    * here: their conf keys went away with #3831 and #3542, so nothing reads them and
-    * requiring one would refuse a unit over a variable that changes nothing.
-    */
+  // Required by the unit: the endpoints by LakeFSFileDocument and ResultExportService, the
+  // payload size by ApplicationConfig, the secret by AuthConfig. USER_SYS_ENABLED and
+  // SCHEDULE_GENERATOR_ENABLE_COST_BASED_SCHEDULE_GENERATOR lost their conf keys in #3831
+  // and #3542, so nothing reads them.
   private val requiredComputingUnitEnvNames: Seq[String] = Seq(
     EnvironmentalVariable.ENV_FILE_SERVICE_GET_DATASET_PRESIGNED_URL_ENDPOINT,
     EnvironmentalVariable.ENV_FILE_SERVICE_UPLOAD_ONE_FILE_TO_DATASET_ENDPOINT,
-    // TODO: use AmberConfig for the payload size. Currently AmberConfig is only accessible
-    // in workflow-executing-service
+    // TODO: use AmberConfig here; it is only accessible in workflow-executing-service
     EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB,
     EnvironmentalVariable.ENV_AUTH_JWT_SECRET
   )
 
-  /**
-    * Forwarded byte-for-byte rather than trimmed. This service signs the unit's token with
-    * AUTH_JWT_SECRET as AuthConfig read it, and AuthConfig does not trim, so a trimmed copy
-    * would leave the two verifying against different keys -- a silent auth failure.
-    */
+  // Forwarded raw. AuthConfig does not trim, so a trimmed copy would leave the unit and this
+  // service verifying the token against different keys.
   private val untrimmedComputingUnitEnvNames: Set[String] = Set(
     EnvironmentalVariable.ENV_AUTH_JWT_SECRET
   )
 
   /**
-    * Returns the variables, or fails with a 503 listing every one that is missing.
+    * Returns the variables, or fails with a 503 listing every one that is unset or blank.
     *
-    * All of them at once, because when these are missing they are usually all missing.
-    * A WebApplicationException so the message reaches the caller: None.get was not one,
-    * and dropwizard replaced it with generic text. 503 because it is the deployment that
-    * is not ready, not the request that is wrong.
+    * A WebApplicationException so the message survives: dropwizard replaces a plain 500's
+    * with generic text. 503 because the deployment is not ready, not the request wrong.
     */
   private[resource] def requiredComputingUnitEnv(
       lookup: String => Option[String]
   ): Map[String, String] = {
-    // Blank counts as missing, as elsewhere in config: the chart renders every value as
-    // "{{ .value }}", so an unset one arrives as "" rather than absent.
+    // Blank counts as missing: the chart renders every value as "{{ .value }}", so an unset
+    // one arrives as "" rather than absent.
     val looked =
       requiredComputingUnitEnvNames.map(name => name -> lookup(name).filter(_.trim.nonEmpty))
     val missing = looked.collect { case (name, None) => name }
     if (missing.nonEmpty) {
-      // "unset or blank", because a variable set to whitespace is reported here as well, and
-      // telling someone a variable they can see in the pod is "missing" strands them.
       throw new ServiceUnavailableException(
         "This deployment cannot create a computing unit. Unset or blank environment " +
           s"variable(s): ${missing.mkString(", ")}."
       )
     }
-    // A padded value passes the blank check, so what is forwarded is trimmed: HOCON reads
-    // " 1024" as a string and refuses it as an int, and the unit dies at startup naming no
-    // variable. The secret is the exception -- see untrimmedComputingUnitEnvNames.
+    // Trimmed, because HOCON refuses " 1024" as an int and the unit then dies naming nothing.
     looked.collect {
       case (name, Some(raw)) =>
         name -> (if (untrimmedComputingUnitEnvNames(name)) raw else raw.trim)
