@@ -152,14 +152,14 @@ class HistogramChartOpDesc extends PythonOperatorDescriptor with PlotlyStandalon
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    fig = px.histogram(in1df, x=$valueLit, text_auto=True$colorParam$categoryParam$marginalParam$patternParam)
        |    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Histogram saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Histogram saved to " + outputHtml)""".stripMargin
   }
 
 }

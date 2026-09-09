@@ -144,23 +144,23 @@ class PieChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode 
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    table = in1df.dropna(subset=[$valueLit, $nameLit])
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("value column contains only non-positive numbers."))
        |    elif table.duplicated(subset=[$nameLit]).any():
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("duplicates in name column, need to aggregate"))
        |    else:
        |        fig = px.pie(table, names=$nameLit, values=$valueLit)
        |        fig.update_traces(textposition='inside', textinfo='percent+label')
        |        fig.update_layout(margin=dict(t=0, b=0, l=0, r=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Pie chart saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Pie chart saved to " + outputHtml)""".stripMargin
   }
 
 }

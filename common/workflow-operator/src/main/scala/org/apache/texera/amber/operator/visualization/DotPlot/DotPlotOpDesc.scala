@@ -110,18 +110,18 @@ class DotPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode {
 
   override def generateStandaloneCode(): String = {
     val countLit = pyStringLiteral(countAttribute)
-    // The error page is written to output.html, the same file a plotted chart lands
-    // in, so a reason for "no chart" is where the reader looks for the chart —
-    // printing it to the terminal alone left output.html absent. render_error's
-    // continuation line keeps the runtime path's indentation, since the HTML is
-    // triple-quoted and those spaces reach the browser.
+    // The error page is written to the same file a plotted chart lands in, so a
+    // reason for "no chart" is where the reader looks for the chart — printing it
+    // to the terminal alone left that file absent. render_error's continuation
+    // line keeps the runtime path's indentation, since the HTML is triple-quoted
+    // and those spaces reach the browser.
     s"""def render_error(error_msg):
        |    return '''<h1>DotPlot is not available.</h1>
        |                  <p>Reasons are: {} </p>
        |               '''.format(error_msg)
        |
        |def fail(error_msg):
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error(error_msg))
        |    print(f"Dot plot error: {error_msg}")
        |
@@ -136,9 +136,9 @@ class DotPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode {
        |                       color_discrete_sequence=px.colors.qualitative.Dark2)
        |        fig.update_traces(marker=dict(size=12, line=dict(width=2, color='DarkSlateGrey')))
        |        fig.update_layout(margin=dict(t=0, b=0, l=0, r=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Dot plot saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Dot plot saved to " + outputHtml)""".stripMargin
   }
 
 }

@@ -131,7 +131,7 @@ class FunnelPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    fig = go.Figure(px.funnel(in1df, x=$xLit, y=$yLit$colorArg))
@@ -142,9 +142,9 @@ class FunnelPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |        ),
        |        margin=dict(t=0, b=0, l=0, r=0)
        |    )
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Funnel plot saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Funnel plot saved to " + outputHtml)""".stripMargin
   }
 
 }

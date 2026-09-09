@@ -127,15 +127,15 @@ class HeatMapOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode {
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    heatmap = go.Heatmap(z=in1df[$valueLit], x=in1df[$xLit], y=in1df[$yLit])
        |    layout = go.Layout(margin=dict(l=0, r=0, b=0, t=0))
        |    fig = go.Figure(data=[heatmap], layout=layout)
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Heatmap saved to output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Heatmap saved to " + outputHtml)""".stripMargin
   }
 
 }

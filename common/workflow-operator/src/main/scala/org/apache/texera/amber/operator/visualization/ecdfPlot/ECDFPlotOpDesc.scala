@@ -217,21 +217,21 @@ class ECDFPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCode 
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    table = in1df.dropna(subset=$requiredColsLiteral).copy()
        |    table[$valueLit] = pd.to_numeric(table[$valueLit], errors='coerce')
        |    table.dropna(subset=[$valueLit], inplace=True)
        |    if table.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("no valid rows left after removing missing or non-numeric values."))
        |    else:
        |        fig = px.ecdf(${args.mkString(", ")})
        |        fig.update_layout(margin=dict(l=0, r=0, t=30, b=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("ECDF plot saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("ECDF plot saved to " + outputHtml)""".stripMargin
   }
 
 }

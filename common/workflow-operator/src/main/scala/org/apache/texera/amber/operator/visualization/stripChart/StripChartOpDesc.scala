@@ -150,9 +150,9 @@ class StripChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
        |    yaxis_title=$yLit,
        |    hovermode='closest'
        |)
-       |fig.write_json("output.json")
-       |fig.write_html("output.html")
-       |print("Strip chart saved to output.html")""".stripMargin
+       |fig.write_json(outputJson)
+       |fig.write_html(outputHtml)
+       |print("Strip chart saved to " + outputHtml)""".stripMargin
   }
 
 }

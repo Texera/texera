@@ -130,8 +130,8 @@ class ScatterMatrixChartOpDesc extends PythonOperatorDescriptor with PlotlyStand
     // here printed to stdout without writing any output at all.
     s"""fig = px.scatter_matrix(in1df, dimensions=[$dimensions], color=${pyStringLiteral(color)})
        |fig.update_layout(margin=dict(t=0, b=0, l=0, r=0))
-       |fig.write_json("output.json")
-       |fig.write_html("output.html")
-       |print("Scatter matrix saved to output.html")""".stripMargin
+       |fig.write_json(outputJson)
+       |fig.write_html(outputHtml)
+       |print("Scatter matrix saved to " + outputHtml)""".stripMargin
   }
 }

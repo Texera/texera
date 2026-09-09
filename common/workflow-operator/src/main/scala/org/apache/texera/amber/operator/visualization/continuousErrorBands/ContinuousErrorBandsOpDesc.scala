@@ -223,7 +223,7 @@ class ContinuousErrorBandsOpDesc extends PythonOperatorDescriptor with PlotlySta
        |               '''.format(error_msg)
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("input table is empty."))
        |else:
        |    fig = go.Figure()
@@ -232,8 +232,8 @@ class ContinuousErrorBandsOpDesc extends PythonOperatorDescriptor with PlotlySta
        |                      xaxis_title=${pyStringLiteral(xLabel)},
        |                      yaxis_title=${pyStringLiteral(yLabel)},
        |                      hovermode="x")
-       |    fig.write_json("output.json")
-       |    fig.write_html("output.html")
-       |    print("Continuous error bands saved to output.json and output.html")""".stripMargin
+       |    fig.write_json(outputJson)
+       |    fig.write_html(outputHtml)
+       |    print("Continuous error bands saved to " + outputJson + " and " + outputHtml)""".stripMargin
   }
 }

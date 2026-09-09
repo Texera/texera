@@ -139,14 +139,14 @@ class Histogram2DOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |    return f"<h1>2D Histogram failed</h1><p>{msg}</p>"
        |
        |if in1df.empty:
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error("Input table is empty."))
        |else:
        |    # Bound to a name of its own: the same frame can feed another branch
        |    # of the plan, which must still see every row.
        |    chart_df = in1df.dropna(subset=[$xLit, $yLit])
        |    if chart_df.empty:
-       |        with open("output.html", "w", encoding="utf-8") as output:
+       |        with open(outputHtml, "w", encoding="utf-8") as output:
        |            output.write(render_error("No rows after dropping nulls."))
        |    else:
        |        fig = px.density_heatmap(
@@ -158,7 +158,7 @@ class Histogram2DOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |            histnorm='${normalize.getValue}',
        |            text_auto=True
        |        )
-       |        fig.write_json("output.json")
-       |        print("2D histogram saved to output.json")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        print("2D histogram saved to " + outputJson)""".stripMargin
   }
 }

@@ -133,8 +133,8 @@ class CandlestickChartOpDesc extends PythonOperatorDescriptor with PlotlyStandal
        |    close=in1df[${pyStringLiteral(close)}]
        |)])
        |fig.update_layout(title='Candlestick Chart')
-       |fig.write_json("output.json")
-       |fig.write_html("output.html")
-       |print("Candlestick chart saved to output.json and output.html")""".stripMargin
+       |fig.write_json(outputJson)
+       |fig.write_html(outputHtml)
+       |print("Candlestick chart saved to " + outputJson + " and " + outputHtml)""".stripMargin
 
 }

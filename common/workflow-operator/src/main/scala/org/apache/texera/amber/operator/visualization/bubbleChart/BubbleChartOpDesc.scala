@@ -176,9 +176,9 @@ class BubbleChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
     val yLit = pyStringLiteral(yValue)
     val zLit = pyStringLiteral(zValue)
 
-    // The error page is written to output.html, the same file a plotted chart lands
-    // in, so a reason for "no chart" is where the reader looks for the chart —
-    // printing it to the terminal alone left output.html absent. The heading is the
+    // The error page is written to the same file a plotted chart lands in, so a
+    // reason for "no chart" is where the reader looks for the chart — printing it
+    // to the terminal alone left that file absent. The heading is the
     // runtime path's, TreeMap and all, so both paths say the same thing.
     // render_error's continuation line keeps the runtime path's indentation, since
     // the HTML is triple-quoted and those spaces reach the browser.
@@ -188,7 +188,7 @@ class BubbleChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |               '''.format(error_msg)
        |
        |def fail(error_msg):
-       |    with open("output.html", "w", encoding="utf-8") as output:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
        |        output.write(render_error(error_msg))
        |    print(f"Bubble chart error: {error_msg}")
        |
@@ -209,8 +209,8 @@ class BubbleChartOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCo
        |            size_max=100$colorArg
        |        ))
        |        fig.update_layout(margin=dict(l=0, r=0, b=0, t=0))
-       |        fig.write_json("output.json")
-       |        fig.write_html("output.html")
-       |        print("Bubble chart saved to output.html")""".stripMargin
+       |        fig.write_json(outputJson)
+       |        fig.write_html(outputHtml)
+       |        print("Bubble chart saved to " + outputHtml)""".stripMargin
   }
 }
