@@ -115,11 +115,11 @@ object ComputingUnitManagingResource {
       lookup: String => Option[String]
   ): Map[String, String] = {
     // Blank counts as missing, as elsewhere in config: the chart renders every value as
-    // "{{ .value }}", so an unset one arrives as "" rather than absent. The trimmed value is
-    // what is kept, too -- LakeFSFileDocument trims these on the way back out, and a padded
-    // boolean or int is a value HOCON refuses to parse in the pod.
+    // "{{ .value }}", so an unset one arrives as "" rather than absent. Only the decision
+    // trims -- the value goes on raw, because AUTH_JWT_SECRET has to stay byte-identical to
+    // the one this service signs the unit's token with, and AuthConfig does not trim either.
     val looked =
-      requiredComputingUnitEnvNames.map(name => name -> lookup(name).map(_.trim).filter(_.nonEmpty))
+      requiredComputingUnitEnvNames.map(name => name -> lookup(name).filter(_.trim.nonEmpty))
     val missing = looked.collect { case (name, None) => name }
     if (missing.nonEmpty) {
       // "unset or blank", because a variable set to whitespace is reported here as well, and

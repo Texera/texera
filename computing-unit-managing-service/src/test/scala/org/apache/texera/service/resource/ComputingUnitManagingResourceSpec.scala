@@ -497,14 +497,15 @@ class ComputingUnitManagingResourceSpec
     thrown.getMessage should include(blank)
   }
 
-  // Padding is judged, so it is also removed: HOCON in the pod refuses to read " 1024" as an
-  // int or " true" as a boolean, and the pod would crashloop naming neither.
-  it should "hand on the trimmed value, not the padded one" in {
-    val padded = EnvironmentalVariable.ENV_MAX_WORKFLOW_WEBSOCKET_REQUEST_PAYLOAD_SIZE_KB
+  // Only the blank decision trims. The value itself goes on untouched: this service signs the
+  // unit's token with AUTH_JWT_SECRET as AuthConfig read it, and AuthConfig does not trim, so
+  // handing the unit a trimmed copy would leave the two verifying against different keys.
+  it should "hand on the value untrimmed" in {
+    val padded = EnvironmentalVariable.ENV_AUTH_JWT_SECRET
     val env = ComputingUnitManagingResource.requiredComputingUnitEnv(name =>
-      if (name == padded) Some(" 1024\n") else Some("set")
+      if (name == padded) Some(" s3cret ") else Some("set")
     )
-    env(padded) shouldBe "1024"
+    env(padded) shouldBe " s3cret "
   }
 
   // The variable is there in the pod's env, so calling it "missing" would send whoever reads
