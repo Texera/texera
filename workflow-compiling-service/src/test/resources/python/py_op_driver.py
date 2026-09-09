@@ -56,7 +56,6 @@ from __future__ import annotations
 import base64
 import inspect
 import json
-import pickle
 import sys
 import traceback
 from pathlib import Path
@@ -88,6 +87,7 @@ try:
     )
     from core.models.schema.schema import Schema as TexeraSchema
     from core.models.schema.attribute_type import AttributeType, RAW_TYPE_MAPPING
+    from core.models.table import all_output_to_tuple
 except ImportError as exc:
     sys.stderr.write(
         "py_op_driver.py: failed to import pytexera/pyamber. The harness must "
@@ -167,6 +167,12 @@ def _write_schema_sidecar(data_path: Path, schema: TexeraSchema) -> None:
 # --------------------------------------------------------------------------
 # Tuple I/O. JSONL with sidecar — same on-disk shape as TupleIO on the JVM.
 # --------------------------------------------------------------------------
+# Prefix Tuple.cast_to_schema writes in front of an object it pickles into a
+# BINARY field. Nothing in the repo reads it back, so it is a tag, not part of
+# the value.
+_CAST_PICKLE_MARKER = b"pickle    "
+
+
 def _coerce_field(raw: Any, attr_type: AttributeType) -> Any:
     """Coerce a JSON-decoded field to the type the schema expects."""
     if raw is None:
@@ -225,31 +231,23 @@ def _emit_as_dicts(
 ) -> Iterator["dict[str, Any]"]:
     """
     Flatten whatever the operator yields into per-row dicts keyed by the
-    output schema's attribute names. The operator may yield:
-        * pandas.DataFrame  (UDFTableOperator's process_table return)
-        * pandas.Series      (single row)
-        * dict / OrderedDict (e.g. BarChart yields {'html-content': html})
-        * Tuple
-        * None               (skip — matches the engine's behavior)
+    output schema's attribute names.
+
+    Both steps are the engine's own: ``DataProcessor`` hands each yielded
+    value to ``all_output_to_tuple`` (a DataFrame, a Series, a dict, a list
+    of those, a Tuple, or None) and finalizes every tuple that comes back
+    against the output port's schema. Running the same two calls here is what
+    makes this path reject what the engine rejects. A row carrying a field the
+    schema does not have, a row missing one, and a value the cast cannot bring
+    to its declared type all raise here exactly as they would in the worker,
+    rather than being projected or coerced away.
     """
-    attr_names = schema.get_attr_names()
     for item in emitted:
-        if item is None:
-            continue
-        if isinstance(item, pd.DataFrame):
-            for _, row in item.iterrows():
-                yield {col: row[col] for col in attr_names if col in row.index}
-        elif isinstance(item, pd.Series):
-            yield {col: item[col] for col in attr_names if col in item.index}
-        elif isinstance(item, Tuple):
-            yield {name: item[name] for name in attr_names}
-        elif isinstance(item, Mapping):
-            yield {name: item.get(name) for name in attr_names}
-        else:
-            raise TypeError(
-                f"py_op_driver: cannot serialize emitted value of type "
-                f"{type(item).__name__}: {item!r}"
-            )
+        for tup in all_output_to_tuple(item):
+            if tup is None:
+                continue
+            tup.finalize(schema)
+            yield dict(tup.as_key_value_pairs())
 
 
 def _jsonify(value: Any, attr_type: AttributeType) -> Any:
@@ -279,11 +277,18 @@ def _jsonify(value: Any, attr_type: AttributeType) -> Any:
     if attr_type == AttributeType.BOOL:
         return bool(value)
     if attr_type == AttributeType.BINARY:
-        # Trained-model / object columns: pickle then base64 so the value
-        # survives JSONL round-trip. Mirrors the BINARY read path in
-        # _coerce_field. For deterministic estimators the pickle is byte-stable
-        # across processes, so the two verification paths compare equal.
-        raw = value if isinstance(value, (bytes, bytearray)) else pickle.dumps(value)
+        # Trained-model / object columns: base64 so the value survives the
+        # JSONL round-trip. Mirrors the BINARY read path in _coerce_field. For
+        # deterministic estimators the pickle is byte-stable across processes,
+        # so the two verification paths compare equal.
+        #
+        # The finalize in _emit_as_dicts has already pickled anything that was
+        # not bytes, prefixing it with the marker the engine's cast writes. The
+        # standalone path pickles the same object without one, so strip it and
+        # both sides carry the same payload.
+        raw = value
+        if raw.startswith(_CAST_PICKLE_MARKER):
+            raw = raw[len(_CAST_PICKLE_MARKER) :]
         return base64.b64encode(raw).decode("ascii")
     if attr_type == AttributeType.TIMESTAMP:
         # Emit the same JDBC string java.sql.Timestamp.toString produces (>=1
