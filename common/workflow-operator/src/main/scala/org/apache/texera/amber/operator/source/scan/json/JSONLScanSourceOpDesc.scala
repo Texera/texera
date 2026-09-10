@@ -50,10 +50,23 @@ class JSONLScanSourceOpDesc extends ScanSourceOpDesc with StandaloneCodeGenerato
     val basename = sourceBasename(fileName.getOrElse(""))
     val enc = fileEncoding.toString.replace("_", "-").toLowerCase
 
+    // The executor drops and takes on the RAW lines, before any of them is
+    // parsed, so a line outside the window is never read as JSON and an
+    // unparseable one there costs nothing. Reading the whole file first and
+    // slicing the frame would end the export on a line the workflow skipped.
+    val windowed = offset.exists(_ > 0) || limit.isDefined
+    val source =
+      if (!windowed) pyStringLiteral(basename)
+      else {
+        val dropped = offset.filter(_ > 0).fold("_lines")(o => s"_lines[$o:]")
+        val taken = limit.fold(dropped)(l => s"$dropped[:${l.max(0)}]")
+        s"""io.StringIO("".join($taken))"""
+      }
+
     val readArgs = scala.collection.mutable.ArrayBuffer[String]()
-    readArgs += pyStringLiteral(basename)
+    readArgs += source
     readArgs += "lines=True"
-    readArgs += s"""encoding=${pyStringLiteral(enc)}"""
+    if (!windowed) readArgs += s"""encoding=${pyStringLiteral(enc)}"""
 
     // JSON has no timestamp of its own, so both readers infer from the text and
     // do not infer alike: the schema below tries TIMESTAMP and parses what it
@@ -71,23 +84,20 @@ class JSONLScanSourceOpDesc extends ScanSourceOpDesc with StandaloneCodeGenerato
       )
     readArgs += s"convert_dates=[${dateColumns.mkString(", ")}]"
 
-    if (offset.isEmpty) limit.foreach(l => readArgs += s"nrows=$l")
-
     val readExpr = s"pd.read_json(${readArgs.mkString(", ")})"
     val baseExpr =
       if (flatten) s"pd.json_normalize($readExpr.to_dict('records'))"
       else readExpr
 
     val lines = scala.collection.mutable.ArrayBuffer[String]()
-    lines += s"out1df = $baseExpr"
-
-    (offset, limit) match {
-      case (Some(o), Some(l)) =>
-        lines += s"out1df = out1df.iloc[$o:${o + l}].reset_index(drop=True)"
-      case (Some(o), None) =>
-        lines += s"out1df = out1df.iloc[$o:].reset_index(drop=True)"
-      case _ =>
+    if (windowed) {
+      lines += "import io"
+      lines += s"""with open(${pyStringLiteral(basename)}, "r", encoding=${pyStringLiteral(
+        enc
+      )}) as _f:"""
+      lines += "    _lines = _f.readlines()"
     }
+    lines += s"out1df = $baseExpr"
 
     lines.mkString("\n")
   }
