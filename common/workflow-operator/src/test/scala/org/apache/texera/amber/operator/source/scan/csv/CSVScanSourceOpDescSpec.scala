@@ -250,15 +250,19 @@ class CSVScanSourceOpDescSpec extends AnyFlatSpec with BeforeAndAfter {
   }
 
   // sourceSchema names a blank header column-N; pandas names it "Unnamed: N". A downstream
-  // operator asks for the name the schema gave, so the frame has to carry that one.
-  it should "give a blank header the name the schema gives it" in {
-    csvScanSourceOpDesc.fileName = Some(TestOperators.CountrySalesSmallMultiLineCsvPath)
+  // operator asks for the name the schema gave, so the frame has to carry that one, and by
+  // position rather than by matching the placeholder: a header the user really did spell
+  // "Unnamed: 1" is kept, and matching cannot tell the two apart where they coincide.
+  it should "give the frame the names the schema gives it" in {
+    val path = writeCsvWithEmptyHeader()
+    csvScanSourceOpDesc.fileName = Some(path)
     csvScanSourceOpDesc.customDelimiter = Some(",")
     csvScanSourceOpDesc.hasHeader = true
+    csvScanSourceOpDesc.setResolvedFileName(FileResolver.resolve(path))
 
     val code = csvScanSourceOpDesc.generateStandaloneCode()
 
-    assert(code.contains("""f"column-{i + 1}" if c == f"Unnamed: {i}" else c"""))
+    assert(code.contains("""out1df.columns = ["id", "name", "column-3", "age"]"""))
   }
 
   it should "use comma as the default delimiter when customDelimiter is not set for parallel CSV" in {
