@@ -172,6 +172,14 @@ class CSVScanSourceOpDesc extends ScanSourceOpDesc with StandaloneCodeGenerator 
     args += s"""encoding=${pyStringLiteral(encoding)}"""
     args += s"header=$headerArg"
 
+    // The parser above sets no null value, so only an empty field is null and every other
+    // text stands for itself. pandas instead reads a list of words as missing by default,
+    // "NA" and "null" among them, which turned a column holding the country code NA into
+    // nulls. Both halves are needed: dropping the default list stops the words, and naming
+    // the empty string keeps the blank cell null.
+    args += "keep_default_na=False"
+    args += """na_values=[""]"""
+
     // A CSV carries no types, so both readers infer, and they do not infer
     // alike: the schema above tries TIMESTAMP and parses what it can, while
     // pd.read_csv leaves a date column as text. Name the columns this operator
@@ -196,8 +204,18 @@ class CSVScanSourceOpDesc extends ScanSourceOpDesc with StandaloneCodeGenerator 
 
     val readCall = s"out1df = pd.read_csv(${args.mkString(", ")})"
 
-    if (hasHeader) readCall
-    else {
+    if (hasHeader) {
+      // A blank header position is named by both readers, differently: the schema above calls
+      // it column-N, pandas calls it "Unnamed: N". A downstream operator names the column the
+      // schema gave it, so the frame has to carry that name. Only a position pandas actually
+      // filled in is renamed, which is why the placeholder is matched against the index rather
+      // than by its prefix: a column genuinely called "Unnamed: 3" keeps its name anywhere but
+      // position 3.
+      s"""$readCall
+         |out1df.columns = [
+         |    f"column-{i + 1}" if c == f"Unnamed: {i}" else c for i, c in enumerate(out1df.columns)
+         |]""".stripMargin
+    } else {
       // Match Texera's fallback column naming when there's no header
       s"""$readCall
          |out1df.columns = [f"column-{i + 1}" for i in range(len(out1df.columns))]""".stripMargin

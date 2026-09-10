@@ -236,6 +236,31 @@ class CSVScanSourceOpDescSpec extends AnyFlatSpec with BeforeAndAfter {
     assert(!code.contains("io.BytesIO"))
   }
 
+  // The parser sets no null value, so only an empty field is null. pandas reads a list of
+  // words as missing by default, which turned the country code NA into a null.
+  it should "read only an empty field as null, the way the parser does" in {
+    csvScanSourceOpDesc.fileName = Some(TestOperators.CountrySalesSmallMultiLineCsvPath)
+    csvScanSourceOpDesc.customDelimiter = Some(",")
+    csvScanSourceOpDesc.hasHeader = true
+
+    val code = csvScanSourceOpDesc.generateStandaloneCode()
+
+    assert(code.contains("keep_default_na=False"))
+    assert(code.contains("""na_values=[""]"""))
+  }
+
+  // sourceSchema names a blank header column-N; pandas names it "Unnamed: N". A downstream
+  // operator asks for the name the schema gave, so the frame has to carry that one.
+  it should "give a blank header the name the schema gives it" in {
+    csvScanSourceOpDesc.fileName = Some(TestOperators.CountrySalesSmallMultiLineCsvPath)
+    csvScanSourceOpDesc.customDelimiter = Some(",")
+    csvScanSourceOpDesc.hasHeader = true
+
+    val code = csvScanSourceOpDesc.generateStandaloneCode()
+
+    assert(code.contains("""f"column-{i + 1}" if c == f"Unnamed: {i}" else c"""))
+  }
+
   it should "use comma as the default delimiter when customDelimiter is not set for parallel CSV" in {
     parallelCsvScanSourceOpDesc.customDelimiter = None
 
