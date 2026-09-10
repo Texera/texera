@@ -150,6 +150,12 @@ class IntervalJoinOpDesc extends LogicalOp with StandaloneCodeGenerator {
   // toggled by include{Left,Right}Bound. Cross-join + mask computes the full
   // result (no sorted-input assumption, unlike the exec). Runtime dtype check
   // picks numeric vs pd.DateOffset (unit from timeIntervalType).
+  //
+  // Both keys are read off the merged frame rather than copied into columns of
+  // the operator's own naming, which would overwrite an input column that
+  // happens to carry that name and then drop it. Only the right key needs
+  // locating: the merge leaves every left name alone and suffixes a right one
+  // that collides.
   override def generateStandaloneCode(): String = {
     val leftLit = objectMapper.writeValueAsString(leftAttributeName)
     val rightLit = objectMapper.writeValueAsString(rightAttributeName)
@@ -163,15 +169,15 @@ class IntervalJoinOpDesc extends LogicalOp with StandaloneCodeGenerator {
       case Some(TimeIntervalType.SECOND) => "seconds"
       case _                             => "days" // DAY or unset
     }
-    s"""_l = in1df.assign(_iv_l=in1df[$leftLit])
-       |_r = in2df.assign(_iv_r=in2df[$rightLit])
-       |_pairs = _l.merge(_r, how="cross", suffixes=("", "#@1"))
-       |if pd.api.types.is_datetime64_any_dtype(_pairs["_iv_r"]):
-       |    _iv_hi = _pairs["_iv_r"] + pd.DateOffset($offsetUnit=$constant)
+    s"""_pairs = in1df.merge(in2df, how="cross", suffixes=("", "#@1"))
+       |_iv_l = _pairs[$leftLit]
+       |_iv_r = _pairs[$rightLit if $rightLit not in in1df.columns else $rightLit + "#@1"]
+       |if pd.api.types.is_datetime64_any_dtype(_iv_r):
+       |    _iv_hi = _iv_r + pd.DateOffset($offsetUnit=$constant)
        |else:
-       |    _iv_hi = _pairs["_iv_r"] + $constant
-       |_iv_match = (_pairs["_iv_l"] $loOp _pairs["_iv_r"]) & (_pairs["_iv_l"] $hiOp _iv_hi)
-       |out1df = _pairs[_iv_match].drop(columns=["_iv_l", "_iv_r"]).reset_index(drop=True)""".stripMargin
+       |    _iv_hi = _iv_r + $constant
+       |_iv_match = (_iv_l $loOp _iv_r) & (_iv_l $hiOp _iv_hi)
+       |out1df = _pairs[_iv_match].reset_index(drop=True)""".stripMargin
   }
 
   def this(
