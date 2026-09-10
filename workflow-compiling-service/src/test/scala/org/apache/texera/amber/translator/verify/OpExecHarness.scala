@@ -42,21 +42,15 @@ import scala.jdk.CollectionConverters._
   * Generic harness that drives an OpDesc's OpExec(s) directly, bypassing the
   * Pekko/actor runtime.
   *
-  * The wiring — how many OpExecs, the internal links, the input-port dependency
-  * order — is derived from `opDesc.getPhysicalPlan(...)`, so a join's build and
-  * probe, a split's two outputs and a source's empty input map all work without
-  * a harness change.
+  * The wiring, meaning how many OpExecs there are, the internal links and the
+  * input-port dependency order, comes from `opDesc.getPhysicalPlan(...)`, so a
+  * join's build and probe, a split's two outputs and a source's empty input map
+  * all work without a harness change. I/O is JSON Lines with a
+  * `*.jsonl.schema.json` sidecar per file.
   *
-  * I/O is JSON Lines with sidecar schemas. Each input/output `*.jsonl` file
-  * has a companion `*.jsonl.schema.json` describing its [[Schema]].
-  *
-  * What it does not drive:
-  *   - Python UDFs (`OpExecWithCode`), which need a real Python worker;
-  *     [[PyOpExecHarness]] takes those.
-  *   - More than one worker. It runs idx=0 of 1, so nothing here has to
-  *     coordinate partitioners across executors.
-  *   - JSONL types beyond STRING / INTEGER / LONG / DOUBLE / BOOLEAN / BINARY /
-  *     TIMESTAMP (the latter two via explicit base64 / JDBC-string codecs).
+  * It runs one worker, idx=0 of 1, so nothing here coordinates partitioners
+  * across executors. Python UDFs go to [[PyOpExecHarness]], which has a real
+  * worker to give them.
   */
 object OpExecHarness extends LazyLogging {
 
