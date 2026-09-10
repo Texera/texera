@@ -270,26 +270,19 @@ object StandaloneRunner extends LazyLogging {
     sb.append("    return df\n")
     sb.append("\n")
 
-    // Prologue: load each external input into in{N}df. Note: pd.read_json with
-    // lines=True correctly handles empty files (returns empty DataFrame).
-    // convert_dates=False: pd.read_json otherwise auto-coerces ISO-ish strings
-    // and columns named like dates ("date", "*_at", …) to datetime64, which the
-    // schema-typed runtime path (STRING) does not do — that divergence would
-    // make a plain date string column serialize as "...T00:00:00" on only one
-    // side. Operators that genuinely need datetimes convert explicitly, so both
-    // paths stay in sync.
-    // precise_float=True: pd.read_json's default (ujson) fast double parser is
-    // lossy in the last few ULPs, so a DOUBLE column would load slightly
-    // different values than the schema-typed runtime path (which parses doubles
-    // exactly). Operators that stringify raw cell values (e.g. Radar hover text)
-    // then diverge; precise_float=True keeps both paths bit-identical.
-    // The blanket convert_dates=False also leaves genuine TIMESTAMP columns as
-    // strings, which the runtime path delivers as datetime64 — a divergence for
-    // any operator that renders or computes on them. The fixture's schema
-    // sidecar says which columns those are, so cast exactly those back.
-    // read_json also infers a column of numeric-looking strings as a number, so
-    // a STRING column holding "001" arrives as 1, and one holding only nulls as
-    // NaN rather than None. The sidecar's STRING columns are pinned to object.
+    // Prologue: load each external input into in{N}df. Every option below undoes
+    // an inference that would otherwise hand the two paths different data.
+    //
+    // convert_dates=False: read_json reads ISO-ish strings, and columns merely
+    // NAMED like dates, as datetime64, so a plain date string would serialize
+    // with a "T00:00:00" on one side only. It leaves real TIMESTAMP columns as
+    // strings too, which the sidecar names and the casts below restore.
+    //
+    // precise_float=True: the default ujson parser is lossy in the last few
+    // ULPs, and an operator that renders a DOUBLE as text prints the difference.
+    //
+    // dtype=object on the sidecar's STRING columns: "001" would arrive as 1, and
+    // a column holding only nulls as NaN rather than None.
     inputs.toSeq.sortBy(_._1).foreach {
       case (n, path) =>
         val dtype = stringColumns(path) match {
