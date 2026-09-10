@@ -36,6 +36,7 @@ import org.apache.texera.amber.operator.sleep.SleepOpDesc
 import org.apache.texera.amber.operator.split.SplitOpDesc
 import org.apache.texera.amber.operator.sklearn.SklearnPredictionOpDesc
 import org.apache.texera.amber.operator.sklearn.SklearnClassifierOpDesc
+import org.apache.texera.amber.operator.sklearn.SklearnModelOpDesc
 import org.apache.texera.amber.operator.sklearn.SklearnGaussianNaiveBayesOpDesc
 import org.apache.texera.amber.operator.sklearn.SklearnLinearRegressionOpDesc
 import org.apache.texera.amber.operator.machineLearning.sklearnAdvanced.base.SklearnMLOperatorDescriptor
@@ -216,6 +217,7 @@ object TransformVerificationRunner {
     */
   object RunKind {
     val Nulls = "nulls"
+    val EmptyTable = "emptyTable"
     val EnumSweep = "enumSweep"
     val HostileText = "hostileText"
     val HostileColumns = "hostileColumns"
@@ -420,6 +422,35 @@ object TransformVerificationRunner {
       label <- Seq(RunKind.CountVectorizerText, RunKind.TfidfText)
     } yield NotRun(op, label, dense)
 
+    // Fitting a model on nothing has no answer to compare, and both paths say so
+    // the same way. sklearn refuses outright ("Found array with 0 sample(s) while
+    // a minimum of 1 is required"), and where an estimator does fit on nothing,
+    // the row a comparison would predict on to tell two models apart is missing
+    // too. Withheld across both estimator hierarchies rather than one row each,
+    // since the reason is the estimator's, not the operator's.
+    val nothingToFit = ByDesign(
+      "an estimator has no rows to fit on, and sklearn refuses rather than " +
+        "returning a model; where one does fit on nothing, no row is left to " +
+        "predict on, so two models cannot be told apart either"
+    )
+    val noRowsToFit = Seq(
+      NotRun(classOf[SklearnModelOpDesc], RunKind.EmptyTable, nothingToFit),
+      // Named on its own because it is the one estimator outside that hierarchy:
+      // it mixes in SklearnFittableColumns directly. Keying the row on the trait
+      // instead would also withhold SklearnTestingOpDesc, which passes.
+      NotRun(classOf[SklearnLinearRegressionOpDesc], RunKind.EmptyTable, nothingToFit),
+      NotRun(classOf[SklearnMLOperatorDescriptor[_]], RunKind.EmptyTable, nothingToFit),
+      NotRun(
+        classOf[MachineLearningScorerOpDesc],
+        RunKind.EmptyTable,
+        ByDesign(
+          "the operator refuses a table where no row carries an actual value, and " +
+            "an empty one carries none; the refusal is the operator's own and both " +
+            "paths raise it"
+        )
+      )
+    )
+
     Seq(
       // An enum whose legal values depend on a sibling field: flipping it alone
       // builds a config the curated fixture already covers properly.
@@ -462,7 +493,7 @@ object TransformVerificationRunner {
             "spliced a\"b fails at the conversion rather than at any escaping"
         )
       )
-    ) ++ denseOnly
+    ) ++ denseOnly ++ noRowsToFit
   }
 
   /** Every kind of run withheld from this operator, with why. One entry per kind:
@@ -679,7 +710,10 @@ object TransformVerificationRunner {
               .filterNot { case (label, _) => notRun(opClass, kindOf(label)) }
           primary.map { case (label, o) => (label, o, in) } ++
             handler.extraScenarios(testRoot) ++
-            handler.nullsKeepFilled.toSeq.flatMap(curatedNullsCase(opClass, op, in, testRoot, _))
+            handler.nullsKeepFilled.toSeq.flatMap(
+              curatedNullsCase(opClass, op, in, testRoot, _)
+            ) ++
+            curatedEmptyTableCase(opClass, op, in, testRoot)
         case None =>
           val fixture = fixtureFor(opClass)
           val vs = ConfigGenerator
@@ -702,6 +736,7 @@ object TransformVerificationRunner {
           vs.filterNot { case (label, _) => notRun(opClass, kindOf(label)) }
             .map { case (label, o) => (label, o, in) } ++
             nullsCase(opClass, vs.head._2, testRoot, fixture) ++
+            emptyTableCase(opClass, vs.head._2, testRoot, fixture) ++
             altScenariosFor(opClass).flatMap { alt =>
               // Each scenario writes under its own directory: two tables in one
               // testRoot would otherwise both claim input_port_0.jsonl.
@@ -803,6 +838,53 @@ object TransformVerificationRunner {
           portId -> out
       }
       Seq(("nulls", base, holed))
+    }
+
+  /** One more run per operator, on the same columns with no rows under them (see
+    * [[SharedFixture.writeEmptyInputs]]). Like [[nullsCase]] it takes the base
+    * config: an empty table is a property of what arrived, not of any knob.
+    *
+    * It is a different question from the one [[nullsCase]] asks. That table still
+    * has a value in every column somewhere, so code that reads a column's range or
+    * its quantiles still finds one. Here there is nothing to read, and an operator
+    * that assumed otherwise raises instead of passing the emptiness through.
+    */
+  private def emptyTableCase(
+      opClass: Class[_ <: LogicalOp],
+      base: LogicalOp,
+      testRoot: Path,
+      fixture: SharedFixture
+  ): Seq[(String, LogicalOp, Map[PortIdentity, Path])] =
+    if (notRun(opClass, RunKind.EmptyTable)) Seq.empty
+    else {
+      val dir = testRoot.resolve("empty-input")
+      Files.createDirectories(dir)
+      val in = fixture.writeEmptyInputs(dir, base.operatorInfo.inputPorts.size)
+      Seq((RunKind.EmptyTable, base, in))
+    }
+
+  /** [[emptyTableCase]] for the curated tier: the handler's own files are read for
+    * their schema alone and rewritten with no rows. Unlike [[curatedNullsCase]]
+    * there is nothing for a handler to opt into, since emptying a table cannot
+    * single out a load-bearing column.
+    */
+  private def curatedEmptyTableCase(
+      opClass: Class[_ <: LogicalOp],
+      base: LogicalOp,
+      inputs: Map[PortIdentity, Path],
+      testRoot: Path
+  ): Seq[(String, LogicalOp, Map[PortIdentity, Path])] =
+    if (notRun(opClass, RunKind.EmptyTable)) Seq.empty
+    else {
+      val dir = testRoot.resolve("empty-input")
+      Files.createDirectories(dir)
+      val emptied = inputs.map {
+        case (portId, path) =>
+          val out = dir.resolve(path.getFileName.toString)
+          TupleIO.writeTuples(out, Iterator.empty, TupleIO.readSchemaSidecar(path))
+          portId -> out
+      }
+      Seq((RunKind.EmptyTable, base, emptied))
     }
 
   /** The schema of each input file, keyed by port index — what a curated handler
