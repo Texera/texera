@@ -26,6 +26,7 @@ import jakarta.ws.rs.core.{MediaType, Response}
 import org.apache.texera.amber.core.workflow.PortIdentity
 import org.apache.texera.amber.operator.distinct.DistinctOpDesc
 import org.apache.texera.amber.operator.limit.LimitOpDesc
+import org.apache.texera.amber.operator.source.scan.csv.CSVScanSourceOpDesc
 import org.apache.texera.amber.util.JSONUtils.objectMapper
 import org.apache.texera.common.compiler.model.{LogicalLink, LogicalPlanPojo}
 import org.assertj.core.api.Assertions.assertThat
@@ -106,6 +107,43 @@ class WorkflowToPythonResourceSpec extends AnyFlatSpec with BeforeAndAfterAll {
   "POST /workflow-to-python" should "return HTTP 200 for a well-formed plan" in {
     val response = postExport(chainOf(distinctOp("distinct"), limitOp("limit", 5)))
     assertThat(response.getStatus).isEqualTo(200)
+  }
+
+  // The panel sends a scan source's file name as the user gave it, and a source can only read
+  // its schema from a resolved URI, so the export resolves the names the way compilation does.
+  // A name that will not resolve, which is what an unfinished workflow has, must not cost the
+  // user the export: the failure is collected and the script is still built.
+  it should "still export a workflow whose scan source names a file that cannot be resolved" in {
+    val scan = new CSVScanSourceOpDesc()
+    scan.setOperatorId("scan")
+    scan.fileName = Some("/nonexistent/never-written.csv")
+    scan.customDelimiter = Some(",")
+    scan.hasHeader = true
+
+    val limit = limitOp("limit", 5)
+    val response = postExport(
+      LogicalPlanPojo(
+        operators = List(scan, limit),
+        links = List(
+          LogicalLink(
+            scan.operatorIdentifier,
+            PortIdentity(0),
+            limit.operatorIdentifier,
+            PortIdentity(0)
+          )
+        ),
+        opsToViewResult = List.empty,
+        opsToReuseResult = List.empty
+      )
+    )
+
+    assertThat(response.getStatus).isEqualTo(200)
+    val parsed =
+      objectMapper.readValue(
+        response.readEntity(classOf[String]),
+        classOf[WorkflowToPythonResponse]
+      )
+    assert(parsed.isInstanceOf[WorkflowToPythonSuccess], s"export failed: $parsed")
   }
 
   it should "tag the body with type=success and carry the script the plan translates to" in {
