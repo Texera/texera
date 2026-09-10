@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788988091827,
+  "lastUpdate": 1789047311023,
   "repoUrl": "https://github.com/apache/texera",
   "entries": {
     "Arrow Flight E2E Throughput": [
@@ -13138,6 +13138,163 @@ window.BENCHMARK_DATA = {
           {
             "name": "throughput / bs=1000 sw=50 sl=512",
             "value": 507.13582134328993,
+            "unit": "tuples/sec"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "yangzhang75",
+            "username": "yangzhang75",
+            "email": "yangz75@uci.edu"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "ded7ba1b49d0dc6644bc34b765b727607ad9d654",
+          "message": "feat(workflow-form): show the chosen results (#8441)\n\n### What changes were proposed in this PR?\n\nCloses #8024. Part of the Form View stack (parent issue #8011), stacked\non #8440 (PR12).\n\nShows the chosen results under the workflow that produced them, as a\n**display filter over the canvas's view-result set** (settled design):\nthe form reads which operators the canvas already views and shows those,\nand it NEVER writes the canvas's view-result flags, so a normal canvas\nuser's result-viewing is unaffected.\n\n- One result card per chosen, currently-viewed step that produced a\nnon-empty result: a paginated table (`texera-result-table-frame`), a\nfit-to-card visualisation (`texera-visualization-panel-content`) with\nper-result zoom, or the section shows a compact \"press Run\" / \"no result\nyet\" state. A step that produced nothing collapses out rather than\nsitting on a permanent empty card.\n- `shownResultIds` = the author's `resultOperatorIds` kept to only those\nstill in `graph.getOperatorsToViewResult()`; it refreshes on every\nresult update, so a view-result toggle on the canvas (a co-editor's\nincluded) is reflected without a reload.\n- Adds `WorkflowResultService.hasNonEmptyResult` (main only had\n`hasAnyResult` = a service exists; this checks the tuple/snapshot count\nso an empty result reads as \"no result\").\n\nPicking which results to show is an authoring action added by a later PR\n(#8026); opening a step to inspect it read-only is #8025. This PR is\ndisplay-only.\n\n### Any related issues, documentation, discussions?\n\nCloses #8024. Part of the Form View feature (parent issue #8011).\n\n### How was this PR tested?\n\nUnit tests (vitest). Direct-construction tests cover the display filter\n(shown = chosen intersect currently-viewed; a de-viewed or deleted\noperator drops out; never writes view-result), the non-empty gating, the\nzoom clamp, `resultKey`/`resultVersion` rebuilding a frame on a new\nresult, and the result-update subscription.\n`workflow-result.service.spec.ts` covers `hasNonEmptyResult` (empty vs\nfull, paginated vs snapshot). A TestBed test covers the results section\nand card markup (the real table/visualisation children are covered by\ntheir own specs; their websocket-backed DI does not run in jsdom). 100%\nstatement and function coverage on the changed source. `ng test` (146\ntests), `ng build gui`, eslint and prettier all pass.\n\n#### Screenshot\n\nThe results section under the workflow: a table and a visualisation card\nafter a run.\n<img width=\"1299\" height=\"492\" alt=\"Screenshot 2026-09-07 at 12 36\n40 PM\"\nsrc=\"https://github.com/user-attachments/assets/a05f4e7e-41ec-47b3-97f1-200c74c2b98f\"\n/>\n\n<!-- paste the screenshot below this line -->\n\n### Was this PR authored or co-authored using generative AI tooling?\n\nYes. Co-authored with Claude (Anthropic), reviewed line by line by the\nauthor before submission.\n\nCo-authored-by: Claude Opus 4.8 <noreply@anthropic.com>\nCo-authored-by: Meng Wang <mengw15@uci.edu>",
+          "timestamp": "2026-09-10T03:45:09Z",
+          "url": "https://github.com/apache/texera/commit/ded7ba1b49d0dc6644bc34b765b727607ad9d654"
+        },
+        "date": 1789047310715,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "throughput / bs=10 sw=1 sl=8",
+            "value": 674.2837594561815,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=8",
+            "value": 1282.5535788684608,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=8",
+            "value": 1420.5051912063552,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=64",
+            "value": 968.2085634448606,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=64",
+            "value": 1362.0221743550198,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=64",
+            "value": 1433.662235234874,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=512",
+            "value": 987.4263829937861,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=512",
+            "value": 1362.001205041462,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=512",
+            "value": 1413.4822742800045,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=8",
+            "value": 787.7245592395935,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=8",
+            "value": 1071.0354186541879,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=8",
+            "value": 1106.6039689797744,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=64",
+            "value": 794.2255519906106,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=64",
+            "value": 1065.8804259678054,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=64",
+            "value": 1118.1096124458722,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=512",
+            "value": 805.9218632391885,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=512",
+            "value": 1059.3586487671444,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=512",
+            "value": 1092.7381355683651,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=8",
+            "value": 496.58226301558665,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=8",
+            "value": 582.4692085930493,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=8",
+            "value": 580.9254155871187,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=64",
+            "value": 494.38859355179994,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=64",
+            "value": 581.1784236020212,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=64",
+            "value": 569.4500536327419,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=512",
+            "value": 472.09948506371836,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=512",
+            "value": 542.8865797030878,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=512",
+            "value": 558.6841978226892,
             "unit": "tuples/sec"
           }
         ]
