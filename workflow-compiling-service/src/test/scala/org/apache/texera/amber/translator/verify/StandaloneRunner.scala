@@ -37,16 +37,9 @@ import scala.sys.process._
   *
   * The operator's code is wrapped in a prologue that reads each input file into
   * an `inNdf` and an epilogue that writes each `outNdf` back out, with the
-  * generated body verbatim between them.
-  *
-  * Port indexing matches the placeholder convention used by the translator:
-  * `inNdf`/`outNdf` is 1-based and corresponds to the operator's N-th external
-  * input/output port in declaration order. The harness key (a 1-based Int) is
-  * what the placeholder uses; the caller is responsible for ordering inputs
-  * the same way the operator's `generateStandaloneCode()` expects.
-  *
-  * The subprocess inherits the caller's environment so the Python interpreter
-  * picks up whatever pandas/plotly the test fixture installed.
+  * generated body verbatim between them. `N` is 1-based and counts the
+  * operator's external ports in declaration order, the translator's own
+  * convention, so the caller has to hand inputs over in that order.
   */
 object StandaloneRunner extends LazyLogging {
 
