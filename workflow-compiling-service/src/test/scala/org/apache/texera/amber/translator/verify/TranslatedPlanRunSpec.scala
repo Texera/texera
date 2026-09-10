@@ -19,7 +19,9 @@
 
 package org.apache.texera.amber.translator.verify
 
-import org.apache.texera.amber.core.workflow.PortIdentity
+import org.apache.texera.amber.core.tuple.AttributeType
+import org.apache.texera.amber.core.virtualidentity.WorkflowIdentity
+import org.apache.texera.amber.core.workflow.{PortIdentity, WorkflowContext}
 import org.apache.texera.amber.operator.LogicalOp
 import org.apache.texera.amber.operator.distinct.DistinctOpDesc
 import org.apache.texera.amber.operator.filter.{
@@ -29,7 +31,9 @@ import org.apache.texera.amber.operator.filter.{
 }
 import org.apache.texera.amber.operator.limit.LimitOpDesc
 import org.apache.texera.amber.operator.projection.{AttributeUnit, ProjectionOpDesc}
+import org.apache.texera.amber.operator.regex.RegexOpDesc
 import org.apache.texera.amber.operator.sort.{SortCriteriaUnit, SortOpDesc, SortPreference}
+import org.apache.texera.amber.operator.typecasting.{TypeCastingOpDesc, TypeCastingUnit}
 import org.apache.texera.amber.operator.source.scan.csv.CSVScanSourceOpDesc
 import org.apache.texera.amber.operator.union.UnionOpDesc
 import org.apache.texera.amber.operator.visualization.contourPlot.{
@@ -39,7 +43,8 @@ import org.apache.texera.amber.operator.visualization.contourPlot.{
 import org.apache.texera.amber.operator.visualization.pieChart.PieChartOpDesc
 import org.apache.texera.amber.translator.WorkflowToPythonTranslator
 import org.apache.texera.amber.translator.verify.tags.IntegrationTest
-import org.apache.texera.common.compiler.model.{LogicalLink, LogicalPlan}
+import org.apache.texera.common.compiler.model.{LogicalLink, LogicalPlan, LogicalPlanPojo}
+import org.apache.texera.common.compiler.{CompilationErrorHandling, WorkflowCompiler}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -86,8 +91,23 @@ class TranslatedPlanRunSpec extends AnyFlatSpec with Matchers {
     */
   private def run(csv: String, ops: List[LogicalOp], links: List[LogicalLink]): (Path, String) = {
     val dir = Files.createTempDirectory("translated-plan-")
-    Files.write(dir.resolve(CsvName), csv.getBytes(StandardCharsets.UTF_8))
-    val script = new WorkflowToPythonTranslator().translate(LogicalPlan(ops, links))
+    val csvPath = dir.resolve(CsvName)
+    Files.write(csvPath, csv.getBytes(StandardCharsets.UTF_8))
+
+    // The service compiles before translating, so a column's declared type
+    // reaches the operator that needs it. The compiler reads the source from
+    // here, so it takes the full path; the generated read strips it back.
+    ops.foreach {
+      case scan: CSVScanSourceOpDesc => scan.fileName = Some(csvPath.toString)
+      case _                         => ()
+    }
+    val schemas = new WorkflowCompiler(new WorkflowContext(workflowId = WorkflowIdentity(0)))
+      .compile(
+        LogicalPlanPojo(ops, links, opsToViewResult = List.empty, opsToReuseResult = List.empty),
+        CompilationErrorHandling.Lenient
+      )
+      .operatorIdToOutputSchemas
+    val script = new WorkflowToPythonTranslator().translate(LogicalPlan(ops, links), schemas)
     val scriptPath = dir.resolve("script.py")
     Files.write(scriptPath, script.getBytes(StandardCharsets.UTF_8))
 
@@ -142,6 +162,54 @@ class TranslatedPlanRunSpec extends AnyFlatSpec with Matchers {
     stdout should not include "bee"
     stdout should not include "dog"
     stdout.indexOf("cat") should be < stdout.indexOf("ant")
+  }
+
+  /** A CSV carries no types, so a blank cell widens an integer column and its 6
+    * would be matched as "6.0". Only a whole plan shows it: the type belongs to
+    * the source, a hop away with a file in between.
+    */
+  it should "match an integer column on the type its source declared" in {
+    val source = csvSource("source")
+    val regex = new RegexOpDesc
+    regex.setOperatorId("regex")
+    regex.attribute = "n"
+    regex.regex = "^6$"
+    val (_, stdout) = run(
+      "label,n\nant,6\nbee,\ncat,70\n",
+      List(source, regex),
+      List(link(source, regex))
+    )
+    stdout should include("ant")
+    stdout should not include "cat"
+  }
+
+  /** A timestamp column read from a file is text and renders itself; only a cast
+    * makes one a real datetime, and Python's str() then writes no fraction at all
+    * on a whole second where `Timestamp.toString` writes ".0". One operator cannot
+    * show it, since the executor casts each column once from its original value.
+    */
+  it should "render a cast timestamp the way the engine's toString does" in {
+    val source = csvSource("source")
+    val cast = new TypeCastingOpDesc
+    cast.setOperatorId("cast")
+    val unit = new TypeCastingUnit
+    unit.attribute = "ts"
+    unit.resultType = AttributeType.TIMESTAMP
+    cast.typeCastingUnits = List(unit)
+    val regex = new RegexOpDesc
+    regex.setOperatorId("regex")
+    regex.attribute = "ts"
+    regex.regex = "\\.0$"
+
+    val (_, stdout) = run(
+      "label,ts\nant,2024-01-07 00:00:00\nbee,2024-03-15 08:30:00.123\n",
+      List(source, cast, regex),
+      List(link(source, cast), link(cast, regex))
+    )
+    // ant's whole second grows the ".0" the engine writes; bee's fraction keeps
+    // three digits rather than the six Python pads to, so it does not match.
+    stdout should include("ant")
+    stdout should not include "bee"
   }
 
   /** A variadic port is the one placeholder a fragment cannot name, so the list
