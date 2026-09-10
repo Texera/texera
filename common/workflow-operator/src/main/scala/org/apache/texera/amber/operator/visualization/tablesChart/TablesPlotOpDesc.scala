@@ -127,9 +127,7 @@ class TablesPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
     // The two guards mirror generatePythonCode's, which reports both conditions
     // rather than rendering a table with no rows in it.
     s"""def render_error(error_msg):
-       |    return '''<h1>Tables Plot is not available.</h1>
-       |              <p>Reason is: {} </p>
-       |           '''.format(error_msg)
+       |    return "<h1>Tables Plot is not available.</h1><p>Reason is: {}</p>".format(error_msg)
        |
        |attributes = $columnsList
        |if in1df.empty:
