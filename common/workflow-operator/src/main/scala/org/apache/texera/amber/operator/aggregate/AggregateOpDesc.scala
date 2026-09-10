@@ -154,17 +154,16 @@ class AggregateOpDesc extends LogicalOp with StandaloneCodeGenerator {
     // self-contained without relying on a shared prelude.
     val concatHelper =
       """def _texera_agg_concat(series):
-        |    parts = []
-        |    started = False
+        |    # The accumulator starts empty and only earns a separator once it
+        |    # holds something, so a leading empty value adds neither text nor
+        |    # comma: "", "a", "" concatenates to "a," and not ",a,". A null is
+        |    # read as the empty string, which is what makes the two the same
+        |    # here. This is concatAgg's fold, written out.
+        |    partial = ""
         |    for v in series:
-        |        if not started:
-        |            if pd.isna(v):
-        |                continue
-        |            parts.append(str(v))
-        |            started = True
-        |        else:
-        |            parts.append("" if pd.isna(v) else str(v))
-        |    return ",".join(parts)""".stripMargin
+        |        text = "" if pd.isna(v) else str(v)
+        |        partial = text if partial == "" else partial + "," + text
+        |    return partial""".stripMargin
 
     if (keys.isEmpty) {
       val rowEntries = aggs

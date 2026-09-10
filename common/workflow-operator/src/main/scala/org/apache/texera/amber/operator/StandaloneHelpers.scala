@@ -67,14 +67,16 @@ object StandaloneHelpers {
     *
     * Python's own conversions answer differently on the values a spreadsheet
     * column actually holds. `bool("false")` is true, because every non-empty
-    * string is; `int("6.7")` and `float("abc")` raise where a coercing cast
-    * would have returned 6 and NaN. The engine reads "false" as false, "0" as
-    * false, and refuses "6.7" as an integer, so the script has to do the same
-    * rather than hand back a column the workflow never produced.
+    * string is, and `int("6.7")` raises where the engine reads 6: a cast goes
+    * through `parseField(force = true)`, whose numeric branch is
+    * `java.text.NumberFormat`, which truncates a decimal, drops a grouping
+    * comma and stops at trailing letters. The engine reads "false" as false and
+    * "0" as false too, so the script has to do the same rather than hand back a
+    * column the workflow never produced.
     *
-    * Refusing is part of the contract: `parseField` raises on a value it cannot
-    * read, and a script that quietly wrote NaN instead would report an answer
-    * the run it was exported from never reached.
+    * Refusing is still part of the contract where the engine refuses: text with
+    * no leading digits raises, and a script that quietly wrote NaN instead
+    * would report an answer the run it was exported from never reached.
     */
   val AttributeCasts: String =
     """# AttributeTypeUtils, transcribed so a cast answers as the engine does.
@@ -91,12 +93,86 @@ object StandaloneHelpers {
       |    return x != 0
       |
       |
+      |def _texera_parse_number(text):
+      |    # java.text.NumberFormat for Locale.US, which a cast reaches through
+      |    # `parseField(force = true)`. Lenient where Python's int is not: it stops
+      |    # at the first character that cannot continue a number ("12abc" is 12),
+      |    # drops "," without checking group sizes ("1,23" is 123), and reads "."
+      |    # as a decimal point. It refuses a leading "+" and text with no digits.
+      |    #
+      |    # Also returns whether it came back as a Double, which decides between
+      |    # the two narrowings below.
+      |    import re
+      |
+      |    match = re.match(r"\s*(-?)([0-9,]*)(?:\.([0-9]*))?", text)
+      |    sign = -1 if match.group(1) == "-" else 1
+      |    digits = (match.group(2) or "").replace(",", "")
+      |    fraction = match.group(3) or ""
+      |    if not digits and not fraction:
+      |        raise ValueError("Unparseable number: " + repr(text))
+      |    if fraction:
+      |        return sign * float((digits or "0") + "." + fraction), True
+      |    value = sign * int(digits)
+      |    # A whole number past long's range comes back as a Double.
+      |    if -(2 ** 63) <= value <= 2 ** 63 - 1:
+      |        return value, False
+      |    return float(value), True
+      |
+      |
+      |def _texera_long_value(value, is_double):
+      |    # Number.longValue(): a Double truncates toward zero and saturates at
+      |    # long's bounds, where a Long is already itself.
+      |    if is_double:
+      |        return max(-(2 ** 63), min(2 ** 63 - 1, int(value)))
+      |    return value
+      |
+      |
       |def _texera_cast_integral(x):
-      |    # Scala's toInt/toLong take no decimal point, and truncate a Double
-      |    # toward zero.
+      |    # The LONG target. Scala's toLong takes no decimal point of its own, so
+      |    # a fraction only ever arrives already parsed.
       |    if isinstance(x, str):
-      |        return int(x.strip())
+      |        return _texera_long_value(*_texera_parse_number(x))
+      |    if isinstance(x, bool):
+      |        return 1 if x else 0
+      |    if isinstance(x, float):
+      |        return _texera_long_value(x, True)
       |    return int(x)
+      |
+      |
+      |def _texera_cast_int32(x, wrap):
+      |    # The two 32-bit narrowings differ: Long.toInt keeps the low bits, so
+      |    # 2147483648 comes back as -2147483648, while Double.toInt saturates.
+      |    #
+      |    # Text decides by what the parse returned; everything else is told by the
+      |    # SOURCE column's declared type, because `Series.apply` hands the cells of
+      |    # a nullable integer column over as floats.
+      |    if isinstance(x, str):
+      |        value, is_double = _texera_parse_number(x)
+      |        wrap = not is_double
+      |    elif isinstance(x, bool):
+      |        value = 1 if x else 0
+      |    else:
+      |        value = int(x)
+      |    if wrap:
+      |        return ((value + 2147483648) % 4294967296) - 2147483648
+      |    # int() first: Double.intValue truncates toward zero before it clamps.
+      |    return max(-2147483648, min(2147483647, int(value)))
+      |
+      |
+      |def _texera_epoch_millis_to_timestamp(s):
+      |    # `new Timestamp(long)` reads MILLISECONDS where pd.to_datetime defaults
+      |    # to nanoseconds, and renders in the JVM's default zone, so leaving the
+      |    # result in UTC would put it a whole offset away. Text needs neither: a
+      |    # parsed wall clock is already the wall clock.
+      |    # tzlocal() and not the current offset: the zone carries its daylight
+      |    # rules, and each instant needs the offset in force when it happened.
+      |    from dateutil.tz import tzlocal
+      |
+      |    return (
+      |        pd.to_datetime(s, unit="ms", errors="coerce", utc=True)
+      |        .dt.tz_convert(tzlocal())
+      |        .dt.tz_localize(None)
+      |    )
       |
       |
       |def _texera_cast_double(x):
@@ -114,6 +190,17 @@ object StandaloneHelpers {
       |        return s.map(lambda x: None if pd.isna(x) else ("true" if x else "false"))
       |    if pd.api.types.is_integer_dtype(s):
       |        return s.map(lambda x: None if pd.isna(x) else str(int(x)))
+      |    if pd.api.types.is_datetime64_any_dtype(s):
+      |        # java.sql.Timestamp.toString: trailing zeros dropped from the
+      |        # fraction, but never all of them. Python's own str() writes no
+      |        # fraction at all on a whole second and six digits otherwise.
+      |        def _ts(x):
+      |            if pd.isna(x):
+      |                return None
+      |            text = x.strftime("%Y-%m-%d %H:%M:%S.%f").rstrip("0")
+      |            return text + "0" if text.endswith(".") else text
+      |
+      |        return s.map(_ts)
       |    return s.map(
       |        lambda x: None
       |        if pd.isna(x)

@@ -22,9 +22,10 @@ package org.apache.texera.amber.operator.substringSearch
 import com.fasterxml.jackson.annotation.{JsonProperty, JsonPropertyDescription}
 import com.kjetland.jackson.jsonSchema.annotations.{JsonSchemaInject, JsonSchemaTitle}
 import org.apache.texera.amber.core.executor.OpExecWithClassName
+import org.apache.texera.amber.core.tuple.Schema
 import org.apache.texera.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
-import org.apache.texera.amber.core.workflow.{InputPort, OutputPort, PhysicalOp}
-import org.apache.texera.amber.operator.StandaloneCodeGenerator
+import org.apache.texera.amber.core.workflow.{InputPort, OutputPort, PhysicalOp, PortIdentity}
+import org.apache.texera.amber.operator.{StandaloneCodeGenerator, StandaloneHelpers}
 import org.apache.texera.amber.operator.filter.FilterOpDesc
 import org.apache.texera.amber.operator.metadata.annotations.{AutofillAttributeName, SampleColumn}
 import org.apache.texera.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo}
@@ -87,16 +88,26 @@ class SubstringSearchOpDesc extends FilterOpDesc with StandaloneCodeGenerator {
       supportReconfiguration = true
     )
 
-  override def generateStandaloneCode(): String = {
+  override def generateStandaloneCode(): String = generateStandaloneCode(Map.empty)
+
+  override def generateStandaloneCode(inputSchemas: Map[PortIdentity, Schema]): String = {
     // JVM uses String.contains (case-sensitive) or toLowerCase.contains
     // (case-insensitive). pandas str.contains with regex=False is the direct
     // equivalent — the substring is matched literally, not as a regex.
     val pyLiteral = pyStringLiteral(Option(substring).getOrElse(""))
     val caseArg = if (isCaseSensitive) "True" else "False"
     val attrLit = pyStringLiteral(attribute)
-    // `astype(str)` turns an empty cell into the text "nan", which a substring can
-    // match, so the rows with nothing in the column are dropped before the match
-    // rather than left to `na=False`, which by then has no null to see.
-    s"""out1df = in1df[in1df[$attrLit].notna() & in1df[$attrLit].astype(str).str.contains($pyLiteral, regex=False, case=$caseArg, na=False)].reset_index(drop=True)"""
+    // The rows with nothing in the column are dropped before the match rather than
+    // left to `na=False`, which by then has no null to see.
+    //
+    // The substring is searched in the text the engine would have searched, not
+    // in whatever pandas made of the column. See [[renderedAsText]].
+    val declared = inputSchemas.values.headOption
+      .flatMap(schema => scala.util.Try(schema.getAttribute(attribute)).toOption)
+      .map(_.getType)
+    val column = renderedAsText(s"in1df[$attrLit]", declared)
+    s"""out1df = in1df[in1df[$attrLit].notna() & $column.str.contains($pyLiteral, regex=False, case=$caseArg, na=False)].reset_index(drop=True)"""
   }
+
+  override def standaloneHelpers(): Seq[String] = Seq(StandaloneHelpers.AttributeCasts)
 }

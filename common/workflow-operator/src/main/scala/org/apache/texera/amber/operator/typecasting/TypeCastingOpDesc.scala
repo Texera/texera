@@ -75,17 +75,31 @@ class TypeCastingOpDesc extends MapOpDesc with StandaloneCodeGenerator {
     )
   }
 
-  override def generateStandaloneCode(): String = {
+  override def generateStandaloneCode(): String = generateStandaloneCode(Map.empty)
+
+  override def generateStandaloneCode(inputSchemas: Map[PortIdentity, Schema]): String = {
     val units = Option(typeCastingUnits).getOrElse(List.empty)
     if (units.isEmpty) return "out1df = in1df.copy()"
 
+    // `tupleCasting` takes a Map of column to target type and reads each column's
+    // ORIGINAL value once, so two units naming one column collapse to the last.
+    val lastPerColumn = units.zipWithIndex.groupBy(_._1.attribute).view.mapValues(_.last._2).toMap
+    val effective = units.zipWithIndex.collect {
+      case (unit, i) if lastPerColumn(unit.attribute) == i => unit
+    }
+
+    // What each column arrived as: no cast reads another's result.
+    val declared: Map[String, AttributeType] = inputSchemas.values.headOption
+      .map(_.getAttributes.map(a => a.getName -> a.getType).toMap)
+      .getOrElse(Map.empty)
+
     val lines = scala.collection.mutable.ArrayBuffer[String]("out1df = in1df.copy()")
-    units.foreach { unit =>
+    effective.foreach { unit =>
       val colLit = pyStringLiteral(unit.attribute)
       // Every cast goes through the transcription of AttributeTypeUtils rather
       // than through Python's own conversions, which answer differently: a
-      // non-empty string is always a true boolean, and a coercing numeric cast
-      // reads "6.7" as an integer the engine refuses.
+      // non-empty string is always a true boolean, and `int("6.7")` raises
+      // where the engine's NumberFormat reads 6.
       //
       // A timestamp is the one that stays approximate. The engine reads it with
       // DateParserUtils, which accepts a set of formats no single pandas call
@@ -93,16 +107,18 @@ class TypeCastingOpDesc extends MapOpDesc with StandaloneCodeGenerator {
       // match it does not have.
       val expr = unit.resultType match {
         case AttributeType.STRING =>
-          // `astype(str)` gets two things wrong against `toString`: an empty
-          // cell renders as the text "nan", and a boolean capitalises. The
-          // helper handles both, and reads the point of a double off the
-          // column's type rather than off the value, which cannot tell a whole
-          // double from an integer.
-          s"""_texera_cast_string(out1df[$colLit])"""
-        case AttributeType.INTEGER | AttributeType.LONG =>
+          // Not `astype(str)`, which renders an empty cell as "nan" and
+          // capitalises a boolean. See [[renderedAsText]].
+          renderedAsText(s"out1df[$colLit]", declared.get(unit.attribute))
+        case AttributeType.INTEGER =>
           // A hole survives the cast, because parseField returns a null field
-          // untouched; pandas' nullable "Int64" holds one where numpy's int
-          // cannot.
+          // untouched; nullable "Int64" holds one where numpy's int cannot. Only
+          // a DOUBLE source saturates on the way to 32 bits, and only the
+          // declared type still says so: the values reach the helper as floats.
+          val wrap = !declared.get(unit.attribute).contains(AttributeType.DOUBLE)
+          val wrapArg = if (wrap) "True" else "False"
+          s"""out1df[$colLit].apply(lambda x: pd.NA if pd.isna(x) else _texera_cast_int32(x, $wrapArg)).astype("Int64")"""
+        case AttributeType.LONG =>
           s"""out1df[$colLit].apply(lambda x: pd.NA if pd.isna(x) else _texera_cast_integral(x)).astype("Int64")"""
         case AttributeType.DOUBLE =>
           // NaN rather than pd.NA: float64 is how a double column is held here,
@@ -112,8 +128,13 @@ class TypeCastingOpDesc extends MapOpDesc with StandaloneCodeGenerator {
           // Nullable "boolean" for the same reason, and because `.astype(bool)`
           // reads NaN as True: NaN is a non-zero float.
           s"""out1df[$colLit].apply(lambda x: pd.NA if pd.isna(x) else _texera_cast_boolean(x)).astype("boolean")"""
-        case AttributeType.TIMESTAMP => s"""pd.to_datetime(out1df[$colLit], errors="coerce")"""
-        case _                       => s"""out1df[$colLit]"""
+        case AttributeType.TIMESTAMP =>
+          // A number is an instant in milliseconds and needs its own reading;
+          // see the helper. Text keeps the parser it already had.
+          if (declared.get(unit.attribute).contains(AttributeType.LONG))
+            s"""_texera_epoch_millis_to_timestamp(out1df[$colLit])"""
+          else s"""pd.to_datetime(out1df[$colLit], errors="coerce")"""
+        case _ => s"""out1df[$colLit]"""
       }
       lines += s"""out1df[$colLit] = $expr"""
     }

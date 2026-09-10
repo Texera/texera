@@ -21,15 +21,16 @@ package org.apache.texera.amber.operator.unneststring
 
 import com.fasterxml.jackson.annotation.{JsonProperty, JsonPropertyDescription}
 import org.apache.texera.amber.core.executor.OpExecWithClassName
-import org.apache.texera.amber.core.tuple.AttributeType
+import org.apache.texera.amber.core.tuple.{AttributeType, Schema}
 import org.apache.texera.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import org.apache.texera.amber.core.workflow.{
   InputPort,
   OutputPort,
   PhysicalOp,
+  PortIdentity,
   SchemaPropagationFunc
 }
-import org.apache.texera.amber.operator.StandaloneCodeGenerator
+import org.apache.texera.amber.operator.{StandaloneCodeGenerator, StandaloneHelpers}
 import org.apache.texera.amber.pybuilder.PythonTemplateBuilder.pyStringLiteral
 import org.apache.texera.amber.operator.flatmap.FlatMapOpDesc
 import org.apache.texera.amber.operator.metadata.annotations.{AutofillAttributeName, SampleColumn}
@@ -88,7 +89,9 @@ class UnnestStringOpDesc extends FlatMapOpDesc with StandaloneCodeGenerator {
       )
   }
 
-  override def generateStandaloneCode(): String = {
+  override def generateStandaloneCode(): String = generateStandaloneCode(Map.empty)
+
+  override def generateStandaloneCode(inputSchemas: Map[PortIdentity, Schema]): String = {
     if (resultAttribute == null || resultAttribute.trim.isEmpty) {
       throw new RuntimeException("Result attribute cannot be empty")
     }
@@ -97,12 +100,20 @@ class UnnestStringOpDesc extends FlatMapOpDesc with StandaloneCodeGenerator {
     val delim = pyStringLiteral(Option(delimiter).getOrElse(""))
     val resultLit = pyStringLiteral(resultAttribute)
     val attributeLit = pyStringLiteral(attribute)
+    // What is split is the text the engine split, not whatever pandas made of the
+    // column. See [[renderedAsText]].
+    val declared = inputSchemas.values.headOption
+      .flatMap(schema => scala.util.Try(schema.getAttribute(attribute)).toOption)
+      .map(_.getType)
+    val column = renderedAsText(s"out1df[$attributeLit]", declared)
     s"""# Nothing in the column unnests to nothing, the way the operator answers a null
-       |# field with no rows at all. Dropped before the split rather than after:
-       |# astype(str) would turn the empty cell into the text "None" and unnest that.
+       |# field with no rows at all. Dropped before the split rather than after: the
+       |# rendering would turn the empty cell into text and unnest that.
        |out1df = in1df[in1df[$attributeLit].notna()].copy()
-       |out1df[$resultLit] = out1df[$attributeLit].astype(str).str.split($delim, regex=True)
+       |out1df[$resultLit] = $column.str.split($delim, regex=True)
        |out1df = out1df.explode($resultLit, ignore_index=True)
        |out1df = out1df[(out1df[$resultLit].notna()) & (out1df[$resultLit] != "")].reset_index(drop=True)""".stripMargin
   }
+
+  override def standaloneHelpers(): Seq[String] = Seq(StandaloneHelpers.AttributeCasts)
 }
