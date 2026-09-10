@@ -266,6 +266,18 @@ class CanonicalFixtureSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  it should "hold high_score as score >= 3.0, both values present on every port" in {
+    CanonicalFixture.allRows.foreach { t =>
+      t.getField[java.lang.Boolean]("a\"b\\c_high_score") shouldBe
+        (t.getField[java.lang.Double]("score") >= 3.0)
+    }
+    Seq(CanonicalFixture.port0Rows, CanonicalFixture.port1Rows).foreach { rows =>
+      val values = rows.map(_.getField[java.lang.Boolean]("a\"b\\c_high_score"))
+      values.count(_ == true) should be > 0
+      values.count(_ == false) should be > 0
+    }
+  }
+
   it should "write one JSONL fixture per requested input port" in {
     val root = Files.createTempDirectory("canonical-fixture-")
     val inputs = CanonicalFixture.writeInputs(root, inputPortCount = 2)

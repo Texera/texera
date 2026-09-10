@@ -108,6 +108,12 @@ object CanonicalFixture extends SharedFixture {
     ), // a third lower-case, a third upper, a third letterless: a case flag has to
     // change WHICH rows match, and on any other column it changes nothing
     new Attribute(
+      "a\"b\\c_high_score",
+      AttributeType.BOOLEAN
+    ), // `score >= 3.0`, the table's only boolean. Its TEXT is what no other column
+    // can ask: the engine writes "true" where Python's str() writes "True". Six
+    // false and nine true, both present in either port window
+    new Attribute(
       "a\"b\\c_species_pred",
       AttributeType.INTEGER
     ), // a predictor's guess at the label: the same 0/1 domain, wrong on a few rows.

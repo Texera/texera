@@ -31,6 +31,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a7",
     "mixed_case": "abacus",
+    "a\"b\\c_high_score": false,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
@@ -67,6 +68,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a3,b3",
     "mixed_case": "ABBEY",
+    "a\"b\\c_high_score": false,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
@@ -103,6 +105,7 @@
     "a\"b\\c_species": 0,
     "csv_list": "a11,b11,c11",
     "mixed_case": "101",
+    "a\"b\\c_high_score": false,
     "a\"b\\c_species_pred": 0,
     "species_name": "setosa",
     "species_name_pred": "setosa"
@@ -139,6 +142,7 @@
     "a\"b\\c_species": 0,
     "csv_list": "a1,b1,c1,d1",
     "mixed_case": "abdomen",
+    "a\"b\\c_high_score": false,
     "a\"b\\c_species_pred": 1,
     "species_name": "setosa",
     "species_name_pred": "versicolor"
@@ -175,6 +179,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a14",
     "mixed_case": "ABILITY",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
@@ -211,6 +216,7 @@
     "a\"b\\c_species": 0,
     "csv_list": "a5,b5",
     "mixed_case": "202",
+    "a\"b\\c_high_score": false,
     "a\"b\\c_species_pred": 0,
     "species_name": "setosa",
     "species_name_pred": "setosa"
@@ -247,6 +253,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a9,b9,c9",
     "mixed_case": "abstract",
+    "a\"b\\c_high_score": false,
     "a\"b\\c_species_pred": 0,
     "species_name": "versicolor",
     "species_name_pred": "setosa"
@@ -283,6 +290,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a2,b2,c2,d2",
     "mixed_case": "ABACUS",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
@@ -319,6 +327,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a13",
     "mixed_case": "303",
+    "a\"b\\c_high_score": false,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
@@ -355,6 +364,7 @@
     "a\"b\\c_species": 0,
     "csv_list": "a6,b6",
     "mixed_case": "abbey",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 0,
     "species_name": "setosa",
     "species_name_pred": "setosa"
@@ -391,6 +401,7 @@
     "a\"b\\c_species": 0,
     "csv_list": "a10,b10,c10",
     "mixed_case": "ABDOMEN",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 1,
     "species_name": "setosa",
     "species_name_pred": "versicolor"
@@ -427,6 +438,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a4,b4,c4,d4",
     "mixed_case": "404",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
@@ -463,6 +475,7 @@
     "a\"b\\c_species": 0,
     "csv_list": "a15",
     "mixed_case": "ability",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 0,
     "species_name": "setosa",
     "species_name_pred": "setosa"
@@ -499,6 +512,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a8,b8",
     "mixed_case": "ABSTRACT",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
@@ -535,6 +549,7 @@
     "a\"b\\c_species": 1,
     "csv_list": "a12,b12,c12",
     "mixed_case": "505",
+    "a\"b\\c_high_score": true,
     "a\"b\\c_species_pred": 1,
     "species_name": "versicolor",
     "species_name_pred": "versicolor"
