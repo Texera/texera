@@ -36,7 +36,15 @@ object VisualizationHtmlComparator {
     */
   private val StylerUuid = "T_[0-9a-f]+".r
 
-  private def normalize(html: String): String = StylerUuid.replaceAllIn(html, "T_uuid")
+  /** The standalone script writes its page with Python's text mode, which on Windows
+    * turns every newline into CRLF, while the runtime path carries the same markup
+    * through JSONL untouched and so keeps LF. The line ending is the platform writing
+    * the file rather than anything the operator chose, so it is normalized away too.
+    */
+  private val LineEnding = "\r\n|\r".r
+
+  private def normalize(html: String): String =
+    StylerUuid.replaceAllIn(LineEnding.replaceAllIn(html, "\n"), "T_uuid")
 
   def assertEqual(actualVisualizationJsonl: Path, expectedHtmlFile: Path): Unit = {
     val actual = readActualHtml(actualVisualizationJsonl)
