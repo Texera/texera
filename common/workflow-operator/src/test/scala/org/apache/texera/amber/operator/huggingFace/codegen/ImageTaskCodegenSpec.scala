@@ -125,7 +125,9 @@ class ImageTaskCodegenSpec extends AnyFlatSpec with Matchers {
       .split("""elif task """)
       .find(_.startsWith("""in ("visual-question-answering"""))
       .getOrElse(fail("visual/document question-answering branch is missing"))
-    branch should include("""body["choices"][0]["message"]["content"]""")
+    branch should include(
+      """body["choices"][0].get("message", {}).get("content", json.dumps(body))"""
+    )
     branch should include("""body.get("answer"""")
     branch.indexOf("choices") should be < branch.indexOf("""body.get("answer"""")
   }
@@ -142,6 +144,23 @@ class ImageTaskCodegenSpec extends AnyFlatSpec with Matchers {
     )
     out.indexOf("""elif task == "zero-shot-image-classification":""") should be <
       out.indexOf("""elif task in ("image-classification",""")
+  }
+
+  it should "degrade instead of raising when a chat response is malformed" in {
+    // Review feedback on #7920: parsePython runs per row, so indexing straight
+    // into choices[0]["message"]["content"] turns one malformed provider
+    // response into an aborted run — an empty "choices" list raises IndexError
+    // and a choice without "message"/"content" raises KeyError. Every chat
+    // extraction in this file now uses a truthiness guard plus .get chaining,
+    // matching how the native shapes already degrade via .get(..., json.dumps(body)).
+    val out = ImageTaskCodegen.parsePython(makeCtx())
+    out should not include ("""["message"]["content"]""")
+    out.split("""body\.get\("choices"\)""").length - 1 shouldBe 4
+    out
+      .split(
+        """\.get\("message", \{\}\)\.get\("content", json\.dumps\(body\)\)"""
+      )
+      .length - 1 shouldBe 4
   }
 
   "ImageTaskCodegen snippets" should "never inline raw CodegenContext string values" in {
