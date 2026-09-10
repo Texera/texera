@@ -114,6 +114,11 @@ class BinningOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenerato
     // The result column is named in PYTHON rather than here: joining it to
     // `attribute` in Scala would hand `pyb` a plain string, and the value it was
     // built to protect would be spliced into the template unguarded.
+    //
+    // The guard is there because edges cannot be found in a column that holds
+    // nothing: an equal-width cut raises both when every cell is empty and when
+    // no row arrived at all. Leaving those values uncut keeps the holes, and the
+    // suffix turns them into the empty bins they already are.
     pyb"""from pytexera import *
        |import pandas as pd
        |
@@ -123,7 +128,10 @@ class BinningOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenerato
        |    def process_table(self, table: Table, port: int) -> Iterator[Optional[TableLike]]:
        |        out = table.copy()
        |        _column = $attribute
-       |        out[_column + "_bin"] = ${cut}(out[_column], ${args})${suffix}
+       |        _binned = out[_column]
+       |        if _binned.notna().any():
+       |            _binned = ${cut}(_binned, ${args})
+       |        out[_column + "_bin"] = _binned${suffix}
        |        yield out""".encode
   }
 
@@ -131,6 +139,9 @@ class BinningOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenerato
     val column = pyStringLiteral(attribute)
     val result = pyStringLiteral(resultColumn)
     s"""out1df = in1df.copy()
-       |out1df[$result] = $cutName(out1df[$column], $cutArgs)$labelSuffix""".stripMargin
+       |_binned = out1df[$column]
+       |if _binned.notna().any():
+       |    _binned = $cutName(_binned, $cutArgs)
+       |out1df[$result] = _binned$labelSuffix""".stripMargin
   }
 }
