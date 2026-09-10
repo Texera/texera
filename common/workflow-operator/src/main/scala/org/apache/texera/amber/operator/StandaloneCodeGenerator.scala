@@ -19,6 +19,9 @@
 
 package org.apache.texera.amber.operator
 
+import org.apache.texera.amber.core.tuple.{AttributeType, Schema}
+import org.apache.texera.amber.core.workflow.PortIdentity
+
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -33,6 +36,35 @@ trait StandaloneCodeGenerator {
     * `outputJson`. The translator puts the names it assigned in their place.
     */
   def generateStandaloneCode(): String
+
+  /**
+    * The same Python, for an operator that has to know what the columns it reads
+    * are DECLARED as. See [[renderedAsText]] for what the file cannot carry.
+    * Defaults to the schema-free form.
+    */
+  def generateStandaloneCode(inputSchemas: Map[PortIdentity, Schema]): String =
+    generateStandaloneCode()
+
+  /**
+    * A column as the text the engine's `toString` would have produced.
+    *
+    * A hole costs the column its type: pandas reads a holed integer column as a
+    * float and a holed boolean one as 1.0 and 0.0, so 6 renders as "6.0" and true
+    * as "1.0". Only the declared type can say which was meant, a real DOUBLE
+    * holding 6.0 looking the same. `None` reads the column as it arrives.
+    *
+    * The caller declares [[StandaloneHelpers.AttributeCasts]] itself; doing it
+    * here would emit the helper into every script.
+    */
+  protected def renderedAsText(column: String, declared: Option[AttributeType]): String = {
+    val narrowed = declared match {
+      case Some(AttributeType.INTEGER) | Some(AttributeType.LONG) =>
+        s"""$column.astype("Int64")"""
+      case Some(AttributeType.BOOLEAN) => s"""$column.astype("boolean")"""
+      case _                           => column
+    }
+    s"""_texera_cast_string($narrowed)"""
+  }
 
   /**
     * The file's own name, for a script that reads it from its own directory

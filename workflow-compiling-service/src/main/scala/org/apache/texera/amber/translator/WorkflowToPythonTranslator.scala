@@ -20,7 +20,9 @@
 package org.apache.texera.amber.translator
 
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.texera.amber.core.tuple.Schema
 import org.apache.texera.amber.core.virtualidentity.OperatorIdentity
+import org.apache.texera.amber.core.workflow.PortIdentity
 import org.apache.texera.common.compiler.model.LogicalPlan
 import org.apache.texera.amber.operator.StandaloneCodeGenerator
 
@@ -34,7 +36,17 @@ class WorkflowToPythonTranslator extends LazyLogging {
   // (e.g. Split has port 0 and port 1, each with its own assigned dfN var).
   private type PortKey = (String, Int) // (opId, portIdx)
 
-  def translate(logicalPlan: LogicalPlan): String = {
+  /**
+    * @param outputSchemas what each operator's output ports carry, as
+    *                      [[org.apache.texera.common.compiler.WorkflowCompiler]]
+    *                      reports it. Folded into input-port schemas for the
+    *                      generators that need a column's declared type, which the
+    *                      file the script reads cannot carry. Empty is allowed.
+    */
+  def translate(
+      logicalPlan: LogicalPlan,
+      outputSchemas: Map[OperatorIdentity, Map[PortIdentity, Option[Schema]]] = Map.empty
+  ): String = {
     // Track downstream connections per (opId, fromPortIdx). A port is a leaf
     // if it has no outgoing edges — operator-level "no outgoing links" is too
     // coarse for multi-output ops (Split's port 0 may have downstream while
@@ -115,10 +127,23 @@ class WorkflowToPythonTranslator extends LazyLogging {
       // so the pattern match below will resolve to the correct descriptor (e.g. BarChartOpDesc).
       op match {
         case gen: StandaloneCodeGenerator =>
+          // Each upstream link carries its source port's schema to the port it
+          // arrives at. An unresolved source is left out rather than guessed at.
+          val inputSchemas = logicalPlan
+            .getUpstreamLinks(opIdentity)
+            .flatMap { link =>
+              outputSchemas
+                .get(link.fromOpId)
+                .flatMap(_.get(link.fromPortId))
+                .flatten
+                .map(link.toPortId -> _)
+            }
+            .toMap
+
           // generateStandaloneCode() returns a code block using in{N}df / out{N}df
           // placeholders; substituteVars() replaces them with the assigned vars.
           script += substituteVars(
-            gen.generateStandaloneCode(),
+            gen.generateStandaloneCode(inputSchemas),
             inVars,
             outVars,
             fileBase(displayName, fileBaseCounts),

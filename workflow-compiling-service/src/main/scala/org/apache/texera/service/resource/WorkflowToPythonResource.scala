@@ -24,11 +24,12 @@ import com.typesafe.scalalogging.LazyLogging
 import jakarta.annotation.security.RolesAllowed
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.{Consumes, POST, Path, Produces}
-import org.apache.texera.amber.core.virtualidentity.OperatorIdentity
+import org.apache.texera.amber.core.tuple.Schema
+import org.apache.texera.amber.core.virtualidentity.{OperatorIdentity, WorkflowIdentity}
+import org.apache.texera.amber.core.workflow.{PortIdentity, WorkflowContext}
 import org.apache.texera.common.compiler.model.{LogicalPlan, LogicalPlanPojo}
+import org.apache.texera.common.compiler.{CompilationErrorHandling, WorkflowCompiler}
 import org.apache.texera.amber.translator.WorkflowToPythonTranslator
-
-import scala.collection.mutable.ArrayBuffer
 
 @JsonTypeInfo(
   use = JsonTypeInfo.Id.NAME,
@@ -62,21 +63,13 @@ class WorkflowToPythonResource extends LazyLogging {
   ): WorkflowToPythonResponse = {
     try {
       val logicalPlan = LogicalPlan(logicalPlanPojo)
-      // A scan source generates its reader from the schema it reads off the file, and that
-      // schema can only be read from a resolved URI. Compilation resolves the user-given
-      // file name before it expands the plan, and the export has to do it too: without this
-      // the name stayed as typed, the schema could not be read, and the CSV reader quietly
-      // dropped the timestamp columns it would otherwise have parsed.
-      //
-      // Failures are collected rather than thrown so that a workflow whose file is not
-      // chosen yet still exports, as it did before, only without what the schema adds.
-      val unresolved = new ArrayBuffer[(OperatorIdentity, Throwable)]()
-      logicalPlan.resolveScanSourceOpFileName(Some(unresolved))
-      unresolved.foreach {
-        case (opId, err) =>
-          logger.warn(s"Exporting $opId without its file schema: ${err.getMessage}")
-      }
-      val pythonCode = translator.translate(logicalPlan)
+      // Two things come from compiling first. A scan source generates its reader from the
+      // schema it reads off the file, and that schema can only be read from a resolved URI,
+      // which compilation does before it expands the plan; without it the name stayed as
+      // typed and the CSV reader quietly dropped the timestamp columns it would have
+      // parsed. And a downstream operator that renders a column as text needs the type the
+      // column was DECLARED as, which the file it reads cannot carry.
+      val pythonCode = translator.translate(logicalPlan, outputSchemasOf(logicalPlanPojo))
       WorkflowToPythonSuccess(pythonCode)
     } catch {
       case e: Exception =>
@@ -84,4 +77,23 @@ class WorkflowToPythonResource extends LazyLogging {
         WorkflowToPythonFailure(e.getMessage)
     }
   }
+
+  /**
+    * What each operator's output ports carry, from the same Lenient compile the
+    * editing path runs. A failure is logged and the translation goes on without
+    * them, so a workflow whose file is not chosen yet still exports, as it did
+    * before, only without what the schema adds.
+    */
+  private def outputSchemasOf(
+      logicalPlanPojo: LogicalPlanPojo
+  ): Map[OperatorIdentity, Map[PortIdentity, Option[Schema]]] =
+    try {
+      new WorkflowCompiler(new WorkflowContext(workflowId = WorkflowIdentity(0)))
+        .compile(logicalPlanPojo, CompilationErrorHandling.Lenient)
+        .operatorIdToOutputSchemas
+    } catch {
+      case e: Exception =>
+        logger.warn("Could not resolve output schemas; translating without them", e)
+        Map.empty
+    }
 }
