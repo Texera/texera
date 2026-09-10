@@ -38,7 +38,8 @@ This page lists what else a new operator needs. It is done when all five hold.
 ## 1. Descriptor, executor, registration
 
 - Write the `OpDesc` and the `OpExec`.
-- Implement `getOutputSchemas` to declare the columns each output port carries. A schema that
+- Declare the columns each output port carries: `getOutputSchemas` on a Python operator, a
+  `SchemaPropagationFunc` inside `getPhysicalOp` on a Java or Scala one. A schema that
   disagrees with what the executor emits fails at run time, not at compile time.
 - Register the descriptor in `LogicalOp`'s `@JsonSubTypes` under a unique name. This is the
   only registration there is: the form, the translator and the verification harness all read
@@ -111,6 +112,9 @@ fragment. Without one, the export emits a `# TODO:` comment in its place.
   across the plan.
 - Pass every user value through `pyStringLiteral`, or `pyb` with an `EncodableString`. Spliced
   in directly, a column named `a"b` closes the literal early and breaks the whole script.
+- A `pyb` field has to reach the template whole. Joining it to anything in Scala first —
+  `s"${attribute}_bin"` — hands `pyb` a plain string and the protection is gone, so derive
+  such a name in the Python instead. `PythonCodeRawInvalidTextSpec` reports the leak.
 - Where the two engines genuinely differ, note the difference in a comment.
 
 ## 4. Verification
