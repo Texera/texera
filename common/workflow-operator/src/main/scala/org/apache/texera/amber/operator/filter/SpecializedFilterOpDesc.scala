@@ -20,6 +20,7 @@
 package org.apache.texera.amber.operator.filter
 
 import com.fasterxml.jackson.annotation.{JsonProperty, JsonPropertyDescription}
+import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
 import org.apache.texera.amber.core.executor.OpExecWithClassName
 import org.apache.texera.amber.core.virtualidentity.{ExecutionIdentity, WorkflowIdentity}
 import org.apache.texera.amber.core.workflow.{InputPort, OutputPort, PhysicalOp}
@@ -29,8 +30,13 @@ import org.apache.texera.amber.util.JSONUtils.objectMapper
 class SpecializedFilterOpDesc extends FilterOpDesc {
 
   @JsonProperty(value = "predicates", required = true)
-  @JsonPropertyDescription("multiple predicates in OR")
+  @JsonPropertyDescription("multiple predicates to be combined")
   var predicates: List[FilterPredicate] = List.empty
+
+  @JsonProperty(required = true, defaultValue = "any (OR)")
+  @JsonSchemaTitle("Combine Predicates With")
+  @JsonPropertyDescription("how to combine multiple predicates")
+  var predicateCombinator: PredicateCombinator = PredicateCombinator.OR
 
   override def getPhysicalOp(
       workflowId: WorkflowIdentity,
@@ -53,7 +59,7 @@ class SpecializedFilterOpDesc extends FilterOpDesc {
   override def operatorInfo: OperatorInfo = {
     OperatorInfo(
       "Filter",
-      "Performs a filter operation using OR between multiple predicates",
+      "Performs a filter operation using AND or OR between multiple predicates",
       OperatorGroupConstants.CLEANING_GROUP,
       List(InputPort()),
       List(OutputPort()),
