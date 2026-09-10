@@ -220,7 +220,6 @@ object TransformVerificationRunner {
     val EmptyTable = "emptyTable"
     val EnumSweep = "enumSweep"
     val HostileText = "hostileText"
-    val HostileColumns = "hostileColumns"
     val CountVectorizerText = "countVectorizer_text"
     val TfidfText = "tfidf_text"
     val NonFeatureColumn = "nonFeatureColumn"
@@ -229,12 +228,6 @@ object TransformVerificationRunner {
     val NumericTextColumn = "numericTextColumn"
     val TextLabels = "textLabels"
     val RegressionBranch = "regressionBranch"
-
-    /** One swept hyperparameter of an advanced trainer, which the sweep labels by the
-      * pointer it flips. Built here rather than spelled out at each row, since a row
-      * that misspelled the pointer would suppress nothing and say nothing.
-      */
-    def hyperParameter(name: String): String = s"paraList/0/parameter=$name"
   }
 
   /** The [[RunKind]] a generated variant's label names. A `merged` variant labels
