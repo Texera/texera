@@ -48,12 +48,10 @@ import scala.util.{Try, Using}
   * format the shared [[CanonicalSourceFixture]] is encoded into it with no
   * per-operator code at all: a newly registered file-scan source in a known
   * format is verified the moment it appears in [[LogicalOp]]'s `@JsonSubTypes`.
-  * A source that cannot take the shared table — the text family emits a single
-  * `line` column, and some carry their data inline — keeps a hand-written
-  * [[SourceHandler]] instead. Anything else is flagged, never silently skipped.
-  *
-  * The runner itself is operator-agnostic, and drives the same two paths every
-  * other operator takes, with no inputs on either.
+  * A source that cannot take the shared table keeps a hand-written
+  * [[SourceHandler]] instead: the text family emits a single `line` column, and
+  * some carry their data inline. Anything else is flagged, never silently
+  * skipped.
   */
 object SourceCategoryRunner {
 
