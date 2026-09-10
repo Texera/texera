@@ -61,19 +61,24 @@ trait SharedFixture {
       dir: Path,
       inputPortCount: Int,
       withGaps: Boolean
+  ): Map[PortIdentity, Path] =
+    writeShaped(dir, inputPortCount, rows => if (withGaps) emptyOneCellPerColumn(rows) else rows)
+
+  /** [[write]] with the rows put through `shape` first, so a caller that wants a
+    * differently shaped table writes it the same way and gets the same sidecars.
+    */
+  private def writeShaped(
+      dir: Path,
+      inputPortCount: Int,
+      shape: Seq[Tuple] => Seq[Tuple]
   ): Map[PortIdentity, Path] = {
     require(
       inputPortCount >= 1 && inputPortCount <= 2,
       s"unsupported input port count: $inputPortCount"
     )
     (0 until inputPortCount).map { port =>
-      val rows = rowsFor(port)
       val path = dir.resolve(s"input_port_$port.jsonl")
-      TupleIO.writeTuples(
-        path,
-        (if (withGaps) emptyOneCellPerColumn(rows) else rows).iterator,
-        schema
-      )
+      TupleIO.writeTuples(path, shape(rowsFor(port)).iterator, schema)
       PortIdentity(port) -> path
     }.toMap
   }
@@ -87,6 +92,15 @@ trait SharedFixture {
   /** Write one JSONL fixture per 0-based input port, every cell filled. */
   final def writeInputs(dir: Path, inputPortCount: Int): Map[PortIdentity, Path] =
     write(dir, inputPortCount, withGaps = false)
+
+  /** The same columns with no rows under them. An upstream filter that matches
+    * nothing hands an operator exactly this, and it is not the same table as one
+    * with holes in it: a column with no values has no minimum, no quantile and no
+    * inferable type, so the code that reads one either answers with an empty
+    * result or raises.
+    */
+  final def writeEmptyInputs(dir: Path, inputPortCount: Int): Map[PortIdentity, Path] =
+    writeShaped(dir, inputPortCount, _ => Seq.empty)
 
   /** How many rows port 0 gets — what a row-count-sensitive knob (`limit`,
     * `offset`) is sized against so its value keeps some rows and drops some.
