@@ -142,9 +142,16 @@ class CarpetPlotOpDesc extends PythonOperatorDescriptor with PlotlyStandaloneCod
     val aLit = pyStringLiteral(a)
     val bLit = pyStringLiteral(b)
     val yLit = pyStringLiteral(y)
+    // Both empty cases write the page the operator yields rather than printing:
+    // a reason the reader can see is the whole output of a chart that cannot be
+    // drawn, and a run that writes nothing at all looks like a crash.
     s"""table = in1df.dropna(subset=[$aLit, $bLit, $yLit]).copy()
-       |if table.empty:
-       |    print("Carpet plot error: No valid rows after removing nulls")
+       |if in1df.empty:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
+       |        output.write("<h3>Input table is empty</h3>")
+       |elif table.empty:
+       |    with open(outputHtml, "w", encoding="utf-8") as output:
+       |        output.write("<h3>No valid rows after removing nulls</h3>")
        |else:
        |    table[$aLit] = table[$aLit].astype(float)
        |    table[$bLit] = table[$bLit].astype(float)
