@@ -538,11 +538,8 @@ object TypeCastingTransformHandler extends TransformHandler {
   * canonical fixture's first column (`id`) and fills `keyword` with the canonical
   * "1", so the search runs against numeric ids and never touches a real text
   * column. This fixture searches a genuine free-text column with a two-term
-  * query, exercising the standalone regex's meaningful branches — multi-term OR,
-  * whole-word boundaries — that both the JVM Lucene path and the pandas path
-  * agree on. Query "love day" keeps rows 1 and 2 (contain the whole words
-  * love/day); row 3 has neither; row 4's "lovely"/"today" are different tokens,
-  * so the shared word-boundary rule drops it. 4 rows → 2 kept.
+  * query, so the branches both the JVM Lucene path and the pandas path have to
+  * agree on, multi-term OR and whole-word boundaries, actually run.
   *
   * The rows are intentionally punctuation-free. Sweeping `isCaseSensitive` puts
   * the JVM's `CaseSensitiveAnalyzer` in play, a `WhitespaceTokenizer` that leaves
