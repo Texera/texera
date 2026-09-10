@@ -81,6 +81,21 @@ class WordCloudOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenera
        |"""
   }
 
+  // The `.str` accessor raises on anything but text, and the type rule that says
+  // so is only a warning: a column of numbers reaches here and ends the run with
+  // a pandas error naming an accessor the user never wrote. Both generators ask
+  // the same question and answer it in the same words, so the two paths still
+  // agree on what they produce.
+  private val NotTextMessage = "text column does not hold text."
+
+  def guardNotText(): PythonTemplateBuilder = {
+    pyb"""
+       |        if not (pd.api.types.is_object_dtype(table[$textColumn]) or pd.api.types.is_string_dtype(table[$textColumn])):
+       |           yield {'html-content': self.render_error("$NotTextMessage")}
+       |           return
+       |"""
+  }
+
   def createWordCloudFigure(): PythonTemplateBuilder = {
     pyb"""
        |        text = ' '.join(table[$textColumn])
@@ -101,6 +116,7 @@ class WordCloudOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenera
   override def generatePythonCode(): String = {
     pyb"""
          |from pytexera import *
+         |import pandas as pd
          |
          |class ProcessTableOperator(UDFTableOperator):
          |
@@ -115,6 +131,7 @@ class WordCloudOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenera
          |        if table.empty:
          |           yield {'html-content': self.render_error("input table is empty.")}
          |           return
+         |        ${guardNotText()}
          |        ${manipulateTable()}
          |        if table.empty:
          |           yield {'html-content': self.render_error("text column does not contain words or contains only nulls.")}
@@ -142,6 +159,9 @@ class WordCloudOpDesc extends PythonOperatorDescriptor with StandaloneCodeGenera
        |if table.empty:
        |    with open(outputHtml, "w", encoding="utf-8") as f:
        |        f.write(render_error("input table is empty."))
+       |elif not (pd.api.types.is_object_dtype(table[$textLit]) or pd.api.types.is_string_dtype(table[$textLit])):
+       |    with open(outputHtml, "w", encoding="utf-8") as f:
+       |        f.write(render_error("$NotTextMessage"))
        |else:
        |    table = table.dropna(subset=[$textLit])
        |    table = table[table[$textLit].str.contains(r'\\w', regex=True)]
