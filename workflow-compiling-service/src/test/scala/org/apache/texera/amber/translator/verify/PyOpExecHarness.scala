@@ -45,17 +45,13 @@ import scala.sys.process._
   * generatePythonCode() output through a thin subprocess driver rather than
   * spinning up the Pekko/Arrow worker stack.
   *
-  * Same Result(outputs, outputSchemas) shape as OpExecHarness so the rest of
-  * the verify pipeline (Comparator, category runners) is harness-agnostic.
+  * It returns the same Result shape, so the rest of the pipeline does not care
+  * which harness ran.
   *
-  * What it does not drive, each because no Python-native operator asks for it:
-  *   - Multi-PhysicalOp plans. PythonOperatorDescriptor emits either a
-  *     `sourcePhysicalOp` or a `oneToOnePhysicalOp`, so topo-order driving,
-  *     which OpExecHarness has, would have nothing to order.
-  *   - More than one output port. The UDF operator traits yield TupleLike
-  *     without naming a port, the same convention OpExecHarness reads as port 0.
-  *   - JSONL types beyond STRING / INTEGER / LONG / DOUBLE / BOOLEAN. TIMESTAMP
-  *     and the binaries need a codec in both [[TupleIO]] and the driver.
+  * One PhysicalOp with one output port is all it drives, which is all a
+  * `PythonOperatorDescriptor` emits: the UDF traits yield a TupleLike without
+  * naming a port. TIMESTAMP and the binaries are out until both [[TupleIO]] and
+  * the driver carry a codec for them.
   */
 object PyOpExecHarness extends LazyLogging {
 
