@@ -107,7 +107,7 @@ class TypeCastingOpDescSpec extends AnyFlatSpec with Matchers {
   /** What the engine answers, as the string the Python side prints back: the
     * literal, or `error` for a value `parseField` refuses.
     */
-  private def engineAnswer(value: String, to: AttributeType): String =
+  private def engineAnswer(value: Any, to: AttributeType): String =
     Try(AttributeTypeUtils.parseField(value, to))
       .map(v => if (v == null) "null" else v.toString)
       .getOrElse("error")
@@ -169,6 +169,74 @@ class TypeCastingOpDescSpec extends AnyFlatSpec with Matchers {
     }
     // The pairs that made the review: "false" is not true, and "0" is not true.
     fromEngine shouldBe Seq("true", "false", "false", "true", "error", "null")
+  }
+
+  // One column per source type, since what the text looks like follows the
+  // column and not the value: a whole double keeps its point, an integer never
+  // grows one, and a boolean is lower case.
+  private val stringColumns: Seq[(String, String, Seq[AnyRef])] = Seq(
+    ("dbl", "float64", Seq(Double.box(6.0), Double.box(7.25))),
+    ("int", "int64", Seq(Int.box(6), Int.box(7))),
+    ("flag", "bool", Seq(Boolean.box(true), Boolean.box(false)))
+  )
+
+  it should "cast to string the way AttributeTypeUtils does" in {
+    val python = resolvePython().getOrElse(
+      cancel("No runnable python executable (udf.conf python.path, python3, python, py)")
+    )
+    if (!canImportPandas(python)) cancel(s"'$python' cannot import pandas")
+
+    val op = new TypeCastingOpDesc
+    op.typeCastingUnits = stringColumns.map {
+      case (name, _, _) => castUnit(name, AttributeType.STRING)
+    }.toList
+
+    val frame = stringColumns
+      .map {
+        case (name, dtype, values) =>
+          val cells = values
+            .map {
+              case b: java.lang.Boolean => if (b) "True" else "False"
+              case other                => other.toString
+            }
+            .mkString("[", ", ", "]")
+          s"""    "$name": pd.Series($cells, dtype="$dtype"),"""
+      }
+      .mkString("\n")
+    val driver =
+      s"""import pandas as pd
+         |
+         |${op.standaloneHelpers().mkString("\n\n")}
+         |
+         |
+         |in1df = pd.DataFrame({
+         |$frame
+         |})
+         |${op.generateStandaloneCode()}
+         |for column in ${stringColumns.map(c => "\"" + c._1 + "\"").mkString("[", ", ", "]")}:
+         |    for cell in out1df[column]:
+         |        print("null" if pd.isna(cell) else cell)
+         |""".stripMargin
+
+    val script = Files.createTempFile("typecast-string-", ".py")
+    script.toFile.deleteOnExit()
+    Files.write(script, driver.getBytes(StandardCharsets.UTF_8))
+
+    val process =
+      new ProcessBuilder(python, script.toString).redirectErrorStream(true).start()
+    val out = Source.fromInputStream(process.getInputStream).mkString
+    process.waitFor(120, TimeUnit.SECONDS)
+    withClue(s"python said:\n$out\nscript:\n$driver") {
+      process.exitValue() shouldBe 0
+    }
+
+    val fromEngine = stringColumns.flatMap(_._3).map(v => engineAnswer(v, AttributeType.STRING))
+    withClue(s"script said ${out.trim.linesIterator.toSeq}\n") {
+      out.trim.linesIterator.toSeq shouldBe fromEngine
+    }
+    // The pair that made the review: a double keeps its point at 6.0, where the
+    // integer 6 has none.
+    fromEngine shouldBe Seq("6.0", "7.25", "6", "7", "true", "false")
   }
 
   // Python resolution follows FilledAreaPlotOpDescSpec: udf.conf python.path

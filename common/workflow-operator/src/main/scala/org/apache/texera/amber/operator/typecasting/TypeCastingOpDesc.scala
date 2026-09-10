@@ -93,15 +93,12 @@ class TypeCastingOpDesc extends MapOpDesc with StandaloneCodeGenerator {
       // match it does not have.
       val expr = unit.resultType match {
         case AttributeType.STRING =>
-          // `astype(str)` gets three things wrong against `toString`: an empty
-          // cell renders as the text "nan", a column holding one is a float by
-          // then so 6 reads "6.0", and a boolean capitalises. Each is handled
-          // rather than the column cast wholesale.
-          s"""out1df[$colLit].apply(""" +
-            """lambda x: None if pd.isna(x) """ +
-            """else ("true" if x else "false") if isinstance(x, bool) """ +
-            """else str(int(x)) if isinstance(x, float) and x.is_integer() """ +
-            """else str(x))"""
+          // `astype(str)` gets two things wrong against `toString`: an empty
+          // cell renders as the text "nan", and a boolean capitalises. The
+          // helper handles both, and reads the point of a double off the
+          // column's type rather than off the value, which cannot tell a whole
+          // double from an integer.
+          s"""_texera_cast_string(out1df[$colLit])"""
         case AttributeType.INTEGER | AttributeType.LONG =>
           // A hole survives the cast, because parseField returns a null field
           // untouched; pandas' nullable "Int64" holds one where numpy's int

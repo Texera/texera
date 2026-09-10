@@ -102,5 +102,21 @@ object StandaloneHelpers {
       |def _texera_cast_double(x):
       |    if isinstance(x, str):
       |        return float(x.strip())
-      |    return float(x)""".stripMargin
+      |    return float(x)
+      |
+      |
+      |def _texera_cast_string(s):
+      |    # `toString` on the field, so the COLUMN's type decides the text and
+      |    # not the shape of the value: a double keeps its point, whether or not
+      |    # it lands on a whole number, and an integer never grows one. A column
+      |    # of no single type is read value by value.
+      |    if pd.api.types.is_bool_dtype(s):
+      |        return s.map(lambda x: None if pd.isna(x) else ("true" if x else "false"))
+      |    if pd.api.types.is_integer_dtype(s):
+      |        return s.map(lambda x: None if pd.isna(x) else str(int(x)))
+      |    return s.map(
+      |        lambda x: None
+      |        if pd.isna(x)
+      |        else ("true" if x else "false") if pd.api.types.is_bool(x) else str(x)
+      |    )""".stripMargin
 }
