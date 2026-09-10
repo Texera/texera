@@ -36,6 +36,7 @@ class SpecializedFilterOpDescSpec extends AnyFlatSpec with Matchers {
     "advertise the name, Cleaning group, and reconfiguration support" in {
     val info = (new SpecializedFilterOpDesc).operatorInfo
     info.userFriendlyName shouldBe "Filter"
+    info.operatorDescription should include("AND or OR")
     info.operatorGroupName shouldBe OperatorGroupConstants.CLEANING_GROUP
     info.inputPorts should have length 1
     info.outputPorts should have length 1
@@ -44,6 +45,10 @@ class SpecializedFilterOpDescSpec extends AnyFlatSpec with Matchers {
 
   "SpecializedFilterOpDesc.predicates" should "default to an empty list" in {
     (new SpecializedFilterOpDesc).predicates shouldBe empty
+  }
+
+  "SpecializedFilterOpDesc.predicateCombinator" should "default to OR" in {
+    (new SpecializedFilterOpDesc).predicateCombinator shouldBe PredicateCombinator.OR
   }
 
   "SpecializedFilterOpDesc.getPhysicalOp" should
@@ -69,5 +74,28 @@ class SpecializedFilterOpDescSpec extends AnyFlatSpec with Matchers {
       )
     restored shouldBe a[SpecializedFilterOpDesc]
     restored.asInstanceOf[SpecializedFilterOpDesc].predicates shouldBe empty
+  }
+
+  "SpecializedFilterOpDesc" should
+    "deserialize to OR when predicateCombinator is absent" in {
+    val restored =
+      objectMapper.readValue(
+        """{"operatorType":"Filter","predicates":[]}""",
+        classOf[LogicalOp]
+      )
+    restored
+      .asInstanceOf[SpecializedFilterOpDesc]
+      .predicateCombinator shouldBe PredicateCombinator.OR
+  }
+
+  "SpecializedFilterOpDesc" should
+    "round-trip an explicit AND combinator through the polymorphic base" in {
+    val op = new SpecializedFilterOpDesc
+    op.predicateCombinator = PredicateCombinator.AND
+    val restored =
+      objectMapper.readValue(objectMapper.writeValueAsString(op), classOf[LogicalOp])
+    restored
+      .asInstanceOf[SpecializedFilterOpDesc]
+      .predicateCombinator shouldBe PredicateCombinator.AND
   }
 }
