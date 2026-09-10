@@ -31,7 +31,7 @@ This page lists what else a new operator needs. It is done when all five hold.
 | --- | --- | --- |
 | 1 | Descriptor, executor, registration, icon | `common/workflow-operator/.../operator/<pkg>/` |
 | 2 | A stated constraint on every config property | annotations on the descriptor's fields |
-| 3 | `generateStandaloneCode()` | the descriptor, via `StandaloneCodeGenerator` |
+| 3 | `generateStandaloneCode()`, or its `inputSchemas` overload | the descriptor, via `StandaloneCodeGenerator` |
 | 4 | A green verification run | `OperatorBehaviorSpec` |
 | 5 | Unit spec, formatted and linted | the operator's own `*OpDescSpec` |
 
@@ -115,6 +115,11 @@ fragment. Without one, the export emits a `# TODO:` comment in its place.
 - A `pyb` field has to reach the template whole. Joining it to anything in Scala first —
   `s"${attribute}_bin"` — hands `pyb` a plain string and the protection is gone, so derive
   such a name in the Python instead. `PythonCodeRawInvalidTextSpec` reports the leak.
+- Rendering a column as TEXT takes the declared type, not the value's. A file carries no
+  types, so a hole makes pandas read an integer column as a float and a boolean one as 1.0
+  and 0.0, and 6 renders as "6.0" where the engine wrote "6". Override the
+  `generateStandaloneCode(inputSchemas)` overload and pass the column through
+  `renderedAsText`; `None` there means read it as it arrives.
 - Where the two engines genuinely differ, note the difference in a comment.
 
 ## 4. Verification
@@ -136,7 +141,7 @@ reference, and as the generated script. The outputs are compared per port, by da
 - One checked-in table, `src/test/resources/verify/canonical_fixture.json`, 15 rows.
 - The sklearn and text tables are projections of it, not separate files. Source operators
   bring their own file, one per format.
-- Seven of its columns are named `a"b\c_…`, one of them carrying a single quote and a newline
+- Eight of its columns are named `a"b\c_…`, one of them carrying a single quote and a newline
   besides, so a run puts the escaping rule above to an operator that took one.
 - `CanonicalFixtureSpec` asserts the table's invariants, so an edit that breaks one fails the
   build.
