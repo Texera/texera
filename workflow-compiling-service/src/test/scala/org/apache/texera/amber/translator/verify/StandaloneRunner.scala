@@ -320,7 +320,9 @@ object StandaloneRunner extends LazyLogging {
           case Seq() => ()
           case cols =>
             val names = cols.map(py).mkString(", ")
-            sb.append(s"for _c, _v in _texera_exact_ints(${py(path.toString)}, [$names]).items():\n")
+            sb.append(
+              s"for _c, _v in _texera_exact_ints(${py(path.toString)}, [$names]).items():\n"
+            )
             sb.append(s"    if _c in in${n}df.columns and not pd.api.types.is_integer_dtype(")
             sb.append(s"in${n}df[_c]):\n")
             sb.append(s"        in${n}df[_c] = _v\n")
