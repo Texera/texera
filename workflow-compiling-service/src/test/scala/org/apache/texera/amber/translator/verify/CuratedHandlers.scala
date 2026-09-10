@@ -319,6 +319,38 @@ object RegexTransformHandler extends TransformHandler {
     val dotInput =
       CuratedHandlers.writeFixture(dotDir.resolve("input_port_0.jsonl"), textColumn, dotRows)
 
+    // A hole widens an integer column to float, so `^6$` meets "6.0" and selects
+    // nothing unless the rendering reads the declared type.
+    val numberDir = testRoot.resolve("numbers")
+    Files.createDirectories(numberDir)
+    // `a"b\c_big` only rides along. It is past the float64 exact-integer window,
+    // and its column has a hole, so a reader that parses it through a float
+    // hands the operator 9007199254740992 where the engine still has ...993.
+    val numberColumn =
+      Seq(("a\"b\\c_n", AttributeType.INTEGER), ("a\"b\\c_big", AttributeType.LONG))
+    val numberRows: Seq[Seq[Any]] = Seq(
+      Seq[Any](6, 9007199254740993L),
+      Seq[Any](null, null),
+      Seq[Any](7, 1L),
+      Seq[Any](60, 2L),
+      Seq[Any](16, 3L)
+    )
+    val numberInput = CuratedHandlers.writeFixture(
+      numberDir.resolve("input_port_0.jsonl"),
+      numberColumn,
+      numberRows
+    )
+
+    // A boolean column. The engine matches "true", where a hole leaves pandas
+    // holding 1.0. Case-sensitive on purpose, since case is half the difference.
+    val boolDir = testRoot.resolve("booleans")
+    Files.createDirectories(boolDir)
+    val boolColumn = Seq(("a\"b\\c_b", AttributeType.BOOLEAN))
+    val boolRows: Seq[Seq[Any]] =
+      Seq(Seq[Any](true), Seq[Any](false), Seq[Any](null), Seq[Any](true))
+    val boolInput =
+      CuratedHandlers.writeFixture(boolDir.resolve("input_port_0.jsonl"), boolColumn, boolRows)
+
     Seq(
       (
         "regex=\\d+",
@@ -329,6 +361,16 @@ object RegexTransformHandler extends TransformHandler {
         "regex=\\.",
         regexOp("a\"b\\c_text", "\\.", caseInsensitive = false),
         Map(PortIdentity(0) -> dotInput)
+      ),
+      (
+        "regex=^6$ on an integer column",
+        regexOp("a\"b\\c_n", "^6$", caseInsensitive = false),
+        Map(PortIdentity(0) -> numberInput)
+      ),
+      (
+        "regex=^true$ on a boolean column",
+        regexOp("a\"b\\c_b", "^true$", caseInsensitive = false),
+        Map(PortIdentity(0) -> boolInput)
       )
     )
   }
@@ -428,14 +470,40 @@ object TypeCastingTransformHandler extends TransformHandler {
       // the word and then the number. Text the engine refuses cannot go here,
       // since Path A would end before there is anything to compare; that half
       // is pinned in TypeCastingOpDescSpec.
-      ("str_to_bool", AttributeType.STRING) // "true"/"0"      → BOOLEAN
+      ("str_to_bool", AttributeType.STRING), // "true"/"0"     → BOOLEAN
+      // The other direction, which the five above cannot ask: the engine writes
+      // "true" where Python's str() writes "True".
+      ("bool_to_str", AttributeType.BOOLEAN), // true/false     → STRING
+      // Named by two units at once. `tupleCasting` takes a Map, so the second
+      // replaces the first and casts the original value; running both would put
+      // the column through a datetime on the way.
+      ("twice_cast", AttributeType.STRING), // → TIMESTAMP, then → STRING
+      // Long.toInt keeps the low 32 bits rather than raising or saturating, so
+      // these straddle the Int bounds on purpose.
+      ("lng_to_int", AttributeType.LONG), // beyond Int range → INTEGER
+      // `new Timestamp(long)` reads the number as milliseconds; pd.to_datetime
+      // defaults to nanoseconds and puts every one of these in 1970.
+      ("ms_to_ts", AttributeType.LONG) // epoch millis → TIMESTAMP
     )
+    // `str_to_int` carries the text NumberFormat reads and Python's int refuses:
+    // a decimal point, a grouping comma, trailing letters.
     val rows = Seq(
-      Seq[Any]("10", 1, 6, 11, 1, "true"),
-      Seq[Any]("20", 2, 7, 12, 0, "false"),
-      Seq[Any]("30", 3, 8, 13, 1, "0"),
-      Seq[Any]("40", 4, 9, 14, 0, "1"),
-      Seq[Any]("50", 5, 10, 15, 1, "TRUE")
+      Seq[Any]("10", 1, 6, 11, 1, "true", true, "2024-01-07 00:00:00", 2147483648L, 1700000000000L),
+      Seq[Any]("6.7", 2, 7, 12, 0, "false", false, "2024-03-15 08:30:00", 2147483647L, 0L),
+      Seq[Any](
+        "1,234",
+        3,
+        8,
+        13,
+        1,
+        "0",
+        true,
+        "2024-06-01 12:00:00",
+        -2147483649L,
+        1000000000000L
+      ),
+      Seq[Any]("12abc", 4, 9, 14, 0, "1", false, "2024-09-20 23:59:59", 0L, 1893456000000L),
+      Seq[Any]("-6.7", 5, 10, 15, 1, "TRUE", true, "2024-12-31 01:02:03", -1L, 946684800000L)
     )
     val inputPath =
       CuratedHandlers.writeFixture(testRoot.resolve("input_port_0.jsonl"), columns, rows)
@@ -453,7 +521,12 @@ object TypeCastingTransformHandler extends TransformHandler {
       unit("int_to_str", AttributeType.STRING),
       unit("int_to_lng", AttributeType.LONG),
       unit("int_to_bool", AttributeType.BOOLEAN),
-      unit("str_to_bool", AttributeType.BOOLEAN)
+      unit("str_to_bool", AttributeType.BOOLEAN),
+      unit("bool_to_str", AttributeType.STRING),
+      unit("twice_cast", AttributeType.TIMESTAMP),
+      unit("twice_cast", AttributeType.STRING),
+      unit("lng_to_int", AttributeType.INTEGER),
+      unit("ms_to_ts", AttributeType.TIMESTAMP)
     )
 
     (desc, Map(PortIdentity(0) -> inputPath))
@@ -498,6 +571,49 @@ object KeywordSearchTransformHandler extends TransformHandler {
     desc.isCaseSensitive = false
 
     (desc, Map(PortIdentity(0) -> inputPath))
+  }
+
+  override def extraScenarios(
+      testRoot: Path
+  ): Seq[(String, LogicalOp, Map[PortIdentity, Path])] = {
+    // A hole widens an integer column to float and every value grows a ".0" the
+    // term "0" then matches on a word boundary, so the rendering decides between
+    // one row and all of them. A digit term cannot: `\b6\b` finds "6.0" too.
+    val numberDir = testRoot.resolve("numbers")
+    Files.createDirectories(numberDir)
+    val numberColumn = Seq(("a\"b\\c_n", AttributeType.INTEGER))
+    val numberRows: Seq[Seq[Any]] =
+      Seq(Seq[Any](6), Seq[Any](null), Seq[Any](70), Seq[Any](0))
+    val numberInput = CuratedHandlers.writeFixture(
+      numberDir.resolve("input_port_0.jsonl"),
+      numberColumn,
+      numberRows
+    )
+
+    val desc = new KeywordSearchOpDesc()
+    desc.attribute = "a\"b\\c_n"
+    desc.keyword = "0"
+    desc.isCaseSensitive = false
+
+    // The base fixture is all lower-case, so sweeping the flag there decides
+    // nothing: the two analyzers agree on every row it holds.
+    val casedDir = testRoot.resolve("cased")
+    Files.createDirectories(casedDir)
+    val casedColumn = Seq(("a\"b\\c_txt", AttributeType.STRING))
+    val casedRows: Seq[Seq[Any]] =
+      Seq(Seq[Any]("i love this"), Seq[Any]("I Love this"), Seq[Any]("LOVE it"))
+    val casedInput =
+      CuratedHandlers.writeFixture(casedDir.resolve("input_port_0.jsonl"), casedColumn, casedRows)
+
+    val cased = new KeywordSearchOpDesc()
+    cased.attribute = "a\"b\\c_txt"
+    cased.keyword = "Love"
+    cased.isCaseSensitive = true
+
+    Seq(
+      ("keyword=0 on an integer column", desc, Map(PortIdentity(0) -> numberInput)),
+      ("keyword=Love, case sensitive", cased, Map(PortIdentity(0) -> casedInput))
+    )
   }
 }
 
@@ -606,6 +722,33 @@ object AggregateTransformHandler extends TransformHandler {
       agg(AggregationFunction.CONCAT, "iso_country", "cat_country")
     )
     (desc, CanonicalFixture.writeInputs(testRoot, 1))
+  }
+
+  /** CONCAT over a column that starts a group with an empty string.
+    *
+    * The accumulator earns its separator only once it holds something, so a
+    * leading empty value contributes neither text nor comma. A null cannot ask
+    * this: it reads as the empty string either way. Canonical has none.
+    */
+  override def extraScenarios(
+      testRoot: Path
+  ): Seq[(String, LogicalOp, Map[PortIdentity, Path])] = {
+    val dir = testRoot.resolve("leading-empty")
+    Files.createDirectories(dir)
+    val columns = Seq(("a\"b\\c_grp", AttributeType.STRING), ("a\"b\\c_txt", AttributeType.STRING))
+    val rows: Seq[Seq[Any]] = Seq(
+      Seq[Any]("g", ""),
+      Seq[Any]("g", "a"),
+      Seq[Any]("g", ""),
+      Seq[Any]("h", "x")
+    )
+    val input = CuratedHandlers.writeFixture(dir.resolve("input_port_0.jsonl"), columns, rows)
+
+    val desc = new AggregateOpDesc()
+    desc.groupByKeys = List("a\"b\\c_grp")
+    desc.aggregations = List(agg(AggregationFunction.CONCAT, "a\"b\\c_txt", "joined"))
+
+    Seq(("concat over a leading empty string", desc, Map(PortIdentity(0) -> input)))
   }
 }
 
