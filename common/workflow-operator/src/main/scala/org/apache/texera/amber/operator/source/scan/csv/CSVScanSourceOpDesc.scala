@@ -204,19 +204,22 @@ class CSVScanSourceOpDesc extends ScanSourceOpDesc with StandaloneCodeGenerator 
 
     val readCall = s"out1df = pd.read_csv(${args.mkString(", ")})"
 
-    if (hasHeader) {
-      // A blank header position is named by both readers, differently: the schema above calls
-      // it column-N, pandas calls it "Unnamed: N". A downstream operator names the column the
-      // schema gave it, so the frame has to carry that name. Only a position pandas actually
-      // filled in is renamed, which is why the placeholder is matched against the index rather
-      // than by its prefix: a column genuinely called "Unnamed: 3" keeps its name anywhere but
-      // position 3.
+    // The schema's own names, which every downstream operator was configured
+    // against. They differ from pandas' in both directions: a blank header is
+    // `column-2` here and `Unnamed: 1` there, and a header the user really did
+    // spell `Unnamed: 1` is kept. Matching the placeholder against the index
+    // cannot tell those two apart when they coincide; taking the names by
+    // position can.
+    val schemaNames: Seq[String] =
+      Try(sourceSchema()).toOption.toSeq
+        .flatMap(_.getAttributes.map(a => pyStringLiteral(a.getName)))
+
+    if (schemaNames.nonEmpty)
       s"""$readCall
-         |out1df.columns = [
-         |    f"column-{i + 1}" if c == f"Unnamed: {i}" else c for i, c in enumerate(out1df.columns)
-         |]""".stripMargin
-    } else {
-      // Match Texera's fallback column naming when there's no header
+         |out1df.columns = [${schemaNames.mkString(", ")}]""".stripMargin
+    else if (hasHeader) readCall
+    else {
+      // Unresolved file: fall back to Texera's headerless naming.
       s"""$readCall
          |out1df.columns = [f"column-{i + 1}" for i in range(len(out1df.columns))]""".stripMargin
     }
