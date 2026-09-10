@@ -106,8 +106,18 @@ class FileScanOpDesc
       if (isBinary) """"rb""""
       else s""""r", encoding=${pyStringLiteral(enc)}"""
 
+    // The executor takes the row's first String field, not its first column, so a row that
+    // carries an id ahead of the path still finds the path. Reading column 0 opened the id.
+    // A row with no string at all makes the executor's `.get` throw, so this raises too
+    // rather than quietly skipping the row.
+    buf += "def _texera_file_name(row):"
+    buf += "    for _v in row:"
+    buf += "        if isinstance(_v, str):"
+    buf += "            return _v"
+    buf += """    raise ValueError(f"no file name in row: {row!r}")"""
+    buf += ""
     buf += "_rows = []"
-    buf += "for _fn in in1df.iloc[:, 0]:"
+    buf += "for _fn in (_texera_file_name(r) for r in in1df.itertuples(index=False)):"
     buf += s"    with open(_fn, $openArgs) as _f:"
 
     // Match the platform (FileScanUtils.createTuplesFromFile): its line-by-line
