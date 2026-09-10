@@ -103,6 +103,65 @@ class ComparatorSpec extends AnyFlatSpec with Matchers {
     }
   }
 
+  // The tolerance a double needs was being applied to integers as well, so two
+  // whole numbers a workflow would never call the same compared equal. The
+  // declared type is what separates them: a double keeps the tolerance.
+  private val longSchema: Schema = Schema().add(new Attribute("n", AttributeType.LONG))
+
+  private def writeLongs(dir: Path, name: String, values: Seq[java.lang.Long]): Path = {
+    val p = dir.resolve(name)
+    val rows =
+      values.map(v => Tuple.builder(longSchema).add(longSchema.getAttribute("n"), v).build())
+    TupleIO.writeTuples(p, rows.iterator, longSchema)
+    p
+  }
+
+  it should "reject two integers the float tolerance would have accepted" in {
+    val dir = Files.createTempDirectory("comparator-spec-long-tolerance-")
+    val a = writeLongs(dir, "a.jsonl", Seq(100000L))
+    val b = writeLongs(dir, "b.jsonl", Seq(100001L))
+    intercept[ComparatorMismatchException] {
+      Comparator.assertEqual(a, b)
+    }
+  }
+
+  it should "reject a nullable integer that only a rounding read made equal" in {
+    // A null widens the column to float on the way into pandas, and 9007199254740993
+    // is already 9007199254740992 before anything compares it.
+    val dir = Files.createTempDirectory("comparator-spec-long-precision-")
+    val a = writeLongs(dir, "a.jsonl", Seq(9007199254740993L, null))
+    val b = writeLongs(dir, "b.jsonl", Seq(9007199254740992L, null))
+    intercept[ComparatorMismatchException] {
+      Comparator.assertEqual(a, b)
+    }
+  }
+
+  it should "keep the tolerance a double needs" in {
+    val dir = Files.createTempDirectory("comparator-spec-double-tolerance-")
+    val doubleSchema = Schema().add(new Attribute("x", AttributeType.DOUBLE))
+    def write(name: String, v: Double): Path = {
+      val p = dir.resolve(name)
+      val row =
+        Tuple.builder(doubleSchema).add(doubleSchema.getAttribute("x"), Double.box(v)).build()
+      TupleIO.writeTuples(p, Iterator(row), doubleSchema)
+      p
+    }
+    noException should be thrownBy Comparator.assertEqual(
+      write("a.jsonl", 1.000001),
+      write("b.jsonl", 1.0000011)
+    )
+  }
+
+  it should "read an integer column by its declared type on both sides" in {
+    // The script widens a holed integer column to float and writes 6.0 where the
+    // engine wrote 6. Both are the integer the schema declares, so this is the one
+    // difference in spelling that is not a difference in answer.
+    val dir = Files.createTempDirectory("comparator-spec-int-spelling-")
+    val a = writeLongs(dir, "a.jsonl", Seq(6L))
+    val b = writeLines(dir, "b.jsonl", Seq("""{"n":6.0}"""))
+    noException should be thrownBy Comparator.assertEqual(a, b)
+  }
+
   it should "report a model column only one side produced" in {
     // Model columns are compared by behavior and then dropped from both frames,
     // so a side that never wrote one has to fail here: once the column is gone,

@@ -171,8 +171,8 @@ def _compare_model_predictions(actual, expected, model_cols, probe_path) -> None
                 )
 
 
-def _string_columns(actual_path: str) -> dict:
-    """Which columns the engine declared as strings, read off the schema it
+def _declared_types(actual_path: str) -> dict:
+    """What the engine declared each output column as, read off the schema it
     writes beside its output. Empty when there is no sidecar, which leaves the
     inference in place rather than guessing."""
     import json
@@ -183,11 +183,50 @@ def _string_columns(actual_path: str) -> dict:
         return {}
     with open(sidecar) as fh:
         schema = json.load(fh)
+    return {a["attributeName"]: a.get("attributeType") for a in schema.get("attributes", [])}
+
+
+def _string_columns(actual_path: str) -> dict:
+    """The declared STRING columns, as a `read_json` dtype map."""
     return {
-        a["attributeName"]: str
-        for a in schema.get("attributes", [])
-        if a.get("attributeType") == "string"
+        name: str for name, kind in _declared_types(actual_path).items() if kind == "string"
     }
+
+
+def _exact_integers(path: str, columns: list) -> dict:
+    """The named columns re-read with Python's json, whose integers are exact.
+
+    `read_json` parses a column holding a null through float64, so a LONG of
+    9007199254740993 is already 9007199254740992 by the time anything compares
+    it. Pinning the dtype does not help: the rounding happens on the way in.
+    A value that is not whole is itself the divergence, so it is reported.
+    """
+    import json
+
+    import pandas as pd
+
+    values = {column: [] for column in columns}
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            for column in columns:
+                cell = row.get(column)
+                if cell is None:
+                    values[column].append(pd.NA)
+                elif isinstance(cell, bool) or not isinstance(cell, (int, float)):
+                    raise AssertionError(
+                        f"column '{column}' is declared integral but holds {cell!r} in {path}"
+                    )
+                elif cell != int(cell):
+                    raise AssertionError(
+                        f"column '{column}' is declared integral but holds {cell!r} in {path}"
+                    )
+                else:
+                    values[column].append(int(cell))
+    return {column: pd.array(cells, dtype="Int64") for column, cells in values.items()}
 
 
 def _run_comparison(
@@ -210,9 +249,25 @@ def _run_comparison(
     # beside the text "nan" both arrive as NaN -- two genuinely different
     # answers compared as one. The engine writes a schema next to its output;
     # it names which columns are strings, and both sides are read that way.
-    str_cols = _string_columns(actual_path)
+    declared = _declared_types(actual_path)
+    str_cols = {name: str for name, kind in declared.items() if kind == "string"}
     actual = pd.read_json(actual_path, lines=True, dtype=str_cols or None)
     expected = pd.read_json(expected_path, lines=True, dtype=str_cols or None)
+
+    # Both sides take the ENGINE's declared type, which also settles a column a
+    # hole widened to float on one path and not the other.
+    int_cols = [
+        name
+        for name, kind in declared.items()
+        if kind in ("integer", "long") and name in actual.columns and name in expected.columns
+    ]
+    if int_cols:
+        try:
+            for frame, path in ((actual, actual_path), (expected, expected_path)):
+                for column, values in _exact_integers(path, int_cols).items():
+                    frame[column] = values
+        except AssertionError as exc:
+            return str(exc)
 
     # Model columns: compare behavior (predictions) rather than bytes, then drop
     # the raw columns so the frame comparison covers everything else exactly.
@@ -244,10 +299,22 @@ def _run_comparison(
                 by=cols, kind="mergesort", na_position="last"
             ).reset_index(drop=True)
 
+    # The tolerance was letting integers through with it: at rtol=1e-5, LONG
+    # 100000 and 100001 compare equal. Integer columns are compared exactly.
+    exact_cols = [c for c in int_cols if c in actual.columns]
+    loose_cols = [c for c in actual.columns if c not in exact_cols]
     try:
+        if exact_cols:
+            pd.testing.assert_frame_equal(
+                actual[exact_cols],
+                expected[exact_cols],
+                check_like=True,
+                check_dtype=False,
+                check_exact=True,
+            )
         pd.testing.assert_frame_equal(
-            actual,
-            expected,
+            actual[loose_cols],
+            expected[loose_cols],
             check_like=True,
             check_dtype=False,
             rtol=1e-5,
