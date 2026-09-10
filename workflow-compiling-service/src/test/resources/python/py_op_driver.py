@@ -59,7 +59,7 @@ import json
 import sys
 import traceback
 from pathlib import Path
-from typing import Any, Iterable, Iterator, List, Mapping, Sequence
+from typing import Any, Callable, Iterable, Iterator, List, Mapping, Sequence
 
 import pandas as pd
 
@@ -379,16 +379,20 @@ def _run_operator(
     is_source: bool,
     port_order: Sequence[int],
     inputs_by_port: Mapping[int, Sequence[Tuple]],
-) -> List[Any]:
+    consume: "Callable[[Any], None]",
+) -> None:
     """
-    Drive the operator's lifecycle. Returns the flat list of emitted values
-    (anything not-None yielded by process_tuple / on_finish, in emission
-    order). UDF operators don't expose multi-output ports today, so we don't
-    bucket by output port — same convention as ``OpExecHarness`` when port
-    is unset.
-    """
-    emitted: List[Any] = []
+    Drive the operator's lifecycle, handing each emitted value to ``consume``.
 
+    ``consume`` is called AT the yield, before the generator is advanced,
+    because that is where ``DataProcessor`` reads one: it turns each yielded
+    value into tuples and finalizes them on the spot. Collecting the yields
+    into a list first records a UDF that yields one dict twice, mutating it in
+    between, as the same value twice rather than as the two it produced.
+
+    UDF operators don't expose multi-output ports today, so we don't bucket by
+    output port — same convention as ``OpExecHarness`` when port is unset.
+    """
     op.open()
     try:
         if is_source:
@@ -396,21 +400,19 @@ def _run_operator(
             # yields Tuples. Single synthetic port 0 — see OpExecHarness.
             for item in op.on_finish(0):
                 if item is not None:
-                    emitted.append(item)
-            return emitted
+                    consume(item)
+            return
 
         for port in port_order:
             for tup in inputs_by_port.get(port, ()):  # type: ignore[arg-type]
                 for item in op.process_tuple(tup, port):
                     if item is not None:
-                        emitted.append(item)
+                        consume(item)
             for item in op.on_finish(port):
                 if item is not None:
-                    emitted.append(item)
+                    consume(item)
     finally:
         op.close()
-
-    return emitted
 
 
 # --------------------------------------------------------------------------
@@ -458,20 +460,29 @@ def run_config(config: Mapping[str, Any]) -> None:
     op_class = _discover_operator_class(namespace)
     op_instance = op_class()
 
-    emitted = _run_operator(op_instance, is_source, port_order, inputs_by_port)
-
     outputs = config.get("outputs", [])
     if len(outputs) > 1:
         raise NotImplementedError(
             "py_op_driver: multi-output Python operators are not supported "
             "yet (no UDF base class exposes per-port emission)"
         )
-    if outputs:
-        out_entry = outputs[0]
-        out_path = Path(out_entry["dataPath"])
-        out_schema = _schema_from_dict(out_entry["schema"])
-        rows = list(_emit_as_dicts(emitted, out_schema))
-        _write_tuples(out_path, rows, out_schema)
+
+    if not outputs:
+        _run_operator(op_instance, is_source, port_order, inputs_by_port, lambda _item: None)
+        return
+
+    out_entry = outputs[0]
+    out_path = Path(out_entry["dataPath"])
+    out_schema = _schema_from_dict(out_entry["schema"])
+    rows: List["dict[str, Any]"] = []
+    _run_operator(
+        op_instance,
+        is_source,
+        port_order,
+        inputs_by_port,
+        lambda item: rows.extend(_emit_as_dicts([item], out_schema)),
+    )
+    _write_tuples(out_path, rows, out_schema)
 
 
 def main(argv: Sequence[str]) -> int:
