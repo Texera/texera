@@ -58,6 +58,7 @@ import { WorkflowWebsocketService } from "../../service/workflow-websocket/workf
 import { ExecutionState } from "../../types/execute-workflow.interface";
 import { Point } from "../../types/workflow-common.interface";
 import { ComputingUnitSelectionComponent } from "../power-button/computing-unit-selection.component";
+import { PropertyEditorComponent } from "../property-editor/property-editor.component";
 import { ResultTableFrameComponent } from "../result-panel/result-table-frame/result-table-frame.component";
 import { VisualizationFrameContentComponent } from "../visualization-panel-content/visualization-frame-content.component";
 import { WorkflowEditorComponent } from "../workflow-editor/workflow-editor.component";
@@ -65,6 +66,22 @@ import { MiniMapComponent } from "../workflow-editor/mini-map/mini-map.component
 import { CoeditorUserIconComponent } from "../menu/coeditor-user-icon/coeditor-user-icon.component";
 import { CoeditorPresenceService } from "../../service/workflow-graph/model/coeditor-presence.service";
 import { SAVE_DEBOUNCE_TIME_IN_MS } from "../workspace.component";
+
+/**
+ * Input types that take a click, not text. Focusing one is not "typing", so a rebuild that arrives
+ * while one has the focus loses nothing and must not be held back (see isTypingInTheForm).
+ */
+const NON_TEXT_INPUT_TYPES = new Set([
+  "checkbox",
+  "radio",
+  "button",
+  "submit",
+  "reset",
+  "range",
+  "color",
+  "file",
+  "image",
+]);
 
 /**
  * One rendered input: the resolved binding plus the operator's own formly field for that property.
@@ -89,9 +106,10 @@ interface RenderedField {
  * computing-unit selector, a run clock and plain-language failure messages. It then shows results
  * underneath -- the final step's output plus the author's chosen view-result steps, each a table, a
  * visualisation, or a compact "no result yet" -- reading the canvas's view-result set and never
- * writing it. Opening a step to
- * inspect it read-only, and the authoring mode that picks what to show, are later PRs. A view, not
- * a new object: it opens the same workflow the canvas does.
+ * writing it. A reader can also click a step on the embedded preview to open its property panel
+ * read-only: the panel writes nothing to the shared workflow and its content is inert. The
+ * authoring mode that turns that panel live and picks what to show is a later PR. A view, not a new
+ * object: it opens the same workflow the canvas does.
  */
 @UntilDestroy()
 @Component({
@@ -109,6 +127,7 @@ interface RenderedField {
     NzTooltipModule,
     UserIconComponent,
     ComputingUnitSelectionComponent,
+    PropertyEditorComponent,
     ResultTableFrameComponent,
     VisualizationFrameContentComponent,
     WorkflowEditorComponent,
@@ -156,6 +175,10 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   public isWorkflowValid = true;
   public isWorkflowEmpty = false;
 
+  /** The step whose property panel is open for read-only inspection, if any. The panel shows the
+   *  operator's own title, so this id is all the page needs to track. */
+  public selectedOperatorId?: string;
+
   /**
    * Which steps' results to show: the terminal (final) steps, whose results the engine always
    * materializes, plus the author's chosen `resultOperatorIds` kept to those that still have
@@ -177,6 +200,8 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
 
   /** Set on teardown so deferred callbacks stop touching a view that is gone. */
   private destroyed = false;
+  /** A rebuild of the inputs that arrived while the reader was typing, held until the typing ends. */
+  private rebuildDeferred = false;
 
   /**
    * Operator positions as loaded, kept only as a fallback: a save writes the live positions
@@ -236,7 +261,36 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     // Give the result tables a realistic height to page against, so they show a screenful of rows
     // instead of one. (~7 rows; the card scrolls for the rest.)
     this.panelResizeService.changePanelSize(900, 560);
+    // Highlighting is off by default; turning it on is what makes a click on a step select it,
+    // which is how a reader opens that step's panel to inspect it (and, later, an author to expose).
+    this.workflowActionService.setHighlightingEnabled(true);
     this.load(wid);
+
+    // Selecting a step on the embedded (read-only) canvas opens its property panel read-only. The
+    // canvas is not editable, but highlighting still works, so reuse it rather than teach the editor
+    // a second click mode.
+    this.workflowActionService
+      .getJointGraphWrapper()
+      .getJointOperatorHighlightStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        this.syncSelectionFromHighlight();
+        // The panel is mounted with [actsAsEditor]="false", so opening a step here never
+        // announces "currently editing this operator" on the shared co-editor channel -- a reader
+        // inspecting a step is not editing the graph, and broadcasting would print the reader's own
+        // name in colour over that operator on everyone else's canvas. Suppressed at the frame (the
+        // only place that writes it), not here, so it cannot be re-set after this handler runs.
+      });
+
+    // Un-highlighting moves the selection just as highlighting does: clicking empty canvas drops it
+    // to none, and dropping one of two shift-selected steps leaves exactly one -- which has to OPEN
+    // the panel, since the highlight stream stays silent (nothing was newly highlighted). So both
+    // streams run the same rule rather than each testing for its own special case.
+    this.workflowActionService
+      .getJointGraphWrapper()
+      .getJointOperatorUnhighlightStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => this.syncSelectionFromHighlight());
 
     // A result changing bumps that operator's version (so its chart frame is rebuilt, not reused),
     // re-limits what the form shows to the currently-viewed set, and re-fits the visualisations.
@@ -353,30 +407,60 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     // Attribute boxes become dropdowns only after compilation writes the column enums into each
     // operator's dynamic schema -- which lands after these cards were built. Rebuild on the
     // compilation-state stream, a ReplaySubject(1) so a late subscriber (this page reloads fresh
-    // on every Canvas<->Form switch) gets the current state at once. Skip it while someone is
-    // typing, so a rebuild does not throw away a half-entered value under the cursor.
+    // on every Canvas<->Form switch) gets the current state at once. Held, not dropped, while
+    // someone is typing (see rebuildFormOrDefer), so it neither throws away a half-entered value
+    // under the cursor nor goes missing.
     this.workflowCompilingService
       .getCompilationStateInfoChangedStream()
       .pipe(debounceTime(FORM_DEBOUNCE_TIME_MS), untilDestroyed(this))
-      .subscribe(() => {
-        if (this.isTypingInTheForm()) {
-          return;
-        }
-        this.readConfig();
-      });
+      .subscribe(() => this.rebuildFormOrDefer(false));
 
     // Exposing or un-exposing a property in the panel changes the definition; the inputs above have
     // to follow at once, which is the whole point of editing them side by side. Today this fires for
     // this client's own edits; once #8351 moves formBinding into the shared model it also fires for
-    // a co-editor's -- so, like the compilation path, skip the rebuild while the reader is typing, or
-    // a remote change would throw away a half-entered value under the cursor.
-    this.workflowActionService.formBindingChanged$.pipe(untilDestroyed(this)).subscribe(() => {
-      if (this.isTypingInTheForm()) {
-        return;
-      }
-      this.readConfig();
+    // a co-editor's -- so, like the compilation path, the rebuild is held while the reader is typing
+    // (a remote change would otherwise throw away a half-entered value under the cursor) and runs
+    // the moment the typing ends.
+    this.workflowActionService.formBindingChanged$
+      .pipe(untilDestroyed(this))
+      .subscribe(() => this.rebuildFormOrDefer(true));
+  }
+
+  /**
+   * Rebuild the inputs from the config now or, while the reader is typing, hold the rebuild until
+   * the focus leaves the text control (onFocusOut). Held rather than dropped: the change that asked
+   * for it (a property exposed in the panel, a schema compiled) still has to reach the page, only
+   * not under the cursor. Dropping it left an exposed property's card missing until something else
+   * happened to rebuild, which read as the tick box doing nothing.
+   */
+  private rebuildFormOrDefer(detect: boolean): void {
+    if (this.isTypingInTheForm()) {
+      this.rebuildDeferred = true;
+      return;
+    }
+    this.rebuildDeferred = false;
+    this.readConfig();
+    if (detect) {
       this.cdr.detectChanges();
-    });
+    }
+  }
+
+  /**
+   * focusout fires before the next element takes the focus, so the held rebuild is decided after
+   * the current tick: a reader who merely tabbed to another text field keeps it held, anyone else
+   * gets it now. The hold is re-checked when that tick fires: the very click that took the focus
+   * can be a control whose own change rebuilds at once (the expose tick box), clearing the hold in
+   * between, and a stale callback that rebuilt regardless would only rebuild the same cards twice.
+   */
+  @HostListener("focusout")
+  public onFocusOut(): void {
+    if (this.rebuildDeferred) {
+      this.later(() => {
+        if (this.rebuildDeferred) {
+          this.rebuildFormOrDefer(true);
+        }
+      }, 0);
+    }
   }
 
   private load(wid: number): void {
@@ -437,13 +521,22 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   // Inputs: the exposed properties, rendered as their operators' own fields
   // ---------------------------------------------------------------------------
 
-  /** Whether the cursor is currently inside one of this page's inputs. */
+  /**
+   * Whether the reader is mid-way through typing somewhere on this page: the caret is in a control
+   * that holds text (a text-like input, a textarea, a select, a content-editable). A tick box, radio
+   * or button also takes the focus when clicked but holds no half-entered value, so it is not typing
+   * -- a tick box (the step panel's expose boxes, once that panel is live for authoring) is precisely
+   * the click that has to rebuild the cards at once, and counting it as typing held that rebuild back.
+   */
   private isTypingInTheForm(): boolean {
     const active = document.activeElement as HTMLElement | null;
     if (!active || !this.host.nativeElement.contains(active)) {
       return false;
     }
-    return ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
+    if (active.tagName === "INPUT") {
+      return !NON_TEXT_INPUT_TYPES.has((active as HTMLInputElement).type);
+    }
+    return ["TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
   }
 
   private readConfig(): void {
@@ -1041,6 +1134,43 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       return false;
     };
     return this.rendered.some(r => hasRequiredError(r.form));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inspecting a step: its property panel, opened read-only from the preview
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Move the panel to whatever the preview currently has highlighted, read-only. Exactly one
+   * highlighted step opens the panel for it; none, or a shift-click multi-select, closes it -- with
+   * more than one the property editor shows no single operator either, so opening it for whichever
+   * step was clicked last would show the wrong settings.
+   *
+   * Both the highlight and the un-highlight stream run this, because each carries only the ids that
+   * changed rather than the selection that resulted: dropping one of two selected steps leaves
+   * exactly one and so has to OPEN the panel, yet only the un-highlight stream fires for it.
+   */
+  private syncSelectionFromHighlight(): void {
+    const highlighted = this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs();
+    // A highlighted id can already be gone from the graph -- a co-editor deleting the step emits the
+    // un-highlight, and reading it back would open a panel on nothing.
+    const graph = this.workflowActionService.getTexeraGraph();
+    this.selectedOperatorId =
+      highlighted.length === 1 && graph.hasOperator(highlighted[0]) ? highlighted[0] : undefined;
+    this.cdr.detectChanges();
+  }
+
+  /** Dismiss the panel: the selection is what holds it open, so drop the highlight and the selection. */
+  public closeOperatorPanel(): void {
+    const wrapper = this.workflowActionService.getJointGraphWrapper();
+    // Through the action service rather than the joint wrapper: only the service also publishes the
+    // resulting highlight set on the shared awareness channel, so co-editors stop seeing this
+    // reader's selection ringed on their own canvas.
+    this.workflowActionService.unhighlightOperators(...wrapper.getCurrentHighlightedOperatorIDs());
+    // Cleared here too, not left to the un-highlight stream: the wrapper emits nothing for an
+    // operator that was not highlighted, and a dismiss has to close the panel regardless.
+    this.selectedOperatorId = undefined;
+    this.cdr.detectChanges();
   }
 
   /** Open or close the workflow preview; opening it builds the canvas the first time. */

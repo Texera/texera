@@ -822,15 +822,62 @@ describe("WorkflowFormComponent", () => {
       expect(rebuild).toHaveBeenCalled();
     });
 
-    it("does not rebuild under the cursor of someone typing", async () => {
+    it("holds a rebuild while someone is typing and runs it once the focus leaves", async () => {
       build(formViewWorkflow).ngOnInit();
-      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
       const rebuild = vi.spyOn(component as any, "readConfig");
 
       h.compilationChanged.next("Succeeded");
       await new Promise(r => setTimeout(r, FORM_DEBOUNCE_TIME_MS + 50));
+      expect(rebuild).not.toHaveBeenCalled();
+
+      // The cursor leaves the field: the held rebuild runs, once. Held rather than dropped, or the
+      // compiled schema would never reach the cards until something else rebuilt them.
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps a held rebuild held when the focus only moves to another text field", async () => {
+      build(formViewWorkflow).ngOnInit();
+      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined);
+
+      component.onFocusOut(); // tabbed to the next input: still typing when the check runs
+      await new Promise(r => setTimeout(r, 10));
 
       expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    it("rebuilds nothing on a focusout with no rebuild held", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const rebuild = vi.spyOn(component as any, "readConfig");
+
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    // Leaving the text field by clicking a tick box: focusout queues the held rebuild, then the tick
+    // box's own change rebuilds at once and clears the hold. The queued callback must notice and
+    // not rebuild the same cards a second time.
+    it("does not rebuild twice when the control that took the focus already rebuilt", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined); // held
+      component.onFocusOut(); // queued
+
+      typing.mockReturnValue(false);
+      workflowActionService.formBindingChanged$.next(undefined); // the tick box's own change: rebuilds now
+      expect(rebuild).toHaveBeenCalledTimes(1);
+      await new Promise(r => setTimeout(r, 10)); // the queued callback fires
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
     });
 
     it("re-reads the config when a property is exposed or un-exposed", () => {
@@ -843,15 +890,37 @@ describe("WorkflowFormComponent", () => {
     });
 
     // Once #8351 makes this stream fire for a co-editor's change, a rebuild under the cursor would
-    // discard a half-entered value -- so the binding path skips typing, like the compilation path.
-    it("does not re-read the config on a binding change while the reader is typing", () => {
+    // discard a half-entered value -- so the binding path holds it while typing, like the
+    // compilation path, and runs it when the focus leaves.
+    it("holds a binding-change rebuild while the reader is typing, then runs it on focusout", async () => {
       build(formViewWorkflow).ngOnInit();
-      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
       const rebuild = vi.spyOn(component as any, "readConfig");
 
       workflowActionService.formBindingChanged$.next(undefined);
-
       expect(rebuild).not.toHaveBeenCalled();
+
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    // The bug this guards against: ticking a property in the step panel focuses the tick box, an
+    // <input type="checkbox"> inside this page. Counted as typing, the rebuild that should add the
+    // card was held back, so the tick looked like it did nothing until something else rebuilt.
+    it("does not count a focused tick box as typing", () => {
+      build(formViewWorkflow).ngOnInit();
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      document.body.appendChild(box);
+      (component as any).host = { nativeElement: { contains: () => true, querySelector: () => null } };
+      box.focus();
+
+      expect((component as any).isTypingInTheForm()).toBe(false);
+
+      document.body.removeChild(box);
     });
 
     it("reports typing when a form field inside the page is focused", () => {
@@ -1399,6 +1468,126 @@ describe("WorkflowFormComponent", () => {
       });
 
       expect(component.runError).toBe("Run failed: please check your inputs and try again.");
+    });
+  });
+
+  describe("inspecting a step read-only", () => {
+    const withOp = () => {
+      h.hasOperatorIds.add("op-1");
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "Filter" });
+    };
+
+    // Model a highlight the way the real graph does: the stream emits only the newly-highlighted
+    // ids (the delta), while getCurrentHighlightedOperatorIDs returns the whole selection. So set
+    // the full selection first, then emit the delta.
+    const highlight = (full: string[], delta: string[] = full) => {
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push(...full);
+      h.highlightStream.next(delta);
+    };
+
+    it("turns highlighting on so a click selects a step", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(workflowActionService.setHighlightingEnabled).toHaveBeenCalledWith(true);
+    });
+
+    it("opens the read-only panel for the clicked step", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-1");
+    });
+
+    it("never broadcasts editing itself: silence is delegated to the panel (actsAsEditor=false)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      // The form component does not touch the co-editor channel at all; the panel is mounted with
+      // [actsAsEditor]="false", which suppresses every write at the frame (the only writer).
+      // The frame's suppression is covered in operator-property-edit-frame.component.spec.ts.
+      expect(h.updateSharedModelAwareness).not.toHaveBeenCalled();
+    });
+
+    it("clears the selection when the clicked step is not on the graph", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).selectedOperatorId = "old";
+
+      highlight(["ghost"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("closes the panel when the canvas clears its highlight", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      h.highlightedIds.length = 0; // nothing highlighted any more
+      h.unhighlightStream.next([]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("opens the panel on the one step left after dropping one of two selected", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      h.hasOperatorIds.add("op-2");
+      h.graphOperators.push({ operatorID: "op-2", operatorType: "Filter" });
+
+      highlight(["op-1", "op-2"], ["op-2"]);
+      expect(component.selectedOperatorId).toBeUndefined(); // two selected: no single step to show
+
+      // Ctrl-clicking op-1 off leaves exactly one selected, which has to OPEN the panel. Only the
+      // un-highlight stream fires here -- nothing was newly highlighted -- so that stream has to
+      // apply the same rule as the highlight stream, not just test for an empty selection.
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push("op-2");
+      h.unhighlightStream.next(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-2");
+    });
+
+    it("keeps the panel closed while more than one step is still highlighted", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1", "op-2", "op-3"], ["op-2", "op-3"]);
+
+      h.highlightedIds.splice(h.highlightedIds.indexOf("op-3"), 1); // two left
+      h.unhighlightStream.next(["op-3"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("dismisses the panel via the close button, dropping the highlight for co-editors too", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      component.closeOperatorPanel();
+
+      // Through the action service, whose unhighlight also publishes the new selection on the
+      // shared awareness channel. Calling the joint wrapper's method directly would drop the ring
+      // locally and leave co-editors still seeing it on this reader's behalf.
+      expect(h.serviceUnhighlightOperators).toHaveBeenCalledWith("op-1");
+      expect(h.updateSharedModelAwareness).toHaveBeenCalledWith("highlighted", []);
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("ignores a multi-select highlight, closing the panel (no single step to show)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+      expect(component.selectedOperatorId).toBe("op-1");
+
+      // Shift-clicking a second step: the stream emits only the new id, but the full selection is
+      // now two, so the panel closes rather than opening whichever was clicked last.
+      highlight(["op-1", "op-2"], ["op-2"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
     });
   });
 });

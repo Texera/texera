@@ -76,6 +76,28 @@ export function setupHarness() {
   // Operators with view-result ("the eye") on in the canvas; the form shows these on top of the
   // always-shown terminal steps.
   const viewResultIds = new Set<string>();
+  // Selecting a step on the embedded canvas drives the read-only inspect panel.
+  const highlightStream = new Subject<readonly string[]>();
+  const unhighlightStream = new Subject<readonly string[]>();
+  const highlightedIds: string[] = [];
+  const updateSharedModelAwareness = vi.fn();
+  // The joint wrapper's unhighlight: drops the ids from the selection and nothing else. The two
+  // streams stay under the tests' control, so this does not emit.
+  const unhighlightOperators = vi.fn((...ops: string[]) => {
+    for (const op of ops) {
+      const at = highlightedIds.indexOf(op);
+      if (at !== -1) {
+        highlightedIds.splice(at, 1);
+      }
+    }
+  });
+  // The action service's unhighlight, which is the one the form has to use: it delegates to the
+  // wrapper AND publishes the resulting selection on the shared awareness channel, so co-editors
+  // stop seeing the highlight. Modelled as the real pair so a test can tell the two apart.
+  const serviceUnhighlightOperators = vi.fn((...ops: string[]) => {
+    unhighlightOperators(...ops);
+    updateSharedModelAwareness("highlighted", [...highlightedIds]);
+  });
   // Operators that produced a non-empty result -- drives hasNonEmptyResult in the result mock.
   const anyResultIds = new Set<string>();
   // Operators the engine treats as terminal (out-degree 0 on the ENABLED plan): the engine materializes
@@ -100,6 +122,8 @@ export function setupHarness() {
     getWorkflowMetadata: () => ({ name: "scGPT", lastModifiedTime: 1767225600000 }),
     setWorkflowName: vi.fn(),
     setWorkflowMetadata: vi.fn(),
+    setHighlightingEnabled: vi.fn(),
+    unhighlightOperators: serviceUnhighlightOperators,
     getTexeraGraph: () => ({
       triggerCenterEvent,
       hasOperator: (id: string) => hasOperatorIds.has(id),
@@ -118,6 +142,13 @@ export function setupHarness() {
             source: { operatorID: op.operatorID },
             target: { operatorID: "downstream" },
           })),
+      updateSharedModelAwareness,
+    }),
+    getJointGraphWrapper: () => ({
+      getJointOperatorHighlightStream: () => highlightStream.asObservable(),
+      getJointOperatorUnhighlightStream: () => unhighlightStream.asObservable(),
+      getCurrentHighlightedOperatorIDs: () => highlightedIds,
+      unhighlightOperators,
     }),
     // Exposing or un-exposing a property announces on this stream; the form re-reads its config.
     formBindingChanged$: new Subject<unknown>(),
@@ -301,5 +332,11 @@ export function setupHarness() {
     disabledDownstream,
     snapshotById,
     triggerCenterEvent,
+    highlightStream,
+    unhighlightStream,
+    highlightedIds,
+    unhighlightOperators,
+    serviceUnhighlightOperators,
+    updateSharedModelAwareness,
   };
 }
