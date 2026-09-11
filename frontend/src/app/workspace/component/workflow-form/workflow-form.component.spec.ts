@@ -1401,4 +1401,124 @@ describe("WorkflowFormComponent", () => {
       expect(component.runError).toBe("Run failed: please check your inputs and try again.");
     });
   });
+
+  describe("inspecting a step read-only", () => {
+    const withOp = () => {
+      h.hasOperatorIds.add("op-1");
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "Filter" });
+    };
+
+    // Model a highlight the way the real graph does: the stream emits only the newly-highlighted
+    // ids (the delta), while getCurrentHighlightedOperatorIDs returns the whole selection. So set
+    // the full selection first, then emit the delta.
+    const highlight = (full: string[], delta: string[] = full) => {
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push(...full);
+      h.highlightStream.next(delta);
+    };
+
+    it("turns highlighting on so a click selects a step", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(workflowActionService.setHighlightingEnabled).toHaveBeenCalledWith(true);
+    });
+
+    it("opens the read-only panel for the clicked step", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-1");
+    });
+
+    it("never broadcasts editing itself: silence is delegated to the panel (actsAsEditor=false)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      // The form component does not touch the co-editor channel at all; the panel is mounted with
+      // [actsAsEditor]="false", which suppresses every write at the frame (the only writer).
+      // The frame's suppression is covered in operator-property-edit-frame.component.spec.ts.
+      expect(h.updateSharedModelAwareness).not.toHaveBeenCalled();
+    });
+
+    it("clears the selection when the clicked step is not on the graph", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).selectedOperatorId = "old";
+
+      highlight(["ghost"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("closes the panel when the canvas clears its highlight", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      h.highlightedIds.length = 0; // nothing highlighted any more
+      h.unhighlightStream.next([]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("opens the panel on the one step left after dropping one of two selected", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      h.hasOperatorIds.add("op-2");
+      h.graphOperators.push({ operatorID: "op-2", operatorType: "Filter" });
+
+      highlight(["op-1", "op-2"], ["op-2"]);
+      expect(component.selectedOperatorId).toBeUndefined(); // two selected: no single step to show
+
+      // Ctrl-clicking op-1 off leaves exactly one selected, which has to OPEN the panel. Only the
+      // un-highlight stream fires here -- nothing was newly highlighted -- so that stream has to
+      // apply the same rule as the highlight stream, not just test for an empty selection.
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push("op-2");
+      h.unhighlightStream.next(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-2");
+    });
+
+    it("keeps the panel closed while more than one step is still highlighted", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1", "op-2", "op-3"], ["op-2", "op-3"]);
+
+      h.highlightedIds.splice(h.highlightedIds.indexOf("op-3"), 1); // two left
+      h.unhighlightStream.next(["op-3"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("dismisses the panel via the close button, dropping the highlight for co-editors too", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      component.closeOperatorPanel();
+
+      // Through the action service, whose unhighlight also publishes the new selection on the
+      // shared awareness channel. Calling the joint wrapper's method directly would drop the ring
+      // locally and leave co-editors still seeing it on this reader's behalf.
+      expect(h.serviceUnhighlightOperators).toHaveBeenCalledWith("op-1");
+      expect(h.updateSharedModelAwareness).toHaveBeenCalledWith("highlighted", []);
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("ignores a multi-select highlight, closing the panel (no single step to show)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+      expect(component.selectedOperatorId).toBe("op-1");
+
+      // Shift-clicking a second step: the stream emits only the new id, but the full selection is
+      // now two, so the panel closes rather than opening whichever was clicked last.
+      highlight(["op-1", "op-2"], ["op-2"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+  });
 });

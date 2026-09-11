@@ -58,6 +58,7 @@ import { WorkflowWebsocketService } from "../../service/workflow-websocket/workf
 import { ExecutionState } from "../../types/execute-workflow.interface";
 import { Point } from "../../types/workflow-common.interface";
 import { ComputingUnitSelectionComponent } from "../power-button/computing-unit-selection.component";
+import { PropertyEditorComponent } from "../property-editor/property-editor.component";
 import { ResultTableFrameComponent } from "../result-panel/result-table-frame/result-table-frame.component";
 import { VisualizationFrameContentComponent } from "../visualization-panel-content/visualization-frame-content.component";
 import { WorkflowEditorComponent } from "../workflow-editor/workflow-editor.component";
@@ -89,9 +90,10 @@ interface RenderedField {
  * computing-unit selector, a run clock and plain-language failure messages. It then shows results
  * underneath -- the final step's output plus the author's chosen view-result steps, each a table, a
  * visualisation, or a compact "no result yet" -- reading the canvas's view-result set and never
- * writing it. Opening a step to
- * inspect it read-only, and the authoring mode that picks what to show, are later PRs. A view, not
- * a new object: it opens the same workflow the canvas does.
+ * writing it. A reader can also click a step on the embedded preview to open its property panel
+ * read-only: the panel writes nothing to the shared workflow and its content is inert. The
+ * authoring mode that turns that panel live and picks what to show is a later PR. A view, not a new
+ * object: it opens the same workflow the canvas does.
  */
 @UntilDestroy()
 @Component({
@@ -109,6 +111,7 @@ interface RenderedField {
     NzTooltipModule,
     UserIconComponent,
     ComputingUnitSelectionComponent,
+    PropertyEditorComponent,
     ResultTableFrameComponent,
     VisualizationFrameContentComponent,
     WorkflowEditorComponent,
@@ -155,6 +158,10 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
    *  disabled ("Invalid" / "Empty") in the same cases. */
   public isWorkflowValid = true;
   public isWorkflowEmpty = false;
+
+  /** The step whose property panel is open for read-only inspection, if any. The panel shows the
+   *  operator's own title, so this id is all the page needs to track. */
+  public selectedOperatorId?: string;
 
   /**
    * Which steps' results to show: the terminal (final) steps, whose results the engine always
@@ -236,7 +243,36 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     // Give the result tables a realistic height to page against, so they show a screenful of rows
     // instead of one. (~7 rows; the card scrolls for the rest.)
     this.panelResizeService.changePanelSize(900, 560);
+    // Highlighting is off by default; turning it on is what makes a click on a step select it,
+    // which is how a reader opens that step's panel to inspect it (and, later, an author to expose).
+    this.workflowActionService.setHighlightingEnabled(true);
     this.load(wid);
+
+    // Selecting a step on the embedded (read-only) canvas opens its property panel read-only. The
+    // canvas is not editable, but highlighting still works, so reuse it rather than teach the editor
+    // a second click mode.
+    this.workflowActionService
+      .getJointGraphWrapper()
+      .getJointOperatorHighlightStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        this.syncSelectionFromHighlight();
+        // The panel is mounted with [actsAsEditor]="false", so opening a step here never
+        // announces "currently editing this operator" on the shared co-editor channel -- a reader
+        // inspecting a step is not editing the graph, and broadcasting would print the reader's own
+        // name in colour over that operator on everyone else's canvas. Suppressed at the frame (the
+        // only place that writes it), not here, so it cannot be re-set after this handler runs.
+      });
+
+    // Un-highlighting moves the selection just as highlighting does: clicking empty canvas drops it
+    // to none, and dropping one of two shift-selected steps leaves exactly one -- which has to OPEN
+    // the panel, since the highlight stream stays silent (nothing was newly highlighted). So both
+    // streams run the same rule rather than each testing for its own special case.
+    this.workflowActionService
+      .getJointGraphWrapper()
+      .getJointOperatorUnhighlightStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => this.syncSelectionFromHighlight());
 
     // A result changing bumps that operator's version (so its chart frame is rebuilt, not reused),
     // re-limits what the form shows to the currently-viewed set, and re-fits the visualisations.
@@ -1041,6 +1077,43 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       return false;
     };
     return this.rendered.some(r => hasRequiredError(r.form));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inspecting a step: its property panel, opened read-only from the preview
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Move the panel to whatever the preview currently has highlighted, read-only. Exactly one
+   * highlighted step opens the panel for it; none, or a shift-click multi-select, closes it -- with
+   * more than one the property editor shows no single operator either, so opening it for whichever
+   * step was clicked last would show the wrong settings.
+   *
+   * Both the highlight and the un-highlight stream run this, because each carries only the ids that
+   * changed rather than the selection that resulted: dropping one of two selected steps leaves
+   * exactly one and so has to OPEN the panel, yet only the un-highlight stream fires for it.
+   */
+  private syncSelectionFromHighlight(): void {
+    const highlighted = this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs();
+    // A highlighted id can already be gone from the graph -- a co-editor deleting the step emits the
+    // un-highlight, and reading it back would open a panel on nothing.
+    const graph = this.workflowActionService.getTexeraGraph();
+    this.selectedOperatorId =
+      highlighted.length === 1 && graph.hasOperator(highlighted[0]) ? highlighted[0] : undefined;
+    this.cdr.detectChanges();
+  }
+
+  /** Dismiss the panel: the selection is what holds it open, so drop the highlight and the selection. */
+  public closeOperatorPanel(): void {
+    const wrapper = this.workflowActionService.getJointGraphWrapper();
+    // Through the action service rather than the joint wrapper: only the service also publishes the
+    // resulting highlight set on the shared awareness channel, so co-editors stop seeing this
+    // reader's selection ringed on their own canvas.
+    this.workflowActionService.unhighlightOperators(...wrapper.getCurrentHighlightedOperatorIDs());
+    // Cleared here too, not left to the un-highlight stream: the wrapper emits nothing for an
+    // operator that was not highlighted, and a dismiss has to close the panel regardless.
+    this.selectedOperatorId = undefined;
+    this.cdr.detectChanges();
   }
 
   /** Open or close the workflow preview; opening it builds the canvas the first time. */
