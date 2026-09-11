@@ -202,6 +202,24 @@ A knob takes a hostile column only where one carries the type it already reads, 
 - Each test leaves `$TMPDIR/verify-<OpDesc>-*` holding the inputs and one generated script per
   variant. No script there means the failure came before the generated code ran.
 
+### If the operator is a source
+
+A source reads no input port, so it is fixtured by `SourceCategoryRunner` rather than by the
+canonical table. What you owe depends on which of four cases it falls in.
+
+- **A scan source in a format already covered.** Nothing. `SourceCategoryRunner` maps the
+  `fileTypeName` a `ScanSourceOpDesc` declares to an encoder that writes a file in it, so a
+  source declaring `"CSV"`, `"CSVOld"`, `"JSONL"` or `"Arrow"` is verified the moment it is
+  registered in `@JsonSubTypes`. `CSVScanSourceOpDesc` is the example, and its name appears
+  nowhere in the runner.
+- **A scan source in a new format.** Add one encoder to `encoderByFileType`, keyed by the
+  `fileTypeName` the descriptor declares.
+- **A source that is not a scan source**, such as a SQL or an API source. Write a
+  `SourceHandler`: a generic fixture cannot supply the database or the endpoint it reads.
+- **A source that cannot be verified at all.** Add a `knownIssues` row with the reason, the
+  way `FileScanOpDesc` (its filenames arrive on an input port) and `URLFetcherOpDesc` (it
+  fetches over the network) do.
+
 ### When a run cannot happen
 
 - Never skip silently.
