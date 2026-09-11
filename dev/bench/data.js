@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789047313970,
+  "lastUpdate": 1789131076944,
   "repoUrl": "https://github.com/apache/texera",
   "entries": {
     "Arrow Flight E2E Throughput": [
@@ -13295,6 +13295,163 @@ window.BENCHMARK_DATA = {
           {
             "name": "throughput / bs=1000 sw=50 sl=512",
             "value": 558.6841978226892,
+            "unit": "tuples/sec"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Kary Zheng",
+            "username": "kz930",
+            "email": "150742834+kz930@users.noreply.github.com"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "75c85aa7e771d9b3d3c79396b08b196928238858",
+          "message": "feat(workflow-operator): export the first five operators, and serve the script (#8502)\n\n### What changes were proposed in this PR?\n\nFive operators implement `StandaloneCodeGenerator`, which is what turns\nthe translator from a mechanism into something that produces a script\nthat runs: Distinct, Filter, Limit, Projection and Union. Four of them\nread a single input; Union reads a variadic port, so it names the whole\nlist of upstreams rather than a fixed count, which a fixed count gets\nwrong in both directions.\n\nThe endpoint the editor calls comes with them, because what it is worth\ntesting on is a script that runs rather than one made of placeholders.\nIt takes a plan, compiles it first so a scan source can read the schema\noff the file it points at, hands the translator the output schemas that\ngives, and returns the script. A failed compile is logged and\ntranslation goes on without them, so a workflow whose file is not chosen\nyet still exports.\n\n`pyStringLiteral` comes with them too. A generator has to write a column\nname into the source it emits, and writing the quotes by hand lets any\nquote, backslash or newline in the name close the literal early and\nchange, or break, the emitted program.\n\n#8327 is the trait and the translator, and nothing that uses them.\n\n### Any related issues, documentation, discussions?\n\nPart of #8325, 2 of 27; that issue lists the set in order.\n\nCloses #8501, the task this change is the whole of.\n\n### How was this PR tested?\n\nEach operator asserts the block it emits in its own spec.\n`PythonTemplateBuilderApiSpec` covers what `pyStringLiteral` escapes,\nincluding the NUL that Python refuses to compile anywhere in a source\nfile. `WorkflowToPythonResourceSpec` drives the endpoint over a plan\nbuilt from these operators and reads the script back.\n\n### Was this PR authored or co-authored using generative AI tooling?\n\nGenerated-by: Claude Code (Claude Opus 5)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-09-11T06:47:02Z",
+          "url": "https://github.com/apache/texera/commit/75c85aa7e771d9b3d3c79396b08b196928238858"
+        },
+        "date": 1789131076427,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "throughput / bs=10 sw=1 sl=8",
+            "value": 900.8345175125866,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=8",
+            "value": 1669.0055164203989,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=8",
+            "value": 1841.0491180547265,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=64",
+            "value": 1217.093897822976,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=64",
+            "value": 1778.8273694120287,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=64",
+            "value": 1818.1919772799042,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=512",
+            "value": 1298.7319597388703,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=512",
+            "value": 1788.7258487557322,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=512",
+            "value": 1838.3076867926263,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=8",
+            "value": 1062.6521753115398,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=8",
+            "value": 1404.6874769327271,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=8",
+            "value": 1452.3028137054475,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=64",
+            "value": 1072.85391878245,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=64",
+            "value": 1412.9040647054783,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=64",
+            "value": 1449.230550702989,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=512",
+            "value": 1067.2649754118825,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=512",
+            "value": 1356.7480379689787,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=512",
+            "value": 1426.437649987505,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=8",
+            "value": 649.4079703572173,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=8",
+            "value": 762.025315499885,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=8",
+            "value": 770.3743646712888,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=64",
+            "value": 650.28284289605,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=64",
+            "value": 751.5004340432039,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=64",
+            "value": 752.1769447310804,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=512",
+            "value": 629.2071192745657,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=512",
+            "value": 723.6941309540298,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=512",
+            "value": 730.245436418592,
             "unit": "tuples/sec"
           }
         ]
