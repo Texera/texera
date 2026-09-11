@@ -68,6 +68,22 @@ import { CoeditorPresenceService } from "../../service/workflow-graph/model/coed
 import { SAVE_DEBOUNCE_TIME_IN_MS } from "../workspace.component";
 
 /**
+ * Input types that take a click, not text. Focusing one is not "typing", so a rebuild that arrives
+ * while one has the focus loses nothing and must not be held back (see isTypingInTheForm).
+ */
+const NON_TEXT_INPUT_TYPES = new Set([
+  "checkbox",
+  "radio",
+  "button",
+  "submit",
+  "reset",
+  "range",
+  "color",
+  "file",
+  "image",
+]);
+
+/**
  * One rendered input: the resolved binding plus the operator's own formly field for that property.
  * Building the field from the operator's JSON schema (not guessing from the value) is what gives a
  * file its picker and an attribute its column dropdown.
@@ -184,6 +200,8 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
 
   /** Set on teardown so deferred callbacks stop touching a view that is gone. */
   private destroyed = false;
+  /** A rebuild of the inputs that arrived while the reader was typing, held until the typing ends. */
+  private rebuildDeferred = false;
 
   /**
    * Operator positions as loaded, kept only as a fallback: a save writes the live positions
@@ -389,30 +407,60 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     // Attribute boxes become dropdowns only after compilation writes the column enums into each
     // operator's dynamic schema -- which lands after these cards were built. Rebuild on the
     // compilation-state stream, a ReplaySubject(1) so a late subscriber (this page reloads fresh
-    // on every Canvas<->Form switch) gets the current state at once. Skip it while someone is
-    // typing, so a rebuild does not throw away a half-entered value under the cursor.
+    // on every Canvas<->Form switch) gets the current state at once. Held, not dropped, while
+    // someone is typing (see rebuildFormOrDefer), so it neither throws away a half-entered value
+    // under the cursor nor goes missing.
     this.workflowCompilingService
       .getCompilationStateInfoChangedStream()
       .pipe(debounceTime(FORM_DEBOUNCE_TIME_MS), untilDestroyed(this))
-      .subscribe(() => {
-        if (this.isTypingInTheForm()) {
-          return;
-        }
-        this.readConfig();
-      });
+      .subscribe(() => this.rebuildFormOrDefer(false));
 
     // Exposing or un-exposing a property in the panel changes the definition; the inputs above have
     // to follow at once, which is the whole point of editing them side by side. Today this fires for
     // this client's own edits; once #8351 moves formBinding into the shared model it also fires for
-    // a co-editor's -- so, like the compilation path, skip the rebuild while the reader is typing, or
-    // a remote change would throw away a half-entered value under the cursor.
-    this.workflowActionService.formBindingChanged$.pipe(untilDestroyed(this)).subscribe(() => {
-      if (this.isTypingInTheForm()) {
-        return;
-      }
-      this.readConfig();
+    // a co-editor's -- so, like the compilation path, the rebuild is held while the reader is typing
+    // (a remote change would otherwise throw away a half-entered value under the cursor) and runs
+    // the moment the typing ends.
+    this.workflowActionService.formBindingChanged$
+      .pipe(untilDestroyed(this))
+      .subscribe(() => this.rebuildFormOrDefer(true));
+  }
+
+  /**
+   * Rebuild the inputs from the config now or, while the reader is typing, hold the rebuild until
+   * the focus leaves the text control (onFocusOut). Held rather than dropped: the change that asked
+   * for it (a property exposed in the panel, a schema compiled) still has to reach the page, only
+   * not under the cursor. Dropping it left an exposed property's card missing until something else
+   * happened to rebuild, which read as the tick box doing nothing.
+   */
+  private rebuildFormOrDefer(detect: boolean): void {
+    if (this.isTypingInTheForm()) {
+      this.rebuildDeferred = true;
+      return;
+    }
+    this.rebuildDeferred = false;
+    this.readConfig();
+    if (detect) {
       this.cdr.detectChanges();
-    });
+    }
+  }
+
+  /**
+   * focusout fires before the next element takes the focus, so the held rebuild is decided after
+   * the current tick: a reader who merely tabbed to another text field keeps it held, anyone else
+   * gets it now. The hold is re-checked when that tick fires: the very click that took the focus
+   * can be a control whose own change rebuilds at once (the expose tick box), clearing the hold in
+   * between, and a stale callback that rebuilt regardless would only rebuild the same cards twice.
+   */
+  @HostListener("focusout")
+  public onFocusOut(): void {
+    if (this.rebuildDeferred) {
+      this.later(() => {
+        if (this.rebuildDeferred) {
+          this.rebuildFormOrDefer(true);
+        }
+      }, 0);
+    }
   }
 
   private load(wid: number): void {
@@ -473,13 +521,22 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   // Inputs: the exposed properties, rendered as their operators' own fields
   // ---------------------------------------------------------------------------
 
-  /** Whether the cursor is currently inside one of this page's inputs. */
+  /**
+   * Whether the reader is mid-way through typing somewhere on this page: the caret is in a control
+   * that holds text (a text-like input, a textarea, a select, a content-editable). A tick box, radio
+   * or button also takes the focus when clicked but holds no half-entered value, so it is not typing
+   * -- a tick box (the step panel's expose boxes, once that panel is live for authoring) is precisely
+   * the click that has to rebuild the cards at once, and counting it as typing held that rebuild back.
+   */
   private isTypingInTheForm(): boolean {
     const active = document.activeElement as HTMLElement | null;
     if (!active || !this.host.nativeElement.contains(active)) {
       return false;
     }
-    return ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
+    if (active.tagName === "INPUT") {
+      return !NON_TEXT_INPUT_TYPES.has((active as HTMLInputElement).type);
+    }
+    return ["TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
   }
 
   private readConfig(): void {

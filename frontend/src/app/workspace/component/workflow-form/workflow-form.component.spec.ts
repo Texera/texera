@@ -822,15 +822,62 @@ describe("WorkflowFormComponent", () => {
       expect(rebuild).toHaveBeenCalled();
     });
 
-    it("does not rebuild under the cursor of someone typing", async () => {
+    it("holds a rebuild while someone is typing and runs it once the focus leaves", async () => {
       build(formViewWorkflow).ngOnInit();
-      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
       const rebuild = vi.spyOn(component as any, "readConfig");
 
       h.compilationChanged.next("Succeeded");
       await new Promise(r => setTimeout(r, FORM_DEBOUNCE_TIME_MS + 50));
+      expect(rebuild).not.toHaveBeenCalled();
+
+      // The cursor leaves the field: the held rebuild runs, once. Held rather than dropped, or the
+      // compiled schema would never reach the cards until something else rebuilt them.
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps a held rebuild held when the focus only moves to another text field", async () => {
+      build(formViewWorkflow).ngOnInit();
+      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined);
+
+      component.onFocusOut(); // tabbed to the next input: still typing when the check runs
+      await new Promise(r => setTimeout(r, 10));
 
       expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    it("rebuilds nothing on a focusout with no rebuild held", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const rebuild = vi.spyOn(component as any, "readConfig");
+
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    // Leaving the text field by clicking a tick box: focusout queues the held rebuild, then the tick
+    // box's own change rebuilds at once and clears the hold. The queued callback must notice and
+    // not rebuild the same cards a second time.
+    it("does not rebuild twice when the control that took the focus already rebuilt", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined); // held
+      component.onFocusOut(); // queued
+
+      typing.mockReturnValue(false);
+      workflowActionService.formBindingChanged$.next(undefined); // the tick box's own change: rebuilds now
+      expect(rebuild).toHaveBeenCalledTimes(1);
+      await new Promise(r => setTimeout(r, 10)); // the queued callback fires
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
     });
 
     it("re-reads the config when a property is exposed or un-exposed", () => {
@@ -843,15 +890,37 @@ describe("WorkflowFormComponent", () => {
     });
 
     // Once #8351 makes this stream fire for a co-editor's change, a rebuild under the cursor would
-    // discard a half-entered value -- so the binding path skips typing, like the compilation path.
-    it("does not re-read the config on a binding change while the reader is typing", () => {
+    // discard a half-entered value -- so the binding path holds it while typing, like the
+    // compilation path, and runs it when the focus leaves.
+    it("holds a binding-change rebuild while the reader is typing, then runs it on focusout", async () => {
       build(formViewWorkflow).ngOnInit();
-      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
       const rebuild = vi.spyOn(component as any, "readConfig");
 
       workflowActionService.formBindingChanged$.next(undefined);
-
       expect(rebuild).not.toHaveBeenCalled();
+
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    // The bug this guards against: ticking a property in the step panel focuses the tick box, an
+    // <input type="checkbox"> inside this page. Counted as typing, the rebuild that should add the
+    // card was held back, so the tick looked like it did nothing until something else rebuilt.
+    it("does not count a focused tick box as typing", () => {
+      build(formViewWorkflow).ngOnInit();
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      document.body.appendChild(box);
+      (component as any).host = { nativeElement: { contains: () => true, querySelector: () => null } };
+      box.focus();
+
+      expect((component as any).isTypingInTheForm()).toBe(false);
+
+      document.body.removeChild(box);
     });
 
     it("reports typing when a form field inside the page is focused", () => {
