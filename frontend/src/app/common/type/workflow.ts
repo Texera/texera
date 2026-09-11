@@ -67,7 +67,8 @@ export interface FormBindingConfig {
   };
   /** Array order is display order; the author reorders by dragging. */
   fields: FormFieldBinding[];
-  /** Operators whose results are shown under the workflow after a run. */
+  /** View-result operators whose results are also shown under the workflow after a run, on top of
+   *  the final step's result, which always shows. */
   resultOperatorIds: string[];
 }
 
