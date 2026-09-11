@@ -120,6 +120,11 @@ fragment. Without one, the export emits a `# TODO:` comment in its place.
   and 0.0, and 6 renders as "6.0" where the engine wrote "6". Override the
   `generateStandaloneCode(inputSchemas)` overload and pass the column through
   `renderedAsText`; `None` there means read it as it arrives.
+- A TIMESTAMP is a wall clock and carries no zone, so a count from the epoch is read with
+  UTC arithmetic on both sides. `new Timestamp(millis)` instead reads it in whatever zone the
+  machine is set to, and pandas reads the same number as UTC, so the two paths part by the
+  local offset and agree again on a machine set to UTC. `ArrowUtils` states the convention;
+  follow it wherever an operator turns a number into a moment.
 - Where the two engines genuinely differ, note the difference in a comment.
 
 ## 4. Verification
