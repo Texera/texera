@@ -171,7 +171,7 @@ duplicate rows or a cross-field type pairing.
 A knob takes a hostile column only where one carries the type it already reads, so a chart's
 `color` and `pattern` keep ordinary names once its axes have taken them.
 
-### Row order, models, empty cells
+### Row order, models, and the tables an operator is handed
 
 - `LogicalOp.orderSensitive` is false by default, so rows compare as a set. Override it to
   true only if the operator establishes an order; today only Sort, Stable Merge Sort and Sort
@@ -180,11 +180,18 @@ A knob takes a hostile column only where one carries the type it already reads, 
   `predict` output on the training features is compared.
 - Both paths seed numpy's global RNG identically, so sklearn fits draw the same numbers.
 - Every operator also gets an empty-cell run, on the same table with one cell emptied per
-  column. Withhold it only through `variantsNotRun`, with a reason.
+  column, and an empty-table run, on the same columns with no rows under them. The two ask
+  different questions: the first table still has a value in every column somewhere, so code
+  that reads a column's range or its quantiles still finds one, while the second has nothing
+  to read and an operator that assumed otherwise raises instead of passing the emptiness
+  through. An upstream filter that matches nothing hands an operator exactly that.
+- Withhold either only through `variantsNotRun`, with a reason.
 
 ### Running it
 
-- Build a venv from `amber/requirements.txt` and keep it in step with that file.
+- Build a venv from `amber/requirements.txt` and `amber/operator-requirements.txt`, and
+  reinstall whenever either changes. CI builds its interpreter from them on every run, so a
+  venv left behind tests library versions the product never sees.
 - The command, from the repository root:
   `UDF_PYTHON_PATH=/absolute/path/to/venv/bin/python VERIFY_ONLY=YourOpDesc sbt
   "WorkflowCompilingService/testOnly *OperatorBehaviorSpec"`
