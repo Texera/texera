@@ -25,43 +25,6 @@ package org.apache.texera.amber.operator
 object StandaloneHelpers {
 
   /**
-    * A Python transcription of `java.util.Random`, for operators whose executor
-    * draws from one.
-    *
-    * A sampler decides per row whether to keep it, so which rows survive is
-    * fixed by the exact sequence the generator produces. Seeding Python's
-    * `random` or numpy's with the engine's seed selects a different set, and
-    * the script would then report a different sample than the workflow it came
-    * from. Only the same generator gives the same rows.
-    */
-  val JavaRandom: String =
-    """# java.util.Random, transcribed so sampling matches the engine.
-      |class _TexeraJavaRandom:
-      |    _MASK = (1 << 48) - 1
-      |    _MULTIPLIER = 0x5DEECE66D
-      |    _ADDEND = 0xB
-      |
-      |    def __init__(self, seed):
-      |        self._seed = (seed ^ self._MULTIPLIER) & self._MASK
-      |
-      |    def _next(self, bits):
-      |        self._seed = (self._seed * self._MULTIPLIER + self._ADDEND) & self._MASK
-      |        value = self._seed >> (48 - bits)
-      |        return value - (1 << 32) if value >= (1 << 31) else value
-      |
-      |    def next_double(self):
-      |        return ((self._next(26) << 27) + self._next(27)) * (2.0 ** -53)
-      |
-      |    def next_int(self, bound):
-      |        if bound & (-bound) == bound:
-      |            return (bound * self._next(31)) >> 31
-      |        while True:
-      |            bits = self._next(31)
-      |            value = bits % bound
-      |            if bits - value + (bound - 1) >= 0:
-      |                return value""".stripMargin
-
-  /**
     * A Python transcription of `AttributeTypeUtils`, for operators that cast a
     * column to a declared type.
     *
