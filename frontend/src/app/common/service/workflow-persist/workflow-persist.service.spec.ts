@@ -202,19 +202,23 @@ describe("WorkflowPersistService", () => {
 
       const req = httpTestingController.expectOne(`${API}/${WORKFLOW_PERSIST_URL}`);
       expect(req.request.method).toBe("POST");
+      // The publish flag is not part of a save: the endpoint does not read it, and sending a
+      // stale copy is what used to null the column after the first save.
       expect(req.request.body).toEqual({
         wid: 9,
         name: "my wf",
         description: "a description",
         content: JSON.stringify(validContent),
-        isPublic: true,
       });
 
-      req.flush({ wid: 9, name: "my wf", content: '{"operators":[]}' });
+      // The saved row comes back with the flag under the backend's name; the response the
+      // caller sees carries it as isPublished, so metadata fed back from a save stays complete.
+      req.flush({ wid: 9, name: "my wf", content: '{"operators":[]}', isPublic: true });
 
       // valid workflow -> no error notification, and string content is parsed
       expect(errorSpy).not.toHaveBeenCalled();
       expect(result?.content).toEqual({ operators: [] });
+      expect(result?.isPublished).toBe(1);
     });
 
     it("persistWorkflow notifies the user when the workflow is broken but still POSTs", () => {
@@ -235,7 +239,7 @@ describe("WorkflowPersistService", () => {
       );
 
       const req = httpTestingController.expectOne(`${API}/${WORKFLOW_PERSIST_URL}`);
-      expect(req.request.body.isPublic).toBe(false);
+      expect("isPublic" in req.request.body).toBe(false);
       req.flush({ wid: 1, name: "broken", content: '{"operators":[]}' });
     });
 
