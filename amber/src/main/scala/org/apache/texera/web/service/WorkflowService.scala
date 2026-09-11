@@ -24,7 +24,9 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.StatusCode
 import io.reactivex.rxjava3.disposables.{CompositeDisposable, Disposable}
 import io.reactivex.rxjava3.subjects.BehaviorSubject
-import org.apache.texera.common.config.ApplicationConfig
+import org.apache.texera.common.config.{ApplicationConfig, StorageConfig}
+import org.apache.texera.dao.SqlServer
+import org.apache.texera.dao.jooq.generated.Tables.USER_WAREHOUSE
 import org.apache.texera.amber.core.WorkflowRuntimeException
 import org.apache.texera.amber.core.storage.DocumentFactory
 import org.apache.texera.amber.core.storage.result.iceberg.OnIceberg
@@ -69,6 +71,39 @@ import scala.jdk.CollectionConverters.IterableHasAsScala
 
 object WorkflowService {
   private val workflowServiceMapping = new ConcurrentHashMap[String, WorkflowService]()
+
+  /**
+    * Maps an execution's chosen warehouse (its user_warehouse row id) to its Lakekeeper
+    * warehouse name, checking that the requesting user owns it. `None` (no explicit pick) keeps the
+    * shared default warehouse. With warehouses disabled, an explicit pick is refused
+    * loudly rather than silently routed into the shared warehouse (#6930).
+    */
+  def resolveLakekeeperWarehouseName(
+      warehouseId: Option[Int],
+      uid: Integer,
+      enabled: Boolean = StorageConfig.warehouseEnabled
+  ): Option[String] = {
+    if (!enabled) {
+      warehouseId.foreach(_ =>
+        throw new IllegalArgumentException(
+          "per-user warehouses are disabled in this deployment"
+        )
+      )
+      return None
+    }
+    warehouseId.map(id => {
+      val row = SqlServer
+        .getInstance()
+        .createDSLContext()
+        .selectFrom(USER_WAREHOUSE)
+        .where(USER_WAREHOUSE.WHID.eq(id).and(USER_WAREHOUSE.UID.eq(uid)))
+        .fetchOne()
+      if (row == null) {
+        throw new IllegalArgumentException(s"no warehouse with id $id owned by this user")
+      }
+      row.getLakekeeperWarehouseName
+    })
+  }
   val cleanUpDeadlineInSeconds: Int = ApplicationConfig.executionStateCleanUpInSecs
 
   def getAllWorkflowServices: Iterable[WorkflowService] = workflowServiceMapping.values().asScala
@@ -214,6 +249,7 @@ class WorkflowService(
       )
 
       val workflowContext: WorkflowContext = createWorkflowContext()
+      workflowContext.warehouse = WorkflowService.resolveLakekeeperWarehouseName(req.warehouseId, uid)
       var coordinatorConf = CoordinatorConfig.default
 
       // clean up results from previous run
@@ -228,7 +264,8 @@ class WorkflowService(
         uid,
         req.executionName,
         convertToJson(req.engineVersion),
-        req.computingUnitId
+        req.computingUnitId,
+        req.warehouseId
       )
       span.setAttribute(SpanAttrs.ExecutionId, Long.box(workflowContext.executionId.id))
       // A run has started: record the start counter and stamp its start time.
@@ -369,30 +406,37 @@ class WorkflowService(
     // Remove references from registry first
     WorkflowExecutionsResource.deleteConsoleMessageAndExecutionResultUris(eid)
 
-    // Clean up all result and console message documents
+    // Clean up all result and console message documents. While per-user warehouses are
+    // disabled, cleanup must not reach into them (#6930) — those URIs are skipped.
     (resultUris ++ consoleMessagesUris).foreach { uri =>
-      try DocumentFactory.openDocument(uri)._1.clear()
-      catch {
-        case error: Throwable =>
-          logger.debug(s"Error processing document at $uri: ${error.getMessage}")
-      }
+      if (WarehouseReadGuard.skipWhileDisabled(uri)) {
+        logger.info(s"skipping cleanup of $uri: per-user warehouses are disabled")
+      } else
+        try DocumentFactory.openDocument(uri)._1.clear()
+        catch {
+          case error: Throwable =>
+            logger.debug(s"Error processing document at $uri: ${error.getMessage}")
+        }
     }
 
     // Expire any Iceberg snapshots for runtime statistics
     WorkflowExecutionsResource.getRuntimeStatsUriByExecutionId(eid).foreach { uri =>
-      try {
-        DocumentFactory.openDocument(uri)._1 match {
-          case iceberg: OnIceberg => iceberg.expireSnapshots()
-          case other =>
-            logger.error(
-              s"Cannot expire snapshots: document from URI [$uri] is of type ${other.getClass.getName}. " +
-                s"Expected an instance of ${classOf[OnIceberg].getName}."
-            )
+      if (WarehouseReadGuard.skipWhileDisabled(uri)) {
+        logger.info(s"skipping snapshot expiry of $uri: per-user warehouses are disabled")
+      } else
+        try {
+          DocumentFactory.openDocument(uri)._1 match {
+            case iceberg: OnIceberg => iceberg.expireSnapshots()
+            case other =>
+              logger.error(
+                s"Cannot expire snapshots: document from URI [$uri] is of type ${other.getClass.getName}. " +
+                  s"Expected an instance of ${classOf[OnIceberg].getName}."
+              )
+          }
+        } catch {
+          case error: Throwable =>
+            logger.debug(s"Error processing document at $uri: ${error.getMessage}")
         }
-      } catch {
-        case error: Throwable =>
-          logger.debug(s"Error processing document at $uri: ${error.getMessage}")
-      }
     }
     // Delete this execution's large binaries
     LargeBinaryManager.deleteByExecution(eid.id)

@@ -21,7 +21,7 @@ package org.apache.texera.amber.operator.visualization.dendrogram
 
 import com.fasterxml.jackson.annotation.{JsonProperty, JsonPropertyDescription}
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle
+import com.kjetland.jackson.jsonSchema.annotations.{JsonSchemaInject, JsonSchemaTitle}
 import org.apache.texera.amber.core.tuple.{AttributeType, Schema}
 import org.apache.texera.amber.pybuilder.PythonTemplateBuilder.PythonTemplateBuilderStringContext
 import org.apache.texera.amber.pybuilder.PyStringTypes.{EncodableString, PythonLiteral}
@@ -33,6 +33,16 @@ import org.apache.texera.amber.pybuilder.PythonTemplateBuilder
 
 import javax.validation.constraints.NotNull
 
+// type constraint: xVal / yVal are stacked into a numeric point matrix for
+// hierarchical clustering, so they can only be numeric columns.
+@JsonSchemaInject(json = """
+{
+  "attributeTypeRules": {
+    "xVal": { "enum": ["integer", "long", "double"] },
+    "yVal": { "enum": ["integer", "long", "double"] }
+  }
+}
+""")
 class DendrogramOpDesc extends PythonOperatorDescriptor {
   @JsonProperty(value = "xVal", required = true)
   @JsonSchemaTitle("Value X Column")
@@ -116,6 +126,17 @@ class DendrogramOpDesc extends PythonOperatorDescriptor {
          |    def process_table(self, table: Table, port: int) -> Iterator[Optional[TableLike]]:
          |        if table.empty:
          |           yield {'html-content': self.render_error("input table is empty.")}
+         |           return
+         |        # A row missing either coordinate has no position to cluster from, and
+         |        # scipy refuses a NaN anywhere in the distance matrix.
+         |        table = table.dropna(subset=[$xVal, $yVal]) #remove missing values
+         |        if table.empty:
+         |           yield {'html-content': self.render_error("input table has no rows with all of the configured columns filled in.")}
+         |           return
+         |        # Clustering starts from the distances between rows, so a single row
+         |        # leaves scipy an empty distance matrix and it raises rather than draws.
+         |        if len(table) < 2:
+         |           yield {'html-content': self.render_error("input table has fewer than two rows to cluster.")}
          |           return
          |        ${createDendrogram()}
          |        # convert fig to html content
