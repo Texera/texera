@@ -37,6 +37,56 @@
   color: red;
 }
 
+.console-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+
+  // Strip the button chrome back to a bare icon: the element is a button for
+  // keyboard reach, not for the look. Centring here also takes nz-icon's
+  // vertical-align: -0.125em out of play, which scales with each icon's own
+  // font size and would otherwise land the two icons on different baselines.
+  > button {
+    display: flex;
+    align-items: center;
+    height: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  // The gear glyph fills its viewBox; the funnel fills ~80% of it, so at a
+  // shared font size the funnel reads smaller. It is also proportionally
+  // wider, so matching height alone would overshoot — 16px balances both.
+  .filter-icon {
+    font-size: 16px;
+  }
+}
+
+// Unshrinkable, so let it clip rather than wrap and eat the list's height.
+.hidden-count-notice {
+  flex: 0 0 auto;
+  font-family: monaco, serif;
+  font-size: 11px;
+  line-height: 14px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// The dropdown overlay renders outside this component, so it can only be
+// reached through its nzOverlayClassName. A dropdown menu item gets
+// .ant-dropdown-menu-item, not the .ant-menu-item that styles.scss covers.
+::ng-deep .console-type-filter {
+  li[nz-menu-item] {
+    user-select: none;
+  }
+}
+
 .console-list-container {
   flex: 1 1 auto;
   min-height: 0;

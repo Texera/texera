@@ -374,6 +374,89 @@ describe("ConsoleFrameComponent", () => {
       expect(fixture.debugElement.queryAll(By.css(".timestamp-tag")).length).toBe(0);
     });
 
+    it("hides the rows of a type switched off and leaves the other types rendered", () => {
+      component.consoleMessages = [withBody, noBody];
+      fixture.detectChanges();
+      expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(2);
+
+      component.setTypeVisibility("PRINT", false);
+      fixture.detectChanges();
+
+      const rows = fixture.debugElement.queryAll(By.css(".console-message-entry"));
+      expect(rows.length).toBe(1);
+      expect(fixture.nativeElement.textContent).toContain("plain B");
+      expect(fixture.nativeElement.textContent).not.toContain("header A");
+    });
+
+    it("keeps a message whose type has no configured filter visible", () => {
+      const unmapped = { ...consoleMessage("SOMETHING_NEW"), title: "unmapped C", message: "", workerId: "" };
+      component.consoleMessages = [withBody, unmapped];
+      component.setTypeVisibility("PRINT", false);
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(1);
+      expect(fixture.nativeElement.textContent).toContain("unmapped C");
+    });
+
+    it("reports how many messages the filter is hiding", () => {
+      component.consoleMessages = [withBody, noBody];
+      expect(component.hiddenMessageCount).toBe(0);
+
+      component.setTypeVisibility("PRINT", false);
+      fixture.detectChanges();
+
+      expect(component.hiddenMessageCount).toBe(1);
+      const notice = fixture.debugElement.query(By.css(".hidden-count-notice"));
+      expect(notice).toBeTruthy();
+      expect(notice.nativeElement.textContent).toContain("1 message(s) hidden");
+    });
+
+    it("restores the hidden rows when the type is switched back on", () => {
+      component.consoleMessages = [withBody, noBody];
+      component.setTypeVisibility("PRINT", false);
+      fixture.detectChanges();
+      expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(1);
+
+      component.setTypeVisibility("PRINT", true);
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(2);
+      expect(component.hiddenMessageCount).toBe(0);
+      expect(fixture.debugElement.query(By.css(".hidden-count-notice"))).toBeNull();
+    });
+
+    it("applies the active filter to messages that arrive later", () => {
+      component.setTypeVisibility("PRINT", false);
+      component.consoleMessages = [withBody, noBody];
+      fixture.detectChanges();
+
+      expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(1);
+      expect(fixture.nativeElement.textContent).toContain("plain B");
+    });
+
+    it("keeps the filter when the console is cleared for a new run", () => {
+      component.setTypeVisibility("PRINT", false);
+      component.consoleMessages = [withBody, noBody];
+      component.clearConsole();
+      component.consoleMessages = [withBody, noBody];
+      fixture.detectChanges();
+
+      expect(component.isTypeVisible("PRINT")).toBe(false);
+      expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(1);
+    });
+
+    it("keeps the filter when the bound operator changes", () => {
+      component.setTypeVisibility("PRINT", false);
+      getWorkerIds.mockReturnValue([]);
+      getConsoleMessages.mockReturnValue([withBody, noBody]);
+
+      component.ngOnChanges({ operatorId: { currentValue: "op2" } } as any);
+      fixture.detectChanges();
+
+      expect(component.isTypeVisible("PRINT")).toBe(false);
+      expect(component.hiddenMessageCount).toBe(1);
+    });
+
     it("does not render the debug input group when console input is disabled", () => {
       component.consoleInputEnabled = false;
       fixture.detectChanges();
@@ -525,6 +608,44 @@ describe("ConsoleFrameComponent settings dropdown", () => {
     }).compileComponents();
   });
 
+  /** Click a trigger and let the CDK overlay attach. */
+  function openMenu(fixture: ComponentFixture<ConsoleFrameComponent>, index: number): void {
+    fixture.debugElement.queryAll(By.css("button[nz-dropdown]"))[index].nativeElement.click();
+    tick(300);
+    fixture.detectChanges();
+  }
+
+  const menuItemText = (overlayClass: string): (string | undefined)[] =>
+    Array.from(document.querySelectorAll(`.${overlayClass} li[nz-menu-item]`)).map(item => item.textContent?.trim());
+
+  const typeCheckboxes = (): HTMLElement[] =>
+    Array.from(document.querySelectorAll(".console-type-filter label[nz-checkbox]")) as HTMLElement[];
+
+  const checkboxOf = (label: HTMLElement): HTMLElement => {
+    const box = label.querySelector(".ant-checkbox");
+    // Without this the class assertions below would read `false` for "this is
+    // not a checkbox at all", which satisfies every toBe(false) in the suite.
+    expect(box).toBeTruthy();
+    return box as HTMLElement;
+  };
+
+  const isChecked = (label: HTMLElement): boolean => checkboxOf(label).classList.contains("ant-checkbox-checked");
+
+  const isIndeterminate = (label: HTMLElement): boolean =>
+    checkboxOf(label).classList.contains("ant-checkbox-indeterminate");
+
+  it("keeps the settings gear to display options only", fakeAsync(() => {
+    const fixture = TestBed.createComponent(ConsoleFrameComponent);
+    fixture.detectChanges();
+
+    openMenu(fixture, 0);
+
+    expect(menuItemText("console-display-settings")).toEqual(["Show Timestamp", "Show Source"]);
+
+    fixture.destroy();
+    flush();
+  }));
+
   it("toggles the timestamp and source tags independently from the settings menu", fakeAsync(() => {
     const fixture = TestBed.createComponent(ConsoleFrameComponent);
     fixture.componentInstance.consoleMessages = [message];
@@ -537,15 +658,8 @@ describe("ConsoleFrameComponent settings dropdown", () => {
     expect(timestampTags()).toBe(1);
     expect(sourceTags()).toBe(1);
 
-    // hovering the gear attaches the dropdown overlay
-    fixture.debugElement
-      .query(By.css("a[nz-dropdown]"))
-      .nativeElement.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
-    tick(300);
-    fixture.detectChanges();
+    openMenu(fixture, 0);
 
-    const menuItems = Array.from(document.querySelectorAll("li[nz-menu-item]"));
-    expect(menuItems.map(item => item.textContent?.trim())).toEqual(["Show Timestamp", "Show Source"]);
     const switches = Array.from(document.querySelectorAll("nz-switch button.ant-switch")) as HTMLElement[];
     expect(switches.length).toBe(2);
     expect(switches[0].classList.contains("ant-switch-checked")).toBe(true);
@@ -557,18 +671,166 @@ describe("ConsoleFrameComponent settings dropdown", () => {
     tick(300);
     fixture.detectChanges();
 
-    expect(switches[0].classList.contains("ant-switch-checked")).toBe(false);
     expect(timestampTags()).toBe(0);
     expect(sourceTags()).toBe(1);
 
-    // now flip "Show Source" as well
     switches[1].click();
     tick(300);
     fixture.detectChanges();
 
-    expect(switches[1].classList.contains("ant-switch-checked")).toBe(false);
     expect(sourceTags()).toBe(0);
     expect(timestampTags()).toBe(0);
+
+    fixture.destroy();
+    flush();
+  }));
+
+  it("lists the four message types as title-case checkboxes under the filter icon", fakeAsync(() => {
+    const fixture = TestBed.createComponent(ConsoleFrameComponent);
+    fixture.detectChanges();
+
+    openMenu(fixture, 1);
+
+    expect(menuItemText("console-type-filter")).toEqual(["Select all", "Print", "Command", "Debugger", "Error"]);
+    expect(typeCheckboxes().length).toBe(5);
+    expect(typeCheckboxes().every(isChecked)).toBe(true);
+
+    fixture.destroy();
+    flush();
+  }));
+
+  it("removes the rows of a type when its checkbox is unticked", fakeAsync(() => {
+    const fixture = TestBed.createComponent(ConsoleFrameComponent);
+    const error: ConsoleMessage = { ...message, msgType: { name: "ERROR" }, title: "the one error" };
+    fixture.componentInstance.consoleMessages = [message, error];
+    fixture.detectChanges();
+
+    const rows = () => fixture.debugElement.queryAll(By.css(".console-message-entry")).length;
+    expect(rows()).toBe(2);
+
+    openMenu(fixture, 1);
+
+    // checkboxes are [Select all, Print, Command, Debugger, Error]
+    typeCheckboxes()[1].click();
+    tick(300);
+    fixture.detectChanges();
+
+    expect(rows()).toBe(1);
+    expect(fixture.nativeElement.textContent).toContain("the one error");
+    expect(fixture.componentInstance.hiddenMessageCount).toBe(1);
+
+    fixture.destroy();
+    flush();
+  }));
+
+  it("binds each checkbox to its own message type", fakeAsync(() => {
+    const fixture = TestBed.createComponent(ConsoleFrameComponent);
+    const types = ["PRINT", "COMMAND", "DEBUGGER", "ERROR"];
+    fixture.componentInstance.consoleMessages = types.map(name => ({
+      ...message,
+      msgType: { name },
+      title: `title ${name}`,
+      message: "",
+      workerId: "",
+    }));
+    fixture.detectChanges();
+
+    openMenu(fixture, 1);
+    expect(typeCheckboxes().length).toBe(5);
+
+    // Untick one box at a time and confirm the row that disappears is the one
+    // bearing that box's own type. Asserting only the row count here would be
+    // swap-invariant: two bindings could be crossed and still remove one row.
+    types.forEach((name, index) => {
+      typeCheckboxes()[index + 1].click();
+      tick(300);
+      fixture.detectChanges();
+
+      const text = fixture.nativeElement.textContent as string;
+      expect(text).not.toContain(`title ${name}`);
+      types.slice(index + 1).forEach(remaining => expect(text).toContain(`title ${remaining}`));
+    });
+
+    expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(0);
+
+    fixture.destroy();
+    flush();
+  }));
+
+  it("stays open while several type checkboxes are unticked in a row", fakeAsync(() => {
+    const fixture = TestBed.createComponent(ConsoleFrameComponent);
+    const error: ConsoleMessage = { ...message, msgType: { name: "ERROR" }, title: "the one error" };
+    fixture.componentInstance.consoleMessages = [message, error];
+    fixture.detectChanges();
+
+    openMenu(fixture, 1);
+
+    typeCheckboxes()[1].click();
+    tick(300);
+    fixture.detectChanges();
+    expect(typeCheckboxes().length).toBe(5);
+
+    typeCheckboxes()[4].click();
+    tick(300);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.hiddenMessageCount).toBe(2);
+    expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(0);
+
+    fixture.destroy();
+    flush();
+  }));
+
+  it("unticks and restores every type from the select-all checkbox", fakeAsync(() => {
+    const fixture = TestBed.createComponent(ConsoleFrameComponent);
+    fixture.componentInstance.consoleMessages = [message];
+    fixture.detectChanges();
+
+    openMenu(fixture, 1);
+    expect(typeCheckboxes().length).toBe(5);
+
+    typeCheckboxes()[0].click();
+    tick(300);
+    fixture.detectChanges();
+
+    expect(typeCheckboxes().slice(1).some(isChecked)).toBe(false);
+    expect(fixture.debugElement.queryAll(By.css(".console-message-entry")).length).toBe(0);
+
+    typeCheckboxes()[0].click();
+    tick(300);
+    fixture.detectChanges();
+
+    expect(typeCheckboxes().slice(1).every(isChecked)).toBe(true);
+    expect(fixture.componentInstance.hiddenMessageCount).toBe(0);
+
+    fixture.destroy();
+    flush();
+  }));
+
+  it("shows select-all as indeterminate only while some types are hidden", fakeAsync(() => {
+    const fixture = TestBed.createComponent(ConsoleFrameComponent);
+    fixture.detectChanges();
+
+    openMenu(fixture, 1);
+
+    expect(isIndeterminate(typeCheckboxes()[0])).toBe(false);
+    expect(isChecked(typeCheckboxes()[0])).toBe(true);
+
+    typeCheckboxes()[1].click();
+    tick(300);
+    fixture.detectChanges();
+
+    expect(isIndeterminate(typeCheckboxes()[0])).toBe(true);
+
+    // all hidden is a definite state, not a mixed one
+    typeCheckboxes()[2].click();
+    typeCheckboxes()[3].click();
+    typeCheckboxes()[4].click();
+    tick(300);
+    fixture.detectChanges();
+
+    expect(isIndeterminate(typeCheckboxes()[0])).toBe(false);
+    expect(isChecked(typeCheckboxes()[0])).toBe(false);
 
     fixture.destroy();
     flush();
