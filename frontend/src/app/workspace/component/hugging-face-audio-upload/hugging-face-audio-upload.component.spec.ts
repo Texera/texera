@@ -276,6 +276,66 @@ describe("HuggingFaceAudioUploadComponent", () => {
       }
     });
 
+    // Review feedback on #7790: with a clip already accepted, every reject path
+    // must drop it. Leaving it behind shows an error while the <audio> preview
+    // keeps playing and the operator silently runs the previous audio.
+    async function selectValidClip(): Promise<void> {
+      const teardown = installReaderMock({ readerResult: "data:audio/wav;base64,FIRST" });
+      try {
+        await component.onFileSelected({
+          target: makeFileInput(sizedFile("good.wav", "audio/wav", 2048)),
+        } as unknown as Event);
+      } finally {
+        teardown();
+      }
+      expect(component.hasAudio).toBe(true);
+    }
+
+    it("drops a previously accepted clip when a re-selection is not audio", async () => {
+      (component.field as any).model = { audioInput: "" };
+      await selectValidClip();
+
+      const input = makeFileInput(sizedFile("doc.pdf", "application/pdf", 100));
+      await component.onFileSelected({ target: input } as unknown as Event);
+
+      expect(component.errorMessage).toBe("Choose an audio file.");
+      expect(component.formControl.value).toBe("");
+      expect(component.fileName).toBe("");
+      expect(component.hasAudio).toBe(false);
+      expect(input.value).toBe("");
+      expect((component.field as any).model.audioInput).toBe("");
+    });
+
+    it("drops a previously accepted clip when a re-selection is over the size cap", async () => {
+      await selectValidClip();
+
+      const input = makeFileInput(sizedFile("big.wav", "audio/wav", MAX_AUDIO_BYTES + 1));
+      await component.onFileSelected({ target: input } as unknown as Event);
+
+      expect(component.errorMessage).toBe("Audio file is too large (max 25 MB).");
+      expect(component.formControl.value).toBe("");
+      expect(component.fileName).toBe("");
+      expect(component.hasAudio).toBe(false);
+      expect(input.value).toBe("");
+    });
+
+    it("drops a previously accepted clip when the re-selection fails to read", async () => {
+      await selectValidClip();
+
+      const teardown = installReaderMock({ readerError: true });
+      try {
+        const input = makeFileInput(sizedFile("broken.wav", "audio/wav", 2048));
+        await component.onFileSelected({ target: input } as unknown as Event);
+        expect(component.errorMessage).toBe("Could not read this audio file.");
+        expect(component.formControl.value).toBe("");
+        expect(component.fileName).toBe("");
+        expect(component.hasAudio).toBe(false);
+        expect(input.value).toBe("");
+      } finally {
+        teardown();
+      }
+    });
+
     it("replaces a previous upload value with a new one", async () => {
       const teardown = installReaderMock({ readerResult: "data:audio/wav;base64,FIRST" });
       try {

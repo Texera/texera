@@ -64,12 +64,12 @@ export class HuggingFaceAudioUploadComponent extends FieldType<FieldTypeConfig> 
     }
     if (!file.type.startsWith("audio/")) {
       this.errorMessage = "Choose an audio file.";
-      input.value = "";
+      this.resetSelection(input);
       return;
     }
     if (file.size > MAX_AUDIO_BYTES) {
       this.errorMessage = "Audio file is too large (max 25 MB).";
-      input.value = "";
+      this.resetSelection(input);
       return;
     }
 
@@ -88,13 +88,20 @@ export class HuggingFaceAudioUploadComponent extends FieldType<FieldTypeConfig> 
       this.formControl.updateValueAndValidity();
     } catch {
       this.errorMessage = "Could not read this audio file.";
-      input.value = "";
+      this.resetSelection(input);
     }
   }
 
   clearAudio(input: HTMLInputElement): void {
-    this.fileName = "";
     this.errorMessage = "";
+    this.resetSelection(input);
+  }
+
+  // A rejected selection must not leave the previously accepted clip behind:
+  // the form value drives both the <audio> preview and what the operator runs,
+  // so keeping it would show an error while silently running the old audio.
+  private resetSelection(input: HTMLInputElement): void {
+    this.fileName = "";
     input.value = "";
     this.formControl.setValue("");
     if (typeof this.key === "string" && this.model) {
