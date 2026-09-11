@@ -405,8 +405,36 @@ describe("WorkflowFormComponent (rendered template)", () => {
     expect(el(".instr .instr-bar h2")?.textContent?.trim()).toBe("How to use this");
     expect(el(".instr .md")?.innerHTML).toContain("Fill in the inputs.");
 
-    (el(".instr-bar") as HTMLButtonElement).click();
+    // Reading, the whole header row is one toggle button, wired to the body it opens.
+    const toggle = el(".instr-toggle") as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-controls")).toBe("instr-body");
+    expect(el("#instr-body")).not.toBeNull();
+    toggle.click();
     expect(fixture.componentInstance.instructionOpen).toBe(false);
+    fixture.detectChanges();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("keeps the author's title input outside the toggle button", async () => {
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    c.canEdit = true;
+    c.authoring = true;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // An input nested in a button is invalid interactive content; the author's header is a row with
+    // the input as a sibling of a chevron button that does the toggling.
+    const input = el(".instr-title-input") as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.closest("button")).toBeNull();
+    const chevron = el(".instr-chev") as HTMLButtonElement;
+    expect(chevron.getAttribute("aria-controls")).toBe("instr-body");
+    expect(chevron.getAttribute("aria-expanded")).toBe("true");
+    chevron.click();
+    expect(c.instructionOpen).toBe(false);
   });
 
   it("renders the run bar with the run button and the computing-unit selector", () => {
@@ -516,6 +544,29 @@ describe("WorkflowFormComponent (rendered template)", () => {
     // The panel itself takes the focus instead, so a keyboard reader can still scroll a long panel.
     expect(el(".panel")!.getAttribute("tabindex")).toBe("0");
     expect(el(".panel")!.getAttribute("aria-label")).toBe("Step settings, read-only");
+  });
+
+  it("turns that same panel live in edit mode: writes on, tick boxes on, inert off", () => {
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    c.selectedOperatorId = "op-1";
+    c.authoring = true;
+    fixture.detectChanges();
+
+    const panel = fixture.debugElement.query(By.directive(MockPropertyEditorComponent))
+      .componentInstance as MockPropertyEditorComponent;
+    // Authoring is a real edit of the shared graph, the same edit the canvas makes, so the panel
+    // acts as an editor; and its tick boxes are how the author picks what the form exposes.
+    expect(panel.actsAsEditor).toBe(true);
+    expect(panel.exposeChoosing).toBe(true);
+    // Still not the docked canvas panel, so it still makes no claim on that panel's geometry.
+    expect(panel.persistPlacement).toBe(false);
+    expect(el("texera-property-editor")!.hasAttribute("inert")).toBe(false);
+    // The container's tab stop existed only because inert content cannot hold focus. With the form
+    // focusable again it would just sit in front of it, so it goes away with inert.
+    expect(el(".panel")!.hasAttribute("tabindex")).toBe(false);
+    expect(el(".panel")!.getAttribute("aria-label")).toBe("Step settings");
   });
 
   it("tears the workflow down when the browser unloads (the beforeunload host binding)", () => {

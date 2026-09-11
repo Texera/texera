@@ -164,6 +164,10 @@ export function setupHarness() {
     writeValue: vi.fn(),
     // A result card's friendly label; the mock returns the operator's display name or its id.
     operatorLabel: (op: any) => op?.customDisplayName ?? op?.operatorType ?? op?.operatorID,
+    // Author-mode writes: the component calls these then re-reads config. Spied so a test can
+    // assert the edit was made without needing a real binding store.
+    toggleResultOperator: vi.fn(),
+    updateConfig: vi.fn(),
   };
   // A field per property the tests expose. Real formly json-schema conversion is exercised by the
   // property panel's own spec; here a deterministic map keeps these tests about the component's

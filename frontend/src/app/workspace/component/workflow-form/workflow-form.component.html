@@ -61,6 +61,30 @@
 </div>
 
 <div class="pc-page">
+  <!-- Only a writer sees Edit, which flips the whole page into in-place authoring; the lede appears
+       only while authoring, to say what edit mode is for. -->
+  <header
+    class="pc-head"
+    *ngIf="canEdit">
+    <p
+      class="lede"
+      *ngIf="authoring">
+      Choose what people fill in, then run to see it as they will.
+    </p>
+    <span class="spacer"></span>
+    <button
+      nz-button
+      class="author-toggle"
+      [nzType]="authoring ? 'primary' : 'default'"
+      (click)="toggleAuthoring()">
+      <i
+        nz-icon
+        nzType="edit"
+        aria-hidden="true"></i>
+      {{ authoring ? "Done" : "Edit" }}
+    </button>
+  </header>
+
   <div class="pc-rule"></div>
 
   <div
@@ -70,48 +94,127 @@
   </div>
 
   <div [hidden]="loading">
-    <!-- The author's one piece of guidance, shown as rendered markdown, collapsible, and only when
-         there is instruction text to show. Editing it is part of the authoring PR. -->
+    <!-- The author's one piece of guidance, shown as rendered markdown, collapsible. A reader sees
+         it only when there is text; an author always sees the section, to write it (write/preview). -->
     <section
       class="card instr"
-      *ngIf="hasInstruction"
+      *ngIf="hasInstruction || authoring"
       [class.open]="instructionOpen">
-      <button
-        type="button"
+      <!-- The header is a row, not one big button, because while authoring it holds the title INPUT,
+           and an input inside a button is invalid interactive nesting (assistive tech gets two
+           controls fighting over one click). Reading: the whole row is the toggle. Authoring: the
+           row is icon, title input, and a chevron button that toggles, so the input is the control's
+           sibling rather than its child. Either toggle names the body it opens (aria-controls). -->
+      <div
         class="instr-bar"
-        [attr.aria-expanded]="instructionOpen"
-        (click)="toggleInstruction()">
-        <i
-          nz-icon
-          nzType="info-circle"
-          class="lead"
-          aria-hidden="true"></i>
-        <h2>{{ instructionTitle || "How to use this" }}</h2>
-        <i
-          nz-icon
-          nzType="down"
-          class="chev"
-          aria-hidden="true"></i>
-      </button>
+        [class.authoring]="authoring">
+        <button
+          *ngIf="!authoring"
+          type="button"
+          class="instr-toggle"
+          [attr.aria-expanded]="instructionOpen"
+          aria-controls="instr-body"
+          (click)="toggleInstruction()">
+          <i
+            nz-icon
+            nzType="info-circle"
+            class="lead"
+            aria-hidden="true"></i>
+          <h2>{{ instructionTitle || "How to use this" }}</h2>
+          <i
+            nz-icon
+            nzType="down"
+            class="chev"
+            aria-hidden="true"></i>
+        </button>
+
+        <ng-container *ngIf="authoring">
+          <i
+            nz-icon
+            nzType="info-circle"
+            class="lead"
+            aria-hidden="true"></i>
+          <!-- An author edits the heading in place here, not in a separate Title box. -->
+          <input
+            class="instr-title-input"
+            [(ngModel)]="instructionTitle"
+            (ngModelChange)="onInstructionChange()"
+            placeholder="How to use this"
+            aria-label="Instruction heading" />
+          <button
+            type="button"
+            class="instr-toggle instr-chev"
+            [attr.aria-expanded]="instructionOpen"
+            aria-controls="instr-body"
+            [attr.aria-label]="instructionOpen ? 'Collapse the instruction' : 'Expand the instruction'"
+            (click)="toggleInstruction()">
+            <i
+              nz-icon
+              nzType="down"
+              class="chev"
+              aria-hidden="true"></i>
+          </button>
+        </ng-container>
+      </div>
 
       <div
+        id="instr-body"
         class="instr-body"
         [hidden]="!instructionOpen">
         <div
           class="md"
+          *ngIf="!authoring"
           [innerHTML]="instructionPreviewHtml"></div>
+
+        <ng-container *ngIf="authoring">
+          <div class="tabs">
+            <button
+              type="button"
+              [attr.aria-current]="instructionMode === 'write'"
+              (click)="setInstructionMode('write')">
+              Write
+            </button>
+            <button
+              type="button"
+              [attr.aria-current]="instructionMode === 'preview'"
+              (click)="setInstructionMode('preview')">
+              Preview
+            </button>
+          </div>
+
+          <ng-container *ngIf="instructionMode === 'write'">
+            <textarea
+              class="md-input"
+              [(ngModel)]="instructionBody"
+              (ngModelChange)="onInstructionChange()"
+              aria-label="Instruction body"
+              placeholder="Explain what this does and what to fill in."></textarea>
+            <p class="hint">Markdown. Add a picture with <code>![alt](https://…)</code>.</p>
+          </ng-container>
+
+          <div
+            class="md"
+            *ngIf="instructionMode === 'preview'"
+            [innerHTML]="instructionPreviewHtml"></div>
+        </ng-container>
       </div>
     </section>
 
     <!-- The inputs an author exposed, each rendered as its operator's own field. -->
     <div class="pc-section-head">
       <span class="label">Inputs</span>
+      <span
+        class="hint"
+        *ngIf="authoring"
+        >Click a step in the workflow to add more</span
+      >
     </div>
 
     <div
       class="empty"
       *ngIf="visibleFields.length === 0">
-      This workflow has no inputs to fill in.
+      {{ authoring ? "No inputs yet. Open the workflow below and click a step to expose its settings." : "This workflow
+      has no inputs to fill in." }}
     </div>
 
     <div class="params">
@@ -207,7 +310,10 @@
           aria-hidden="true"></i>
         <span class="wf-titles">
           <span class="wf-title">Workflow</span>
-          <span class="wf-sub">Optional. The steps that will run.</span>
+          <span class="wf-sub"
+            >{{ authoring ? "Click a step to choose which of its settings people fill in." : "Optional. The steps that
+            will run." }}</span
+          >
         </span>
         <span class="spacer"></span>
       </button>
@@ -237,17 +343,21 @@
             aria-hidden="true"></i>
         </button>
 
-        <!-- A reader can open a step to view its settings, read-only. Read-only is enforced twice,
-             at different layers, because neither layer alone is enough:
-             [actsAsEditor]="false" stops every write the panel can make (co-editor
-             awareness, operator version, operator properties) -- that is the one that matters, since
-             merely opening a step makes ajv fill in schema defaults and emit a change; and `inert`
-             stops the interaction, blocking pointer, keyboard and focus. Disabling the form is not a
-             substitute for `inert`: the preset save/apply/delete buttons, the array add/remove
-             buttons and the drag-to-reorder handles are plain controls that a disabled FormGroup
-             does not reach. Turning the panel live for choosing what to expose is the authoring PR.
-             The panel is the scroll container and takes the focus itself (tabindex, aria-label), so
-             a keyboard reader can still scroll a long panel that `inert` content cannot hold focus in.
+        <!-- Reader / inspect: read-only is enforced twice, at different layers, because neither
+             layer alone is enough. [actsAsEditor]="false" stops every write the panel can make
+             (co-editor awareness, operator version, operator properties) -- that is the one that
+             matters, since merely opening a step makes ajv fill in schema defaults and emit a
+             change; and `inert` stops the interaction, blocking pointer, keyboard and focus.
+             Disabling the form is not a substitute for `inert`: the preset save/apply/delete
+             buttons, the array add/remove buttons and the drag-to-reorder handles are plain
+             controls that a disabled FormGroup does not reach. Since `inert` content cannot hold
+             focus, the panel takes the tab stop itself so a keyboard reader can still scroll a long
+             panel.
+             Authoring: the panel goes live -- inert off, acting as an editor, exposeChoosing on
+             (tick boxes to pick what the form exposes), so it edits like the canvas, which edit mode
+             has already enabled workflow modification for. The panel's own tab stop goes away with
+             inert, so it does not sit in front of the form it now contains. persistPlacement stays
+             off either way (this is not the docked canvas panel).
              [hidden], not *ngIf: the property editor shows its operator by REACTING to the highlight
              stream (no initial pull), so it must already be mounted and subscribed when the click
              highlights a step. Mounting it on selection (*ngIf) subscribes too late, misses that
@@ -255,14 +365,14 @@
         <div
           class="panel"
           role="group"
-          tabindex="0"
-          aria-label="Step settings, read-only"
+          [attr.tabindex]="authoring ? null : 0"
+          [attr.aria-label]="authoring ? 'Step settings' : 'Step settings, read-only'"
           [hidden]="!selectedOperatorId">
           <texera-property-editor
-            [exposeChoosing]="false"
+            [exposeChoosing]="authoring"
             [persistPlacement]="false"
-            [actsAsEditor]="false"
-            [attr.inert]="''"></texera-property-editor>
+            [actsAsEditor]="authoring"
+            [attr.inert]="authoring ? null : ''"></texera-property-editor>
         </div>
       </div>
     </section>
@@ -335,6 +445,33 @@
           </div>
         </div>
       </ng-container>
+    </section>
+
+    <!-- Author picks which earlier steps also report back; the final result always shows. Toggling a
+         pill writes the chosen set; a reader never sees this section. The pills are tracked by step,
+         not by object: a toggle re-reads the config and rebuilds the choices as new objects, and
+         re-created buttons would drop the keyboard focus from the pill just pressed. -->
+    <section
+      class="card respick"
+      *ngIf="authoring">
+      <h3>Results shown here</h3>
+      <p>The final result always shows. Toggle an earlier step here to feature its result too.</p>
+      <div class="opts">
+        <button
+          type="button"
+          class="pill"
+          *ngFor="let choice of resultChoices; trackBy: trackByChoice"
+          [class.on]="choice.shown"
+          [attr.aria-pressed]="choice.shown"
+          (click)="onToggleResult(choice)">
+          {{ choice.label }}
+        </button>
+        <p
+          class="hint"
+          *ngIf="resultChoices.length === 0">
+          No earlier steps to add yet. Turn on a step's result view on the canvas to feature it here.
+        </p>
+      </div>
     </section>
   </div>
 </div>

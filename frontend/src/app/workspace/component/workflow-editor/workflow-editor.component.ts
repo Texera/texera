@@ -128,10 +128,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
    * Set by a view that shows the graph but must never re-shape it. Separate from the
    * workflow-modification lock (which also gates property editing, so reusing that alone would
    * disable the property panel a later authoring mode needs). It locks the paper's own
-   * interactions -- dragging, linking, and the keyboard delete/cut/port commands. The right-click
-   * menu's structural commands follow the modification lock instead, so a read-only view like the
-   * Form View, which also disables modification, is fully locked; an authoring view that re-enables
-   * modification will need to carry this lock into the menu too.
+   * interactions -- dragging, linking, and the keyboard delete/cut/port commands -- and is passed on
+   * to the right-click menu, whose re-shaping commands otherwise follow the modification lock alone:
+   * the Form View's edit mode re-enables modification for the property panel, and without the
+   * hand-off the preview's menu would cut, paste and delete again.
    */
   @Input() structureLocked = false;
 

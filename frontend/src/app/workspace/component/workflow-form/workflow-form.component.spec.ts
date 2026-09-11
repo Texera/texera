@@ -332,14 +332,43 @@ describe("WorkflowFormComponent", () => {
       vi.useRealTimers();
     });
 
-    it("saves before handing over to the operator canvas", () => {
+    it("saves, then hands over to the operator canvas only once the save has completed", () => {
       enableSave();
       build(formViewWorkflow).ngOnInit();
       workflowPersistService.persistWorkflow.mockClear();
+      const navigate = vi.spyOn(component as any, "openCanvasPage").mockImplementation(() => {});
 
       component.openRegularCanvas();
 
+      // The full-page load aborts a request still in flight, so the navigation waits for the save
+      // to complete (the persist mock completes synchronously here).
       expect(workflowPersistService.persistWorkflow).toHaveBeenCalled();
+      expect(navigate).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays on the form and reports it when the save before the switch fails", () => {
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockReturnValue(throwError(() => new Error("nope")));
+      const navigate = vi.spyOn(component as any, "openCanvasPage").mockImplementation(() => {});
+
+      component.openRegularCanvas();
+
+      expect(navigate).not.toHaveBeenCalled();
+      expect(h.notificationService.error).toHaveBeenCalledWith(
+        "Could not save. Your latest changes are not stored yet."
+      );
+    });
+
+    it("hands a reader with nothing to save straight over to the canvas", () => {
+      build({ ...formViewWorkflow, readonly: true }).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+      const navigate = vi.spyOn(component as any, "openCanvasPage").mockImplementation(() => {});
+
+      component.openRegularCanvas();
+
+      expect(workflowPersistService.persistWorkflow).not.toHaveBeenCalled();
+      expect(navigate).toHaveBeenCalledTimes(1);
     });
 
     it("saves once more on the way out", () => {
@@ -1271,6 +1300,21 @@ describe("WorkflowFormComponent", () => {
       expect(component.shownResultIds).toEqual([]);
     });
 
+    it("does not show a disabled step's result, even with its eye on and picked", () => {
+      // The eye and the pick survive disabling the step, but the compiled plan leaves the step out, so
+      // there is never a result behind such a card.
+      build(formViewWorkflow).ngOnInit();
+      chosen(["off"]);
+      h.graphOperators.push({ operatorID: "off", operatorType: "Filter", isDisabled: true });
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      h.viewResultIds.add("off");
+      h.terminalIds.add("last");
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["last"]);
+    });
+
     it("drops a card when the canvas view-result set changes, without a result update", () => {
       build(formViewWorkflow).ngOnInit();
       chosen(["a", "b"]);
@@ -1588,6 +1632,145 @@ describe("WorkflowFormComponent", () => {
       highlight(["op-1", "op-2"], ["op-2"]);
 
       expect(component.selectedOperatorId).toBeUndefined();
+    });
+  });
+
+  describe("author mode", () => {
+    it("enters edit mode: opens the workflow, enables modification, re-reads the config", () => {
+      build(formViewWorkflow).ngOnInit();
+      const read = vi.spyOn(component as any, "readConfig");
+
+      component.toggleAuthoring();
+
+      expect(component.authoring).toBe(true);
+      expect(component.workflowOpen).toBe(true);
+      expect(h.workflowActionService.enableWorkflowModification).toHaveBeenCalled();
+      expect(read).toHaveBeenCalled();
+    });
+
+    it("leaves edit mode: collapses the workflow and locks modification back", () => {
+      build(formViewWorkflow).ngOnInit();
+      component.toggleAuthoring();
+      (h.workflowActionService.disableWorkflowModification as any).mockClear();
+
+      component.toggleAuthoring();
+
+      expect(component.authoring).toBe(false);
+      expect(component.workflowOpen).toBe(false);
+      expect(h.workflowActionService.disableWorkflowModification).toHaveBeenCalled();
+    });
+
+    it("refuses to enter edit mode without write access, at the method and not only the button", () => {
+      // The Edit button is not rendered for a reader, but every authoring action writes the shared
+      // config, so the method itself is the boundary: a reader stays a reader whoever calls it.
+      build({ ...formViewWorkflow, readonly: true }).ngOnInit();
+      expect(component.canEdit).toBe(false);
+      const read = vi.spyOn(component as any, "readConfig");
+
+      component.toggleAuthoring();
+
+      expect(component.authoring).toBe(false);
+      expect(read).not.toHaveBeenCalled();
+      expect(h.workflowActionService.enableWorkflowModification).not.toHaveBeenCalled();
+    });
+
+    it("always allows leaving edit mode, even if write access is gone", () => {
+      build(formViewWorkflow).ngOnInit();
+      component.toggleAuthoring();
+      expect(component.authoring).toBe(true);
+      component.canEdit = false;
+
+      component.toggleAuthoring();
+
+      expect(component.authoring).toBe(false);
+      expect(h.workflowActionService.disableWorkflowModification).toHaveBeenCalled();
+    });
+
+    it("lists viewed and chosen intermediate steps, never the always-shown terminal", () => {
+      build(formViewWorkflow).ngOnInit();
+      component.authoring = true;
+      h.graphOperators.push({ operatorID: "viewed-mid", operatorType: "Filter" });
+      h.graphOperators.push({ operatorID: "chosen-mid", operatorType: "Filter" });
+      h.graphOperators.push({ operatorID: "plain-mid", operatorType: "Filter" });
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      // Disabled steps keep their eye and can even be in the saved picks, but are left out of the run,
+      // so neither is offered: featuring one could never show a reader anything.
+      h.graphOperators.push({ operatorID: "off-viewed", operatorType: "Filter", isDisabled: true });
+      h.graphOperators.push({ operatorID: "off-chosen", operatorType: "Filter", isDisabled: true });
+      h.viewResultIds.add("viewed-mid");
+      h.viewResultIds.add("off-viewed");
+      // The terminal has the eye too, as it usually does, and is still not offered: its result
+      // always shows, so it is not the author's to toggle here.
+      h.viewResultIds.add("last");
+      h.terminalIds.add("last");
+      h.formBindingService.getConfig.mockReturnValue({
+        instruction: undefined,
+        fields: [],
+        resultOperatorIds: ["chosen-mid", "off-chosen"],
+      });
+
+      (component as any).readConfig();
+
+      const ids = component.resultChoices.map(c => c.operatorID);
+      expect(ids).toContain("viewed-mid"); // has the eye on the canvas
+      expect(ids).toContain("chosen-mid"); // already chosen
+      expect(ids).not.toContain("plain-mid"); // no eye, not chosen -> nothing to show, not offered
+      expect(ids).not.toContain("last"); // terminal always shows; never offered in the picker
+      expect(ids).not.toContain("off-viewed"); // disabled: not in the run, eye or no eye
+      expect(ids).not.toContain("off-chosen"); // disabled: not in the run, chosen or not
+      expect(component.resultChoices.find(c => c.operatorID === "chosen-mid")?.shown).toBe(true);
+      expect(component.resultChoices.find(c => c.operatorID === "viewed-mid")?.shown).toBe(false);
+    });
+
+    it("adds a step to the picker the moment its eye is turned on, without a re-read", () => {
+      build(formViewWorkflow).ngOnInit();
+      component.authoring = true;
+      h.graphOperators.push({ operatorID: "mid", operatorType: "Filter" });
+      h.formBindingService.getConfig.mockReturnValue({ instruction: undefined, fields: [], resultOperatorIds: [] });
+      (component as any).readConfig();
+      expect(component.resultChoices.map(c => c.operatorID)).not.toContain("mid");
+
+      // The author gives "mid" the eye on the canvas: the view-result set changes, emitting no result
+      // update, so the picker must react to that stream directly (or the option would not appear).
+      h.viewResultIds.add("mid");
+      h.viewResultChanged.next({});
+
+      expect(component.resultChoices.map(c => c.operatorID)).toContain("mid");
+    });
+
+    it("does not build the result picker for a reader", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "Filter" });
+
+      (component as any).readConfig();
+
+      expect(component.resultChoices).toEqual([]);
+    });
+
+    it("routes a result toggle through the binding service and re-reads", () => {
+      build(formViewWorkflow).ngOnInit();
+      const read = vi.spyOn(component as any, "readConfig");
+
+      component.onToggleResult({ operatorID: "op-1", label: "Filter", shown: false });
+
+      expect(h.formBindingService.toggleResultOperator).toHaveBeenCalledWith("op-1");
+      expect(read).toHaveBeenCalledTimes(1);
+    });
+
+    it("saves the instruction as the author types, and previews on demand", () => {
+      build(formViewWorkflow).ngOnInit();
+      component.instructionTitle = "T";
+      component.instructionBody = "B";
+
+      component.onInstructionChange();
+      expect(h.formBindingService.updateConfig).toHaveBeenCalledWith({ instruction: { title: "T", body: "B" } });
+
+      const render = vi.spyOn(component as any, "renderInstruction");
+      component.setInstructionMode("write");
+      expect(render).not.toHaveBeenCalled();
+      component.setInstructionMode("preview");
+      expect(component.instructionMode).toBe("preview");
+      expect(render).toHaveBeenCalled();
     });
   });
 });
