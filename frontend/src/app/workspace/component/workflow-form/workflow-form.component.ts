@@ -26,6 +26,8 @@ import { ActivatedRoute, Router } from "@angular/router";
 import { UntilDestroy, untilDestroyed } from "@ngneat/until-destroy";
 import { NzAvatarModule } from "ng-zorro-antd/avatar";
 import { NzIconModule } from "ng-zorro-antd/icon";
+import { NzButtonModule } from "ng-zorro-antd/button";
+import { NzTooltipModule } from "ng-zorro-antd/tooltip";
 import { UserIconComponent } from "../../../dashboard/component/user/user-icon/user-icon.component";
 import { cloneDeep } from "lodash-es";
 import { MarkdownService } from "ngx-markdown";
@@ -51,15 +53,35 @@ import { ValidationWorkflowService } from "../../service/validation/validation-w
 import { GuiConfigService } from "../../../common/service/gui-config.service";
 import { WorkflowConsoleService } from "../../service/workflow-console/workflow-console.service";
 import { WorkflowResultService } from "../../service/workflow-result/workflow-result.service";
+import { PanelResizeService } from "../../service/workflow-result/panel-resize/panel-resize.service";
 import { WorkflowWebsocketService } from "../../service/workflow-websocket/workflow-websocket.service";
 import { ExecutionState } from "../../types/execute-workflow.interface";
 import { Point } from "../../types/workflow-common.interface";
 import { ComputingUnitSelectionComponent } from "../power-button/computing-unit-selection.component";
+import { PropertyEditorComponent } from "../property-editor/property-editor.component";
+import { ResultTableFrameComponent } from "../result-panel/result-table-frame/result-table-frame.component";
+import { VisualizationFrameContentComponent } from "../visualization-panel-content/visualization-frame-content.component";
 import { WorkflowEditorComponent } from "../workflow-editor/workflow-editor.component";
 import { MiniMapComponent } from "../workflow-editor/mini-map/mini-map.component";
 import { CoeditorUserIconComponent } from "../menu/coeditor-user-icon/coeditor-user-icon.component";
 import { CoeditorPresenceService } from "../../service/workflow-graph/model/coeditor-presence.service";
 import { SAVE_DEBOUNCE_TIME_IN_MS } from "../workspace.component";
+
+/**
+ * Input types that take a click, not text. Focusing one is not "typing", so a rebuild that arrives
+ * while one has the focus loses nothing and must not be held back (see isTypingInTheForm).
+ */
+const NON_TEXT_INPUT_TYPES = new Set([
+  "checkbox",
+  "radio",
+  "button",
+  "submit",
+  "reset",
+  "range",
+  "color",
+  "file",
+  "image",
+]);
 
 /**
  * One rendered input: the resolved binding plus the operator's own formly field for that property.
@@ -81,8 +103,13 @@ interface RenderedField {
  * makes, with each sub-field of a nested or repeated property renamed and hidden as the author set
  * it up. It also shows the author's instruction above the inputs, and runs the workflow: a Run
  * button (a reader's simplified Run/Stop, sharing the canvas's disable conditions), the
- * computing-unit selector, a run clock and plain-language failure messages. Showing the results is
- * added by a later PR. A view, not a new object: it opens the same workflow the canvas does.
+ * computing-unit selector, a run clock and plain-language failure messages. It then shows results
+ * underneath -- the final step's output plus the author's chosen view-result steps, each a table, a
+ * visualisation, or a compact "no result yet" -- reading the canvas's view-result set and never
+ * writing it. A reader can also click a step on the embedded preview to open its property panel
+ * read-only: the panel writes nothing to the shared workflow and its content is inert. The
+ * authoring mode that turns that panel live and picks what to show is a later PR. A view, not a new
+ * object: it opens the same workflow the canvas does.
  */
 @UntilDestroy()
 @Component({
@@ -96,8 +123,13 @@ interface RenderedField {
     FormlyModule,
     NzAvatarModule,
     NzIconModule,
+    NzButtonModule,
+    NzTooltipModule,
     UserIconComponent,
     ComputingUnitSelectionComponent,
+    PropertyEditorComponent,
+    ResultTableFrameComponent,
+    VisualizationFrameContentComponent,
     WorkflowEditorComponent,
     MiniMapComponent,
     CoeditorUserIconComponent,
@@ -143,6 +175,24 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   public isWorkflowValid = true;
   public isWorkflowEmpty = false;
 
+  /** The step whose property panel is open for read-only inspection, if any. The panel shows the
+   *  operator's own title, so this id is all the page needs to track. */
+  public selectedOperatorId?: string;
+
+  /**
+   * Which steps' results to show: the terminal (final) steps, whose results the engine always
+   * materializes, plus the author's chosen `resultOperatorIds` kept to those that still have
+   * view-result ("the eye") on the canvas. The form NEVER writes the canvas's view-result flags --
+   * it only decides what it itself shows, so a canvas user's result-viewing is unaffected.
+   */
+  public shownResultIds: string[] = [];
+  /** Chart height per result (0 compact / 1 default / 2 tall). Per operator so one does not resize
+   *  the others, and in memory only -- a viewing preference, not part of the workflow. */
+  private zoomByResult = new Map<string, number>();
+  /** Bumped when a result changes, used as the chart's *ngFor identity so the frame is rebuilt, not
+   *  reused: the chart reads its content once at creation, so a stale frame showed "undefined". */
+  private resultVersion = new Map<string, number>();
+
   /** The collapsible workflow preview: closed until the reader opens it. */
   public workflowOpen = false;
   /** The embedded canvas is built the first time the strip opens, never while collapsed. */
@@ -150,6 +200,8 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
 
   /** Set on teardown so deferred callbacks stop touching a view that is gone. */
   private destroyed = false;
+  /** A rebuild of the inputs that arrived while the reader was typing, held until the typing ends. */
+  private rebuildDeferred = false;
 
   /**
    * Operator positions as loaded, kept only as a fallback: a save writes the live positions
@@ -189,6 +241,10 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     private workflowWebsocketService: WorkflowWebsocketService,
     private host: ElementRef<HTMLElement>,
     private datePipe: DatePipe,
+    // The result table sizes its rows-per-page from this shared panel height. On the operator
+    // canvas the docked panel drives it; this page has no such panel, so left at the tiny default
+    // every table showed a single row per page. Given a realistic height in ngOnInit instead.
+    private panelResizeService: PanelResizeService,
     // Same source the operator canvas reads its "Invalid" / "Empty" states from, so Run is
     // disabled here exactly when it is disabled there.
     private validationWorkflowService: ValidationWorkflowService,
@@ -202,7 +258,67 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       return;
     }
     this.wid = wid;
+    // Give the result tables a realistic height to page against, so they show a screenful of rows
+    // instead of one. (~7 rows; the card scrolls for the rest.)
+    this.panelResizeService.changePanelSize(900, 560);
+    // Highlighting is off by default; turning it on is what makes a click on a step select it,
+    // which is how a reader opens that step's panel to inspect it (and, later, an author to expose).
+    this.workflowActionService.setHighlightingEnabled(true);
     this.load(wid);
+
+    // Selecting a step on the embedded (read-only) canvas opens its property panel read-only. The
+    // canvas is not editable, but highlighting still works, so reuse it rather than teach the editor
+    // a second click mode.
+    this.workflowActionService
+      .getJointGraphWrapper()
+      .getJointOperatorHighlightStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        this.syncSelectionFromHighlight();
+        // The panel is mounted with [actsAsEditor]="false", so opening a step here never
+        // announces "currently editing this operator" on the shared co-editor channel -- a reader
+        // inspecting a step is not editing the graph, and broadcasting would print the reader's own
+        // name in colour over that operator on everyone else's canvas. Suppressed at the frame (the
+        // only place that writes it), not here, so it cannot be re-set after this handler runs.
+      });
+
+    // Un-highlighting moves the selection just as highlighting does: clicking empty canvas drops it
+    // to none, and dropping one of two shift-selected steps leaves exactly one -- which has to OPEN
+    // the panel, since the highlight stream stays silent (nothing was newly highlighted). So both
+    // streams run the same rule rather than each testing for its own special case.
+    this.workflowActionService
+      .getJointGraphWrapper()
+      .getJointOperatorUnhighlightStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => this.syncSelectionFromHighlight());
+
+    // A result changing bumps that operator's version (so its chart frame is rebuilt, not reused),
+    // re-limits what the form shows to the currently-viewed set, and re-fits the visualisations.
+    this.workflowResultService
+      .getResultUpdateStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(update => {
+        for (const operatorID of Object.keys(update ?? {})) {
+          this.resultVersion.set(operatorID, (this.resultVersion.get(operatorID) ?? 0) + 1);
+        }
+        this.refreshShownResults();
+        // markForCheck, not detectChanges: this fires often during a run, and a synchronous pass
+        // can be thrown out of by an unrelated component's NG0100, killing the subscription.
+        this.cdr.markForCheck();
+        this.later(() => this.fitVisualisations(), 300);
+      });
+
+    // Turning a step's view-result OFF on the canvas emits no result-update event, so the filter
+    // above would miss it and leave a stale card. React to the view-result set changing directly
+    // (a co-editor's toggle included), so a de-viewed step drops out here at once.
+    this.workflowActionService
+      .getTexeraGraph()
+      .getViewResultOperatorsChangedStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        this.refreshShownResults();
+        this.cdr.markForCheck();
+      });
 
     // The run clock, reusing the operator canvas's source outright rather than timing anything
     // here: the engine is the only thing that knows when the run really began, so a stopwatch
@@ -255,10 +371,17 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       .getExecutionStateStream()
       .pipe(untilDestroyed(this))
       .subscribe(({ current }) => {
+        const wasRunning = this.isRunning;
         this.executionState = current.state;
+        // Clear a stale failure banner the moment any new run starts -- this session's or a
+        // co-editor's. onRun() clears it for a run started here, but a co-editor's run moves the
+        // shared execution stream to an in-flight state without going through onRun(), so without
+        // this the previous failure would linger over their running run.
+        if (!wasRunning && this.isRunning) {
+          this.runError = "";
+        }
         // Surface a failed run. Without this the spinner just stops and the form gives zero
-        // feedback -- the opposite of what a reader needs. onRun() clears runError before the next
-        // run, so a stale error never lingers.
+        // feedback -- the opposite of what a reader needs.
         if (current.state === ExecutionState.Failed) {
           // A required input left empty is by far the commonest reason a run fails here, and the
           // engine reports it as an opaque "... is not contained in the schema". Answer with the
@@ -267,6 +390,12 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
           this.runError = this.hasEmptyRequiredInputs()
             ? "Run failed: please fill in the required fields."
             : this.friendlyRunError(current.errorMessages?.[0]?.message?.trim() ?? "");
+        }
+        // Fit the charts to their cards once a run has results. Deliberately not on run START: the
+        // run repaints operators and a re-fit then zoomed the whole preview down. Deliberately does
+        // not open the workflow either -- someone using the form came for the inputs and results.
+        if (this.hasResults) {
+          this.later(() => this.fitVisualisations(), 400);
         }
         // markForCheck, not detectChanges: this is the one subscription the page cannot afford to
         // lose. A synchronous detectChanges can be thrown out of by an unrelated component's NG0100,
@@ -278,30 +407,60 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     // Attribute boxes become dropdowns only after compilation writes the column enums into each
     // operator's dynamic schema -- which lands after these cards were built. Rebuild on the
     // compilation-state stream, a ReplaySubject(1) so a late subscriber (this page reloads fresh
-    // on every Canvas<->Form switch) gets the current state at once. Skip it while someone is
-    // typing, so a rebuild does not throw away a half-entered value under the cursor.
+    // on every Canvas<->Form switch) gets the current state at once. Held, not dropped, while
+    // someone is typing (see rebuildFormOrDefer), so it neither throws away a half-entered value
+    // under the cursor nor goes missing.
     this.workflowCompilingService
       .getCompilationStateInfoChangedStream()
       .pipe(debounceTime(FORM_DEBOUNCE_TIME_MS), untilDestroyed(this))
-      .subscribe(() => {
-        if (this.isTypingInTheForm()) {
-          return;
-        }
-        this.readConfig();
-      });
+      .subscribe(() => this.rebuildFormOrDefer(false));
 
     // Exposing or un-exposing a property in the panel changes the definition; the inputs above have
     // to follow at once, which is the whole point of editing them side by side. Today this fires for
     // this client's own edits; once #8351 moves formBinding into the shared model it also fires for
-    // a co-editor's -- so, like the compilation path, skip the rebuild while the reader is typing, or
-    // a remote change would throw away a half-entered value under the cursor.
-    this.workflowActionService.formBindingChanged$.pipe(untilDestroyed(this)).subscribe(() => {
-      if (this.isTypingInTheForm()) {
-        return;
-      }
-      this.readConfig();
+    // a co-editor's -- so, like the compilation path, the rebuild is held while the reader is typing
+    // (a remote change would otherwise throw away a half-entered value under the cursor) and runs
+    // the moment the typing ends.
+    this.workflowActionService.formBindingChanged$
+      .pipe(untilDestroyed(this))
+      .subscribe(() => this.rebuildFormOrDefer(true));
+  }
+
+  /**
+   * Rebuild the inputs from the config now or, while the reader is typing, hold the rebuild until
+   * the focus leaves the text control (onFocusOut). Held rather than dropped: the change that asked
+   * for it (a property exposed in the panel, a schema compiled) still has to reach the page, only
+   * not under the cursor. Dropping it left an exposed property's card missing until something else
+   * happened to rebuild, which read as the tick box doing nothing.
+   */
+  private rebuildFormOrDefer(detect: boolean): void {
+    if (this.isTypingInTheForm()) {
+      this.rebuildDeferred = true;
+      return;
+    }
+    this.rebuildDeferred = false;
+    this.readConfig();
+    if (detect) {
       this.cdr.detectChanges();
-    });
+    }
+  }
+
+  /**
+   * focusout fires before the next element takes the focus, so the held rebuild is decided after
+   * the current tick: a reader who merely tabbed to another text field keeps it held, anyone else
+   * gets it now. The hold is re-checked when that tick fires: the very click that took the focus
+   * can be a control whose own change rebuilds at once (the expose tick box), clearing the hold in
+   * between, and a stale callback that rebuilt regardless would only rebuild the same cards twice.
+   */
+  @HostListener("focusout")
+  public onFocusOut(): void {
+    if (this.rebuildDeferred) {
+      this.later(() => {
+        if (this.rebuildDeferred) {
+          this.rebuildFormOrDefer(true);
+        }
+      }, 0);
+    }
   }
 
   private load(wid: number): void {
@@ -362,13 +521,22 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   // Inputs: the exposed properties, rendered as their operators' own fields
   // ---------------------------------------------------------------------------
 
-  /** Whether the cursor is currently inside one of this page's inputs. */
+  /**
+   * Whether the reader is mid-way through typing somewhere on this page: the caret is in a control
+   * that holds text (a text-like input, a textarea, a select, a content-editable). A tick box, radio
+   * or button also takes the focus when clicked but holds no half-entered value, so it is not typing
+   * -- a tick box (the step panel's expose boxes, once that panel is live for authoring) is precisely
+   * the click that has to rebuild the cards at once, and counting it as typing held that rebuild back.
+   */
   private isTypingInTheForm(): boolean {
     const active = document.activeElement as HTMLElement | null;
     if (!active || !this.host.nativeElement.contains(active)) {
       return false;
     }
-    return ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
+    if (active.tagName === "INPUT") {
+      return !NON_TEXT_INPUT_TYPES.has((active as HTMLInputElement).type);
+    }
+    return ["TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
   }
 
   private readConfig(): void {
@@ -376,9 +544,46 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     this.parameters = this.formBindingService.resolveFields();
     this.instructionTitle = config.instruction?.title ?? "";
     this.instructionBody = config.instruction?.body ?? "";
+    this.refreshShownResults();
     // A reader always sees the instruction as rendered markdown.
     void this.renderInstruction();
     this.buildForm();
+  }
+
+  /**
+   * Decide which operators' result cards to show. The engine materializes a result for every terminal
+   * operator (no enabled downstream) as well as every view-result operator, so a terminal's result is
+   * always available; the form shows terminals by default and layers the author's chosen view-result
+   * steps on top. This is a pure display filter that reads the graph and never writes it, so a normal
+   * canvas user's result-viewing is unaffected. A step that is neither viewed nor terminal (or was
+   * deleted) drops out rather than rendering a stale card.
+   */
+  private refreshShownResults(): void {
+    const graph = this.workflowActionService.getTexeraGraph();
+    const viewed = graph.getOperatorsToViewResult();
+    // A result exists for an operator that is view-result (the eye) or terminal (no enabled
+    // downstream); the engine materializes both (WorkflowCompiler stores terminal operators plus
+    // opsToViewResult). A view-result id is always a live operator; a terminal id comes from
+    // terminalOperatorIds (live, enabled operators only), so both branches reference real steps.
+    const terminals = new Set(this.terminalOperatorIds());
+    const availableOnCanvas = (id: string): boolean => viewed.has(id) || terminals.has(id);
+    const chosen = this.formBindingService.getConfig().resultOperatorIds;
+    // The terminal (final) operator's result always shows -- the engine always materializes it, so it
+    // cannot be turned off. resultOperatorIds adds extra intermediate (view-result) steps on top. The
+    // downstream hasNonEmptyResult filter drops steps that produced no data.
+    this.shownResultIds = [...new Set([...terminals, ...chosen])].filter(availableOnCanvas);
+  }
+
+  /** The workflow's terminal operators: enabled operators with no enabled downstream link. Matches the
+   *  backend's storage rule (WorkflowCompiler treats out-degree-0 operators of the enabled plan as
+   *  terminal and always materializes them), so a disabled link or operator does not mislead this. */
+  private terminalOperatorIds(): string[] {
+    const graph = this.workflowActionService.getTexeraGraph();
+    const hasEnabledDownstream = new Set(graph.getAllEnabledLinks().map(link => link.source.operatorID));
+    return graph
+      .getAllOperators()
+      .filter(op => !(op.isDisabled ?? false) && !hasEnabledDownstream.has(op.operatorID))
+      .map(op => op.operatorID);
   }
 
   /**
@@ -628,6 +833,132 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   }
 
   // ---------------------------------------------------------------------------
+  // Results: the final step's output plus the chosen steps', shown under the workflow that produced it
+  // ---------------------------------------------------------------------------
+
+  public get hasResults(): boolean {
+    return this.shownResultIds.some(id => this.workflowResultService.hasNonEmptyResult(id));
+  }
+
+  /**
+   * The shown steps (terminal plus chosen) that actually produced a result, so only those get a
+   * card. Whether a Python UDF yields a result cannot be known from the graph -- some (a
+   * download/publish step) never do -- so a step earns its card at runtime rather than sitting on a
+   * permanent "No result yet.".
+   */
+  public get resultIdsToShow(): string[] {
+    return this.shownResultIds.filter(id => this.workflowResultService.hasNonEmptyResult(id));
+  }
+
+  public isTabularResult(operatorID: string): boolean {
+    return this.workflowResultService.hasPaginatedResult(operatorID);
+  }
+
+  /**
+   * Whether this step's visualisation drew something. A visualiser reserves a fixed canvas even
+   * when empty, so gating on real content lets an empty result collapse to the compact "No result
+   * yet" line instead of a tall blank box. Tables are excluded (they take the tabular branch).
+   */
+  public vizHasContent(operatorID: string): boolean {
+    if (this.isTabularResult(operatorID)) {
+      return false;
+    }
+    const snapshot = this.workflowResultService.getResultService(operatorID)?.getCurrentResultSnapshot();
+    return !!snapshot && snapshot.length > 0;
+  }
+
+  /** The operator's friendly label for a result card, falling back to its raw id. */
+  public resultLabel(operatorID: string): string {
+    const operator = this.workflowActionService.getTexeraGraph().getOperator(operatorID);
+    return operator ? this.formBindingService.operatorLabel(operator) : operatorID;
+  }
+
+  public trackByKey(_: number, key: string): string {
+    return key;
+  }
+
+  /**
+   * A per-result identity that changes on each result-update for that operator, used as the chart's
+   * *ngFor key so the frame is rebuilt (not reused) when the result changes: the chart reads its
+   * content once at creation, so a reused frame kept showing the old (or "undefined") picture. A
+   * visualisation's result arrives as a single snapshot, so in practice this bumps about once per
+   * result rather than per tuple.
+   */
+  public resultKey(operatorID: string): string {
+    return operatorID + "#" + (this.resultVersion.get(operatorID) ?? 0);
+  }
+
+  public resultZoom(operatorID: string): number {
+    return this.zoomByResult.get(operatorID) ?? 1;
+  }
+
+  public zoomResult(operatorID: string, delta: number): void {
+    const next = Math.min(2, Math.max(0, this.resultZoom(operatorID) + delta));
+    this.zoomByResult.set(operatorID, next);
+    // Let the new card height land, then have the chart redraw into it -- growing the frame alone
+    // leaves the picture at its old size until something asks it to re-measure.
+    this.cdr.detectChanges();
+    this.later(() => this.fitVisualisations(), 60);
+  }
+
+  /**
+   * Scale each visualisation to its card. They render in a same-origin srcdoc iframe at natural
+   * size, so we inject a stylesheet to fit the content to the card and fire a resize so chart
+   * libraries re-lay out. The operator's output is untouched.
+   */
+  /* v8 ignore start -- iframe/Plotly DOM fitting; no coverage in jsdom */
+  private fitVisualisations(): void {
+    const frames = this.host.nativeElement.querySelectorAll<HTMLIFrameElement>(".result-body iframe");
+    frames.forEach(frame => {
+      const apply = () => {
+        try {
+          const doc = frame.contentDocument;
+          if (!doc?.body) {
+            return;
+          }
+          if (!doc.getElementById("pc-fit")) {
+            const style = doc.createElement("style");
+            style.id = "pc-fit";
+            style.textContent = `
+              html, body { margin: 0; padding: 8px; overflow-x: hidden; }
+              .js-plotly-plot, .plot-container, .plotly, .svg-container { width: 100% !important; height: 100% !important; }
+              img, svg, canvas, video { max-width: 100% !important; height: auto !important; }
+              table { max-width: 100%; }
+            `;
+            doc.head?.appendChild(style);
+          }
+          const win = frame.contentWindow as (Window & { Plotly?: any }) | null;
+          const plots = doc.querySelectorAll<HTMLElement>(".js-plotly-plot");
+          if (win?.Plotly?.Plots?.resize && plots.length) {
+            plots.forEach(plot => {
+              plot.style.width = "100%";
+              plot.style.height = "100%";
+              try {
+                win.Plotly.Plots.resize(plot);
+              } catch {
+                // A chart mid-render cannot be resized; the next call will catch it.
+              }
+            });
+          }
+          win?.dispatchEvent(new Event("resize"));
+        } catch {
+          // A cross-origin document cannot be styled from here; leave it as it came.
+        }
+      };
+      apply();
+      // Re-apply after the iframe (re)loads. Bind once per frame element (guarded by a data flag):
+      // a `{ once: true }` listener added on every fit call never fires for an already-loaded frame,
+      // so repeated zoom/fit calls would pile up detached listeners. A single persistent listener
+      // per frame re-fits on each reload and is torn down with the frame.
+      if (!frame.dataset.pcFitBound) {
+        frame.dataset.pcFitBound = "1";
+        frame.addEventListener("load", apply);
+      }
+    });
+  }
+  /* v8 ignore stop */
+
+  // ---------------------------------------------------------------------------
   // Instruction: the author's one piece of guidance, shown as rendered markdown
   // ---------------------------------------------------------------------------
 
@@ -665,6 +996,20 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       this.executionState !== ExecutionState.Failed &&
       this.executionState !== ExecutionState.Killed &&
       this.executionState !== ExecutionState.Terminated
+    );
+  }
+
+  /**
+   * A run has started and ended, as opposed to never having run. Lets the empty results section say
+   * "this run produced nothing" after a completed-but-empty run, instead of the "press Run" hint
+   * that wrongly implies nothing has run yet.
+   */
+  public get hasRunFinished(): boolean {
+    return (
+      this.executionState === ExecutionState.Completed ||
+      this.executionState === ExecutionState.Failed ||
+      this.executionState === ExecutionState.Killed ||
+      this.executionState === ExecutionState.Terminated
     );
   }
 
@@ -789,6 +1134,43 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       return false;
     };
     return this.rendered.some(r => hasRequiredError(r.form));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inspecting a step: its property panel, opened read-only from the preview
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Move the panel to whatever the preview currently has highlighted, read-only. Exactly one
+   * highlighted step opens the panel for it; none, or a shift-click multi-select, closes it -- with
+   * more than one the property editor shows no single operator either, so opening it for whichever
+   * step was clicked last would show the wrong settings.
+   *
+   * Both the highlight and the un-highlight stream run this, because each carries only the ids that
+   * changed rather than the selection that resulted: dropping one of two selected steps leaves
+   * exactly one and so has to OPEN the panel, yet only the un-highlight stream fires for it.
+   */
+  private syncSelectionFromHighlight(): void {
+    const highlighted = this.workflowActionService.getJointGraphWrapper().getCurrentHighlightedOperatorIDs();
+    // A highlighted id can already be gone from the graph -- a co-editor deleting the step emits the
+    // un-highlight, and reading it back would open a panel on nothing.
+    const graph = this.workflowActionService.getTexeraGraph();
+    this.selectedOperatorId =
+      highlighted.length === 1 && graph.hasOperator(highlighted[0]) ? highlighted[0] : undefined;
+    this.cdr.detectChanges();
+  }
+
+  /** Dismiss the panel: the selection is what holds it open, so drop the highlight and the selection. */
+  public closeOperatorPanel(): void {
+    const wrapper = this.workflowActionService.getJointGraphWrapper();
+    // Through the action service rather than the joint wrapper: only the service also publishes the
+    // resulting highlight set on the shared awareness channel, so co-editors stop seeing this
+    // reader's selection ringed on their own canvas.
+    this.workflowActionService.unhighlightOperators(...wrapper.getCurrentHighlightedOperatorIDs());
+    // Cleared here too, not left to the un-highlight stream: the wrapper emits nothing for an
+    // operator that was not highlighted, and a dismiss has to close the panel regardless.
+    this.selectedOperatorId = undefined;
+    this.cdr.detectChanges();
   }
 
   /** Open or close the workflow preview; opening it builds the canvas the first time. */

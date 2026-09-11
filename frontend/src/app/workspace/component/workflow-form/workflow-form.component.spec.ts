@@ -68,6 +68,7 @@ describe("WorkflowFormComponent", () => {
       h.workflowWebsocketService as any,
       h.host as any,
       h.datePipe as any,
+      h.panelResizeService as any,
       h.validationWorkflowService as any,
       h.config as any
     );
@@ -821,15 +822,62 @@ describe("WorkflowFormComponent", () => {
       expect(rebuild).toHaveBeenCalled();
     });
 
-    it("does not rebuild under the cursor of someone typing", async () => {
+    it("holds a rebuild while someone is typing and runs it once the focus leaves", async () => {
       build(formViewWorkflow).ngOnInit();
-      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
       const rebuild = vi.spyOn(component as any, "readConfig");
 
       h.compilationChanged.next("Succeeded");
       await new Promise(r => setTimeout(r, FORM_DEBOUNCE_TIME_MS + 50));
+      expect(rebuild).not.toHaveBeenCalled();
+
+      // The cursor leaves the field: the held rebuild runs, once. Held rather than dropped, or the
+      // compiled schema would never reach the cards until something else rebuilt them.
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps a held rebuild held when the focus only moves to another text field", async () => {
+      build(formViewWorkflow).ngOnInit();
+      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined);
+
+      component.onFocusOut(); // tabbed to the next input: still typing when the check runs
+      await new Promise(r => setTimeout(r, 10));
 
       expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    it("rebuilds nothing on a focusout with no rebuild held", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const rebuild = vi.spyOn(component as any, "readConfig");
+
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    // Leaving the text field by clicking a tick box: focusout queues the held rebuild, then the tick
+    // box's own change rebuilds at once and clears the hold. The queued callback must notice and
+    // not rebuild the same cards a second time.
+    it("does not rebuild twice when the control that took the focus already rebuilt", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined); // held
+      component.onFocusOut(); // queued
+
+      typing.mockReturnValue(false);
+      workflowActionService.formBindingChanged$.next(undefined); // the tick box's own change: rebuilds now
+      expect(rebuild).toHaveBeenCalledTimes(1);
+      await new Promise(r => setTimeout(r, 10)); // the queued callback fires
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
     });
 
     it("re-reads the config when a property is exposed or un-exposed", () => {
@@ -842,15 +890,37 @@ describe("WorkflowFormComponent", () => {
     });
 
     // Once #8351 makes this stream fire for a co-editor's change, a rebuild under the cursor would
-    // discard a half-entered value -- so the binding path skips typing, like the compilation path.
-    it("does not re-read the config on a binding change while the reader is typing", () => {
+    // discard a half-entered value -- so the binding path holds it while typing, like the
+    // compilation path, and runs it when the focus leaves.
+    it("holds a binding-change rebuild while the reader is typing, then runs it on focusout", async () => {
       build(formViewWorkflow).ngOnInit();
-      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
       const rebuild = vi.spyOn(component as any, "readConfig");
 
       workflowActionService.formBindingChanged$.next(undefined);
-
       expect(rebuild).not.toHaveBeenCalled();
+
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    // The bug this guards against: ticking a property in the step panel focuses the tick box, an
+    // <input type="checkbox"> inside this page. Counted as typing, the rebuild that should add the
+    // card was held back, so the tick looked like it did nothing until something else rebuilt.
+    it("does not count a focused tick box as typing", () => {
+      build(formViewWorkflow).ngOnInit();
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      document.body.appendChild(box);
+      (component as any).host = { nativeElement: { contains: () => true, querySelector: () => null } };
+      box.focus();
+
+      expect((component as any).isTypingInTheForm()).toBe(false);
+
+      document.body.removeChild(box);
     });
 
     it("reports typing when a form field inside the page is focused", () => {
@@ -1055,6 +1125,26 @@ describe("WorkflowFormComponent", () => {
       expect(component.runError).toBe("");
     });
 
+    it("clears a stale failure banner when a new run starts, even a co-editor's", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.executionStateStream.next({ current: { state: ExecutionState.Failed, errorMessages: [{ message: "boom" }] } });
+      expect(component.runError).not.toBe("");
+
+      // A co-editor starts the next run: the shared stream goes in-flight without this page's onRun().
+      h.executionStateStream.next({ current: { state: ExecutionState.Running } });
+
+      expect(component.runError).toBe("");
+    });
+
+    it("tells apart a never-run form from a completed run that produced nothing", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(component.hasRunFinished).toBe(false);
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Completed } });
+
+      expect(component.hasRunFinished).toBe(true);
+    });
+
     it("stops a running workflow instead of starting another", () => {
       build(formViewWorkflow).ngOnInit();
       h.executionStateStream.next({ current: { state: ExecutionState.Running } });
@@ -1092,6 +1182,214 @@ describe("WorkflowFormComponent", () => {
       vi.useRealTimers();
 
       expect(component.executionDuration).toBe(2000);
+    });
+  });
+
+  describe("showing the chosen results", () => {
+    // The terminal always shows (the engine always materializes it); a chosen intermediate shows only
+    // while it still has view-result on the canvas. The form never writes the view-result set
+    // (display filter, per the settled design).
+    const chosen = (resultOperatorIds: string[]) =>
+      formBindingService.getConfig.mockReturnValue({ instruction: undefined, fields: [], resultOperatorIds });
+
+    it("shows a chosen result only while its operator still has view-result on the canvas", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a", "b"]);
+      h.viewResultIds.add("a"); // b's eye is off on the canvas
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["a"]);
+    });
+
+    it("shows a chosen terminal operator with no eye", () => {
+      // The engine materializes a terminal operator unconditionally, so its result is always available.
+      // The form must show it, or an author who picks the workflow's final operator -- the most natural
+      // choice -- would get a card that never appears.
+      build(formViewWorkflow).ngOnInit();
+      chosen(["last"]);
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      h.terminalIds.add("last"); // no downstream link, and its eye is off
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["last"]);
+    });
+
+    it("shows the terminal result with nothing chosen", () => {
+      // A reader who never curates still sees the workflow's final result: the engine always
+      // materializes the terminal operator, so its result is always available to show.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      h.hasOperatorIds.add("last");
+      h.terminalIds.add("last"); // terminal, no eye, not chosen
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["last"]);
+    });
+
+    it("does not show a chosen non-terminal operator whose eye is off", () => {
+      // A mid-graph step with an enabled downstream link is materialized only when its eye is on;
+      // without the eye it produces no result, so the form must not show a card that sits forever empty.
+      build(formViewWorkflow).ngOnInit();
+      chosen(["mid"]);
+      h.graphOperators.push({ operatorID: "mid", operatorType: "Filter" }); // enabled downstream, no eye
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual([]);
+    });
+
+    it("treats an operator whose only downstream link is disabled as terminal", () => {
+      // The backend's storage rule is out-degree 0 on the ENABLED plan, so an operator whose downstream
+      // link is disabled is terminal and gets materialized. The form must match, reading enabled links.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "a", operatorType: "Filter" });
+      h.graphOperators.push({ operatorID: "b", operatorType: "Limit" });
+      h.disabledDownstream.add("a"); // a -> b link disabled, so a has no enabled downstream
+      h.terminalIds.add("b"); // b is the true end
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toContain("a");
+      expect(component.shownResultIds).toContain("b");
+    });
+
+    it("does not treat a disabled operator as terminal", () => {
+      // A disabled operator is not in the compiled plan, so the engine never materializes it; even with
+      // no downstream it must not be shown as a terminal result.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "off", operatorType: "Limit", isDisabled: true });
+      h.terminalIds.add("off"); // no downstream, but disabled
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual([]);
+    });
+
+    it("drops a card when the canvas view-result set changes, without a result update", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a", "b"]);
+      h.viewResultIds.add("a");
+      h.viewResultIds.add("b");
+      (component as any).readConfig();
+      expect(component.shownResultIds).toEqual(["a", "b"]);
+
+      // A co-editor turns b's eye off on the canvas. This emits no result-update event, so the
+      // filter must react to the view-result set changing directly, or b's card would go stale.
+      h.viewResultIds.delete("b");
+      h.viewResultChanged.next({});
+
+      expect(component.shownResultIds).toEqual(["a"]);
+    });
+
+    it("cards only the chosen, viewed steps that actually produced a result", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["produces", "produces-nothing"]);
+      h.viewResultIds.add("produces");
+      h.viewResultIds.add("produces-nothing");
+      h.anyResultIds.add("produces"); // the other ran but yielded nothing (e.g. a download UDF)
+
+      (component as any).readConfig();
+
+      expect(component.resultIdsToShow).toEqual(["produces"]);
+      expect(component.hasResults).toBe(true);
+    });
+
+    it("has no results when nothing chosen has produced anything", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a"]);
+      h.viewResultIds.add("a");
+      (component as any).readConfig();
+
+      expect(component.hasResults).toBe(false);
+    });
+
+    it("calls a paginated result a table, and gates visualisation content on a snapshot", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).workflowResultService.hasPaginatedResult = (id: string) => id === "tab";
+
+      expect(component.isTabularResult("tab")).toBe(true);
+      expect(component.vizHasContent("tab")).toBe(false); // tables take the tabular branch
+      // A non-tabular op with a non-empty snapshot has viz content; an empty one does not.
+      h.snapshotById.set("viz", [{ a: 1 }]);
+      expect(component.vizHasContent("viz")).toBe(true);
+      expect(component.vizHasContent("blank")).toBe(false);
+    });
+
+    it("labels a result by the operator's friendly name, falling back to the id", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "CSVFileScan" });
+
+      expect(component.resultLabel("op-1")).toBe("CSVFileScan");
+      expect(component.resultLabel("gone")).toBe("gone");
+    });
+
+    it("keeps a result's frame identity stable until its version moves", () => {
+      build(formViewWorkflow).ngOnInit();
+      const before = component.resultKey("op-1");
+      expect(component.resultKey("op-1")).toBe(before);
+
+      (component as any).resultVersion.set("op-1", 1);
+
+      expect(component.resultKey("op-1")).not.toBe(before);
+      expect(component.trackByKey(0, "k")).toBe("k");
+    });
+
+    it("resizes a result within bounds, per result, and re-fits after", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+      expect(component.resultZoom("op-1")).toBe(1);
+
+      component.zoomResult("op-1", 1);
+      component.zoomResult("op-1", 1);
+      expect(component.resultZoom("op-1")).toBe(2); // clamped at 2
+
+      component.zoomResult("op-1", -1);
+      component.zoomResult("op-1", -1);
+      component.zoomResult("op-1", -1);
+      expect(component.resultZoom("op-1")).toBe(0); // clamped at 0
+      expect(component.resultZoom("op-2")).toBe(1); // untouched
+
+      // The deferred re-fit runs after the card height lands.
+      vi.advanceTimersByTime(60);
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("bumps the result version and re-fits on a result update", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+
+      h.resultUpdateStream.next({ "op-1": {} });
+      expect(component.resultKey("op-1")).toBe("op-1#1");
+      vi.advanceTimersByTime(300);
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("re-fits the charts once a finished run has results", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      vi.spyOn(component, "hasResults", "get").mockReturnValue(true);
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Completed } });
+      vi.advanceTimersByTime(400);
+
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("gives the result tables a realistic page height on init", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(h.panelResizeService.changePanelSize).toHaveBeenCalled();
     });
   });
 
@@ -1170,6 +1468,126 @@ describe("WorkflowFormComponent", () => {
       });
 
       expect(component.runError).toBe("Run failed: please check your inputs and try again.");
+    });
+  });
+
+  describe("inspecting a step read-only", () => {
+    const withOp = () => {
+      h.hasOperatorIds.add("op-1");
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "Filter" });
+    };
+
+    // Model a highlight the way the real graph does: the stream emits only the newly-highlighted
+    // ids (the delta), while getCurrentHighlightedOperatorIDs returns the whole selection. So set
+    // the full selection first, then emit the delta.
+    const highlight = (full: string[], delta: string[] = full) => {
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push(...full);
+      h.highlightStream.next(delta);
+    };
+
+    it("turns highlighting on so a click selects a step", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(workflowActionService.setHighlightingEnabled).toHaveBeenCalledWith(true);
+    });
+
+    it("opens the read-only panel for the clicked step", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-1");
+    });
+
+    it("never broadcasts editing itself: silence is delegated to the panel (actsAsEditor=false)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      // The form component does not touch the co-editor channel at all; the panel is mounted with
+      // [actsAsEditor]="false", which suppresses every write at the frame (the only writer).
+      // The frame's suppression is covered in operator-property-edit-frame.component.spec.ts.
+      expect(h.updateSharedModelAwareness).not.toHaveBeenCalled();
+    });
+
+    it("clears the selection when the clicked step is not on the graph", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).selectedOperatorId = "old";
+
+      highlight(["ghost"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("closes the panel when the canvas clears its highlight", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      h.highlightedIds.length = 0; // nothing highlighted any more
+      h.unhighlightStream.next([]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("opens the panel on the one step left after dropping one of two selected", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      h.hasOperatorIds.add("op-2");
+      h.graphOperators.push({ operatorID: "op-2", operatorType: "Filter" });
+
+      highlight(["op-1", "op-2"], ["op-2"]);
+      expect(component.selectedOperatorId).toBeUndefined(); // two selected: no single step to show
+
+      // Ctrl-clicking op-1 off leaves exactly one selected, which has to OPEN the panel. Only the
+      // un-highlight stream fires here -- nothing was newly highlighted -- so that stream has to
+      // apply the same rule as the highlight stream, not just test for an empty selection.
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push("op-2");
+      h.unhighlightStream.next(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-2");
+    });
+
+    it("keeps the panel closed while more than one step is still highlighted", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1", "op-2", "op-3"], ["op-2", "op-3"]);
+
+      h.highlightedIds.splice(h.highlightedIds.indexOf("op-3"), 1); // two left
+      h.unhighlightStream.next(["op-3"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("dismisses the panel via the close button, dropping the highlight for co-editors too", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      component.closeOperatorPanel();
+
+      // Through the action service, whose unhighlight also publishes the new selection on the
+      // shared awareness channel. Calling the joint wrapper's method directly would drop the ring
+      // locally and leave co-editors still seeing it on this reader's behalf.
+      expect(h.serviceUnhighlightOperators).toHaveBeenCalledWith("op-1");
+      expect(h.updateSharedModelAwareness).toHaveBeenCalledWith("highlighted", []);
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("ignores a multi-select highlight, closing the panel (no single step to show)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+      expect(component.selectedOperatorId).toBe("op-1");
+
+      // Shift-clicking a second step: the stream emits only the new id, but the full selection is
+      // now two, so the panel closes rather than opening whichever was clicked last.
+      highlight(["op-1", "op-2"], ["op-2"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
     });
   });
 });
