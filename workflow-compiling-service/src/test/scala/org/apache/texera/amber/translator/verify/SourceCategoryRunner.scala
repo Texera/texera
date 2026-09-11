@@ -19,7 +19,14 @@
 
 package org.apache.texera.amber.translator.verify
 
-import org.apache.texera.amber.core.tuple.{Schema, Tuple}
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{Path => HadoopPath}
+import org.apache.parquet.example.data.Group
+import org.apache.parquet.example.data.simple.SimpleGroupFactory
+import org.apache.parquet.hadoop.example.{ExampleParquetWriter, GroupWriteSupport}
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
+import org.apache.parquet.schema.{LogicalTypeAnnotation, MessageType, Types}
+import org.apache.texera.amber.core.tuple.{AttributeType, Schema, Tuple}
 import org.apache.texera.amber.core.workflow.PortIdentity
 import org.apache.texera.amber.operator.LogicalOp
 import org.apache.texera.amber.operator.source.fetcher.URLFetcherOpDesc
@@ -36,6 +43,7 @@ import org.apache.texera.amber.util.ArrowUtils
 import java.nio.channels.FileChannel
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file.{Files, Path, StandardOpenOption}
+import java.time.ZoneOffset
 import scala.collection.mutable
 import scala.util.{Try, Using}
 
@@ -84,7 +92,8 @@ object SourceCategoryRunner {
     "JSONL" -> CanonicalSourceFixture.writeJsonl,
     // Arrow is binary and its descriptor declares fileEncoding ignored, so the
     // charset a variant asks for has nothing to apply to.
-    "Arrow" -> ((dir, _) => CanonicalSourceFixture.writeArrow(dir))
+    "Arrow" -> ((dir, _) => CanonicalSourceFixture.writeArrow(dir)),
+    "Parquet" -> ((dir, _) => CanonicalSourceFixture.writeParquet(dir))
   )
 
   /**
@@ -428,6 +437,80 @@ object CanonicalSourceFixture {
       writer.end()
     }.get
     path
+  }
+
+  /** Write the rows as a Parquet file carrying the canonical table's own types.
+    *
+    * The mapping below is the inverse of `ParquetSchemaMapping`, which is what
+    * the operator reads the file back with. Writing every column as optional is
+    * what lets a hole be a hole: Parquet has no null value, only a field that
+    * repeats zero times, so a required column could not hold one.
+    */
+  def writeParquet(dir: Path): Path = {
+    val path = dir.resolve("sample.parquet")
+    val messageType = parquetSchemaOf(schema)
+    val conf = new Configuration()
+    GroupWriteSupport.setSchema(messageType, conf)
+    val factory = new SimpleGroupFactory(messageType)
+    Using(
+      ExampleParquetWriter
+        .builder(new HadoopPath(path.toString))
+        .withConf(conf)
+        .withType(messageType)
+        .build()
+    ) { writer => rows.foreach(t => writer.write(groupOf(factory, t))) }.get
+    path
+  }
+
+  /** The canonical schema as Parquet states types. */
+  private def parquetSchemaOf(schema: Schema): MessageType = {
+    val fields = schema.getAttributes.map { attribute =>
+      val name = attribute.getName
+      attribute.getType match {
+        case AttributeType.STRING =>
+          Types
+            .optional(PrimitiveTypeName.BINARY)
+            .as(LogicalTypeAnnotation.stringType())
+            .named(name)
+        case AttributeType.INTEGER => Types.optional(PrimitiveTypeName.INT32).named(name)
+        case AttributeType.LONG    => Types.optional(PrimitiveTypeName.INT64).named(name)
+        case AttributeType.DOUBLE  => Types.optional(PrimitiveTypeName.DOUBLE).named(name)
+        case AttributeType.BOOLEAN => Types.optional(PrimitiveTypeName.BOOLEAN).named(name)
+        case AttributeType.TIMESTAMP =>
+          Types
+            .optional(PrimitiveTypeName.INT64)
+            .as(LogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.MILLIS))
+            .named(name)
+        case other =>
+          throw new UnsupportedOperationException(s"no Parquet type for $other in column $name")
+      }
+    }
+    Types.buildMessage().addFields(fields.toSeq: _*).named("canonical")
+  }
+
+  /** One row, with an absent field wherever the tuple holds a null. */
+  private def groupOf(factory: SimpleGroupFactory, tuple: Tuple): Group = {
+    val group = factory.newGroup()
+    schema.getAttributes.foreach { attribute =>
+      val name = attribute.getName
+      Option(tuple.getField[AnyRef](name)).foreach {
+        case v: java.lang.String  => group.append(name, v)
+        case v: java.lang.Integer => group.append(name, v.intValue())
+        case v: java.lang.Long    => group.append(name, v.longValue())
+        case v: java.lang.Double  => group.append(name, v.doubleValue())
+        case v: java.lang.Boolean => group.append(name, v.booleanValue())
+        // The wall clock counted from the epoch with no zone in the picture,
+        // which is what `ArrowUtils` means by a Texera TIMESTAMP and what the
+        // operator reads back. `getTime` would bake in the writer's own zone.
+        case v: java.sql.Timestamp =>
+          group.append(name, v.toLocalDateTime.toInstant(ZoneOffset.UTC).toEpochMilli)
+        case other =>
+          throw new UnsupportedOperationException(
+            s"no Parquet value for ${other.getClass.getSimpleName} in column $name"
+          )
+      }
+    }
+    group
   }
 }
 
