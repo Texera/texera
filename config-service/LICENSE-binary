@@ -289,7 +289,7 @@ Scala/Java jars:
   - io.opentelemetry.opentelemetry-sdk-logs-1.50.0.jar
   - io.opentelemetry.opentelemetry-sdk-metrics-1.50.0.jar
   - io.opentelemetry.opentelemetry-sdk-trace-1.50.0.jar
-  - io.r2dbc.r2dbc-spi-0.9.0.RELEASE.jar
+  - io.r2dbc.r2dbc-spi-1.0.0.RELEASE.jar
   - jakarta.inject.jakarta.inject-api-2.0.1.jar
   - jakarta.validation.jakarta.validation-api-3.0.2.jar
   - org.apache.commons.commons-lang3-3.13.0.jar
