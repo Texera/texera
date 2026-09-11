@@ -19,7 +19,7 @@
 
 package org.apache.texera.amber.translator.verify
 
-import org.apache.texera.amber.core.tuple.{Attribute, AttributeType, Schema}
+import org.apache.texera.amber.core.tuple.{Attribute, AttributeType, Schema, Tuple}
 import org.apache.texera.amber.core.workflow.{InputPort, OutputPort, PortIdentity}
 import org.apache.texera.amber.operator.PythonOperatorDescriptor
 import org.apache.texera.amber.operator.metadata.{OperatorGroupConstants, OperatorInfo}
@@ -75,11 +75,9 @@ class PyOpExecHarnessSpec extends AnyFlatSpec with Matchers {
   "PyOpExecHarness" should "record each yield as it was yielded" in {
     val dir = Files.createTempDirectory("py-op-harness-")
     val inputSchema = Schema().add(new Attribute("seed", AttributeType.INTEGER))
-    val input = CuratedHandlers.writeFixture(
-      dir.resolve("input_port_0.jsonl"),
-      Seq(("seed", AttributeType.INTEGER)),
-      Seq(Seq[Any](1))
-    )
+    val input = dir.resolve("input_port_0.jsonl")
+    val seed = Tuple.builder(inputSchema).add("seed", AttributeType.INTEGER, Int.box(1)).build()
+    TupleIO.writeTuples(input, Iterator(seed), inputSchema)
 
     val result = PyOpExecHarness.execute(
       new MutatingYieldOpDesc,
