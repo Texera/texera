@@ -27,6 +27,7 @@ import org.apache.texera.common.config.StorageConfig
 import org.apache.texera.auth.{AuthFeatures, RequestLoggingFilter, RoleAnnotationEnforcer}
 import org.apache.texera.dao.SqlServer
 import org.apache.texera.service.resource.{
+  AdminComputingUnitResource,
   ComputingUnitAccessResource,
   ComputingUnitManagingResource,
   HealthCheckResource
@@ -68,6 +69,7 @@ class ComputingUnitManagingService extends Application[ComputingUnitManagingServ
 
     environment.jersey().register(new ComputingUnitManagingResource)
     environment.jersey().register(new ComputingUnitAccessResource)
+    environment.jersey().register(new AdminComputingUnitResource)
 
     RoleAnnotationEnforcer.enforce(
       environment.jersey.getResourceConfig,

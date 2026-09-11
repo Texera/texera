@@ -134,7 +134,7 @@ export class ComputingUnitSelectionComponent implements OnInit {
   // variables for creating a virtual environment
   pves: PveDraft[] = [];
   systemPackages: { name: string; version: string }[] = [];
-  // True while a /pve/system response is in flight. The server resolves
+  // True while an /api/pve/system response is in flight. The server resolves
   // the full pinned set with a `pip freeze` against a throwaway venv,
   // which can take 30–60s on the first request after a server restart.
   systemPackagesLoading = false;
@@ -299,14 +299,6 @@ export class ComputingUnitSelectionComponent implements OnInit {
 
   isComputingUnitRunning(): boolean {
     return this.selectedComputingUnit != null && this.selectedComputingUnit.status === "Running";
-  }
-
-  getButtonText(): string {
-    if (!this.selectedComputingUnit) {
-      return "Connect";
-    } else {
-      return this.selectedComputingUnit.computingUnit.name;
-    }
   }
 
   computeStatus(): string {
@@ -563,14 +555,6 @@ export class ComputingUnitSelectionComponent implements OnInit {
 
   getMemoryStatus(): "success" | "exception" | "active" | "normal" {
     return getComputingUnitMemoryStatus(this.getMemoryPercentage());
-  }
-
-  getCpuUnit(): string {
-    return this.getCpuLimitUnit() === "CPU" ? "Cores" : this.getCpuLimitUnit();
-  }
-
-  getMemoryUnit(): string {
-    return this.getMemoryLimitUnit() === "" ? "B" : this.getMemoryLimitUnit();
   }
 
   /**
