@@ -255,6 +255,63 @@ describe("WorkflowEditorComponent", () => {
       expect(component.paper.findViewByModel(element2.id)).toBeTruthy();
       expect(component.paper.findViewByModel(link1.id)).toBeTruthy();
     });
+
+    /** Two operators joined by one link, added the way the workflow is (through the action service, so
+     *  the wrapper's cell-add streams fire), returning the link's view on the paper. */
+    function addLinkedPair(): joint.dia.LinkView {
+      const workflowActionService = TestBed.inject(WorkflowActionService);
+      workflowActionService.addOperator(mockScanPredicate, mockPoint);
+      workflowActionService.addOperator(mockResultPredicate, mockPoint);
+      workflowActionService.addLink(mockScanResultLink);
+      return component.paper.findViewByModel(mockScanResultLink.linkID) as joint.dia.LinkView;
+    }
+
+    it("offers the link tools on the operator canvas: remove appears on hover", () => {
+      const linkView = addLinkedPair();
+
+      component.paper.trigger("link:mouseenter", linkView, new MouseEvent("mouseenter"));
+
+      expect(linkView.hasTools()).toBe(true);
+    });
+
+    it("adds no link tools on a structure-locked preview: no remove, no breakpoint", () => {
+      // The Form View's preview cannot remove a link and has no use for breakpoints; buttons that did
+      // nothing would only suggest the preview can be edited.
+      component.structureLocked = true;
+      const linkView = addLinkedPair();
+
+      expect(linkView.hasTools()).toBe(false);
+      component.paper.trigger("link:mouseenter", linkView, new MouseEvent("mouseenter"));
+      expect(linkView.hasTools()).toBe(false);
+    });
+
+    /** Select the scan operator the way a click does and return its model, whose attrs say what is on show. */
+    function selectScanOperator(): joint.dia.Cell {
+      addLinkedPair();
+      const view = component.paper.findViewByModel(mockScanPredicate.operatorID);
+      component.paper.trigger("element:pointerdown", view, new MouseEvent("mousedown"), 0, 0);
+      return component.paper.getModelById(mockScanPredicate.operatorID);
+    }
+
+    it("shows a selected operator's delete and chat buttons on the operator canvas", () => {
+      const model = selectScanOperator();
+
+      expect(model.attr(".delete-button/visibility")).toBe("visible");
+      expect(model.attr(".chat-button/visibility")).toBe("visible");
+    });
+
+    it("keeps a selected operator's buttons hidden on a structure-locked preview, but still shows its state", () => {
+      // The Form View's preview cannot delete an operator or change its ports, and the agent chat is
+      // a canvas tool; buttons that did nothing would only suggest the preview can be edited. The
+      // state text still unfolds, so a run's progress reads there as on the canvas.
+      component.structureLocked = true;
+      const model = selectScanOperator();
+
+      expect(model.attr(".delete-button/visibility")).toBe("hidden");
+      expect(model.attr(".chat-button/visibility")).toBe("hidden");
+      expect(model.attr(".add-input-port-button/visibility")).toBe("hidden");
+      expect(model.attr(".texera-operator-state/visibility")).toBe("visible");
+    });
   });
 
   /**
@@ -1626,6 +1683,17 @@ describe("WorkflowEditorComponent link breakpoints", () => {
     const model = component.paper.getModelById(mockScanResultLink.linkID);
     return { linkID: mockScanResultLink.linkID, model, view: model.findView(component.paper) as any };
   }
+
+  it("attaches no breakpoint tool on a structure-locked preview", () => {
+    // The Form View's preview has no use for breakpoints (a canvas debugging tool), and a hover adds
+    // no remove button there either: buttons that did nothing would suggest the preview can be edited.
+    component.structureLocked = true;
+    const { view } = withLink();
+
+    expect(view.hasTools()).toBe(false);
+    component.paper.trigger("link:mouseenter", view, new MouseEvent("mouseenter"));
+    expect(view.hasTools()).toBe(false);
+  });
 
   it("attaches a breakpoint tool to every link, hidden until it is wanted", () => {
     // The tool is what the user clicks to set a breakpoint; without it the feature has no entry

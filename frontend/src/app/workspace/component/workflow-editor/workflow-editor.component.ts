@@ -1200,7 +1200,9 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         }
 
         this.currentOpenedOperatorID = operatorID;
-        this.jointUIService.unfoldOperatorDetails(this.paper, operatorID);
+        // A structure-locked preview (the Form View's) unfolds the state and port counts only: its
+        // delete, chat and port buttons could not act there, and would only suggest it can be edited.
+        this.jointUIService.unfoldOperatorDetails(this.paper, operatorID, !this.structureLocked);
       });
 
     fromJointPaperEvent(this.paper, "element:contextmenu")
@@ -1213,7 +1215,7 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
         }
 
         this.currentOpenedOperatorID = operatorID;
-        this.jointUIService.unfoldOperatorDetails(this.paper, operatorID);
+        this.jointUIService.unfoldOperatorDetails(this.paper, operatorID, !this.structureLocked);
       });
 
     // Handle right-click on links
@@ -1533,6 +1535,12 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       .pipe(map(value => value[0]))
       .pipe(untilDestroyed(this))
       .subscribe(linkView => {
+        // A structure-locked preview (the Form View's) offers neither: the link cannot be removed
+        // there, and a breakpoint is a canvas debugging tool. Buttons that do nothing would only
+        // suggest the preview can be edited.
+        if (this.structureLocked) {
+          return;
+        }
         // Create an array to hold the tools
         const tools: joint.dia.ToolView[] = [new this.removeButton()];
 
@@ -1583,6 +1591,10 @@ export class WorkflowEditorComponent implements OnInit, AfterViewInit, OnDestroy
       .getJointLinkCellAddStream()
       .pipe(this.wrapper.jointGraphContext.bufferWhileAsync, untilDestroyed(this))
       .subscribe(link => {
+        // No breakpoint tool on a structure-locked preview either (see handleLinkCursorHover).
+        if (this.structureLocked) {
+          return;
+        }
         const linkView = link.findView(this.paper);
         const breakpointButtonTool = this.breakpointButton;
         const breakpointButton = new breakpointButtonTool();

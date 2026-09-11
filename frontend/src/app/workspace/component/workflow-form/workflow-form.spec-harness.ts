@@ -53,6 +53,9 @@ export const resolved = (id: string, displayName: string, extra: Partial<Resolve
 export function setupHarness() {
   const router = { navigate: vi.fn() };
   const workflowChangedStream = new Subject<unknown>();
+  // The root-level modification lock as other writers flip it (the execute service after a run, the
+  // computing-unit selector); tests emit `true` to stand in for one of them unlocking the graph.
+  const modificationEnabled = new Subject<boolean>();
   const workflowMetaDataChangedStream = new Subject<unknown>();
   // Compilation reports column names late; the form rebuilds its inputs off this stream.
   const compilationChanged = new Subject<unknown>();
@@ -69,6 +72,11 @@ export function setupHarness() {
   const resultUpdateStream = new Subject<Record<string, unknown>>();
   // Fires when the canvas's view-result set changes (a co-editor's eye toggle included).
   const viewResultChanged = new Subject<unknown>();
+  // Fires for a change of the graph's shape (operator added/deleted/disabled, link added/deleted); one
+  // subject stands in for all five streams, since the form treats them alike.
+  const graphStructureChanged = new Subject<unknown>();
+  // Fires when a step's display name changes; its own subject, so a test can tell it from the shape.
+  const displayNameChanged = new Subject<unknown>();
   // The operators the graph holds: `hasOperatorIds` gates operatorSchemaFor, `graphOperators`
   // supplies each operator's type (which picks the custom widget). Tests add to them as needed.
   const hasOperatorIds = new Set<string>();
@@ -115,6 +123,7 @@ export function setupHarness() {
     reloadWorkflow: vi.fn(),
     enableWorkflowModification: vi.fn(),
     disableWorkflowModification: vi.fn(),
+    getWorkflowModificationEnabledStream: () => modificationEnabled.asObservable(),
     clearWorkflow: vi.fn(),
     workflowChanged: () => workflowChangedStream.asObservable(),
     workflowMetaDataChanged: () => workflowMetaDataChangedStream.asObservable(),
@@ -131,6 +140,12 @@ export function setupHarness() {
       getAllOperators: () => graphOperators,
       getOperatorsToViewResult: () => new Set(viewResultIds),
       getViewResultOperatorsChangedStream: () => viewResultChanged.asObservable(),
+      getOperatorAddStream: () => graphStructureChanged.asObservable(),
+      getOperatorDeleteStream: () => graphStructureChanged.asObservable(),
+      getLinkAddStream: () => graphStructureChanged.asObservable(),
+      getLinkDeleteStream: () => graphStructureChanged.asObservable(),
+      getDisabledOperatorsChangedStream: () => graphStructureChanged.asObservable(),
+      getOperatorDisplayNameChangedStream: () => displayNameChanged.asObservable(),
       // Enabled links only: a non-terminal operator emits one dummy outgoing link; a terminal operator
       // (in terminalIds, or whose downstream is disabled via disabledDownstream) emits none. Drives the
       // component's terminal detection (terminalOperatorIds).
@@ -158,7 +173,7 @@ export function setupHarness() {
   const formBindingService = {
     // The presentation config: the instruction plus the fields. Tests override getConfig to give an
     // instruction; resolveFields drives which inputs render.
-    getConfig: vi.fn().mockReturnValue({ instruction: undefined, fields: [], resultOperatorIds: [] }),
+    getConfig: vi.fn().mockReturnValue({ instruction: undefined, fields: [] }),
     resolveFields: vi.fn().mockReturnValue([]),
     readValue: vi.fn().mockReturnValue(undefined),
     writeValue: vi.fn(),
@@ -166,7 +181,7 @@ export function setupHarness() {
     operatorLabel: (op: any) => op?.customDisplayName ?? op?.operatorType ?? op?.operatorID,
     // Author-mode writes: the component calls these then re-reads config. Spied so a test can
     // assert the edit was made without needing a real binding store.
-    toggleResultOperator: vi.fn(),
+    toggleShownResult: vi.fn(),
     updateConfig: vi.fn(),
   };
   // A field per property the tests expose. Real formly json-schema conversion is exercised by the
@@ -321,6 +336,7 @@ export function setupHarness() {
     workflowMetaDataChangedStream,
     compilationChanged,
     executionStateStream,
+    modificationEnabled,
     durationEvents,
     statusStream,
     selectedUnitStream,
@@ -328,6 +344,8 @@ export function setupHarness() {
     connectionStream,
     resultUpdateStream,
     viewResultChanged,
+    graphStructureChanged,
+    displayNameChanged,
     hasOperatorIds,
     graphOperators,
     viewResultIds,

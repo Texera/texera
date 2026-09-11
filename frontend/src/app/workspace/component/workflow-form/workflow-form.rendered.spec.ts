@@ -142,6 +142,7 @@ describe("WorkflowFormComponent (rendered template)", () => {
             setNewSharedModel: vi.fn(),
             reloadWorkflow: vi.fn(),
             disableWorkflowModification: vi.fn(),
+            getWorkflowModificationEnabledStream: () => EMPTY,
             clearWorkflow: vi.fn(),
             getWorkflowMetadata: () => ({ name: "scGPT", lastModifiedTime: undefined }),
             getWorkflow: () => ({ wid: 7, content: { operators: [], operatorPositions: {} } }),
@@ -159,6 +160,12 @@ describe("WorkflowFormComponent (rendered template)", () => {
               getAllEnabledLinks: () => [],
               getOperatorsToViewResult: () => new Set<string>(),
               getViewResultOperatorsChangedStream: () => EMPTY,
+              getOperatorAddStream: () => EMPTY,
+              getOperatorDeleteStream: () => EMPTY,
+              getLinkAddStream: () => EMPTY,
+              getLinkDeleteStream: () => EMPTY,
+              getDisabledOperatorsChangedStream: () => EMPTY,
+              getOperatorDisplayNameChangedStream: () => EMPTY,
               updateSharedModelAwareness: vi.fn(),
             }),
             getJointGraphWrapper: () => ({
@@ -185,14 +192,13 @@ describe("WorkflowFormComponent (rendered template)", () => {
             getConfig: () => ({
               instruction: { title: "How to use this", body: "Fill in the inputs." },
               fields: [],
-              resultOperatorIds: [],
             }),
             resolveFields: () => [],
             readValue: () => undefined,
             writeValue: vi.fn(),
             // Author-mode writes the rendered controls reach.
             updateConfig: vi.fn(),
-            toggleResultOperator: vi.fn(),
+            toggleShownResult: vi.fn(),
           },
         },
         { provide: FormlyJsonschema, useValue: { toFieldConfig: () => ({ fieldGroup: [] }) } },
@@ -501,17 +507,27 @@ describe("WorkflowFormComponent (rendered template)", () => {
     expect(el("textarea.md-input")).not.toBeNull();
   });
 
-  it("shows the result picker only while authoring: a pill per candidate, an empty hint otherwise", () => {
+  it("shows the result picker to everyone with something to choose, and to an author always", () => {
     fixture.detectChanges();
     finishLoad();
     const c = fixture.componentInstance;
+    // A reader with nothing to choose from gets no section.
     expect(el(".respick")).toBeNull();
 
+    // A reader with candidates gets the picker, worded as their own view.
+    c.resultChoices = [{ operatorID: "last", label: "Limit", shown: true }];
+    fixture.detectChanges();
+    expect(el(".respick")).not.toBeNull();
+    expect(el(".respick p")?.textContent).toContain("only your view");
+    expect(el(".respick .pill")?.textContent?.trim()).toBe("Limit");
+
+    // An author always gets it, with the hint on how to add steps, worded as the default for all.
     c.authoring = true;
     c.resultChoices = [];
     fixture.detectChanges();
     expect(el(".respick")).not.toBeNull();
-    expect(el(".respick .hint")?.textContent).toContain("No earlier steps to add yet");
+    expect(el(".respick p")?.textContent).toContain("What everyone sees");
+    expect(el(".respick .hint")?.textContent).toContain("No steps to choose from yet");
 
     c.resultChoices = [
       { operatorID: "mid", label: "Filter", shown: false },
@@ -672,6 +688,32 @@ describe("WorkflowFormComponent (rendered template)", () => {
     // focusable again it would just sit in front of it, so it goes away with inert.
     expect(el(".panel")!.hasAttribute("tabindex")).toBe(false);
     expect(el(".panel")!.getAttribute("aria-label")).toBe("Step settings");
+  });
+
+  it("keeps that panel read-only while a run is in flight, even in edit mode, and turns it live after", () => {
+    // The frame does not consult the lock before its own writes (version sync on mount, the schema
+    // defaults ajv fills in, the editing marker), so a step selected mid-run must mount as a viewer
+    // although edit mode is on; the run ending is what makes it live.
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    c.selectedOperatorId = "op-1";
+    c.authoring = true;
+    c.executionState = ExecutionState.Running;
+    fixture.detectChanges();
+
+    const panel = fixture.debugElement.query(By.directive(PropertyEditorComponent))
+      .componentInstance as PropertyEditorComponent;
+    expect(panel.actsAsEditor).toBe(false);
+    expect(panel.exposeChoosing).toBe(false);
+    expect(el("texera-property-editor")!.hasAttribute("inert")).toBe(true);
+    expect(el(".panel")!.getAttribute("aria-label")).toBe("Step settings, read-only");
+
+    c.executionState = ExecutionState.Completed;
+    fixture.detectChanges();
+    expect(panel.actsAsEditor).toBe(true);
+    expect(panel.exposeChoosing).toBe(true);
+    expect(el("texera-property-editor")!.hasAttribute("inert")).toBe(false);
   });
 
   it("tears the workflow down when the browser unloads (the beforeunload host binding)", () => {

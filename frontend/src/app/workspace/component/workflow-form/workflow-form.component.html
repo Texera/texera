@@ -355,7 +355,10 @@
              panel.
              Authoring: the panel goes live -- inert off, acting as an editor, exposeChoosing on
              (tick boxes to pick what the form exposes), so it edits like the canvas, which edit mode
-             has already enabled workflow modification for. The panel's own tab stop goes away with
+             has already enabled workflow modification for. Live follows the lock's own rule
+             (panelLive: edit mode, write access, and no run in flight), not edit mode alone: the
+             frame does not consult the lock before its own writes, so mid-run it stays a read-only,
+             inert mount and turns live when the run ends. The panel's own tab stop goes away with
              inert, so it does not sit in front of the form it now contains. persistPlacement stays
              off either way (this is not the docked canvas panel).
              [hidden], not *ngIf: the property editor shows its operator by REACTING to the highlight
@@ -365,14 +368,14 @@
         <div
           class="panel"
           role="group"
-          [attr.tabindex]="authoring ? null : 0"
-          [attr.aria-label]="authoring ? 'Step settings' : 'Step settings, read-only'"
+          [attr.tabindex]="panelLive ? null : 0"
+          [attr.aria-label]="panelLive ? 'Step settings' : 'Step settings, read-only'"
           [hidden]="!selectedOperatorId">
           <texera-property-editor
-            [exposeChoosing]="authoring"
+            [exposeChoosing]="panelLive"
             [persistPlacement]="false"
-            [actsAsEditor]="authoring"
-            [attr.inert]="authoring ? null : ''"></texera-property-editor>
+            [actsAsEditor]="panelLive"
+            [attr.inert]="panelLive ? null : ''"></texera-property-editor>
         </div>
       </div>
     </section>
@@ -447,15 +450,20 @@
       </ng-container>
     </section>
 
-    <!-- Author picks which earlier steps also report back; the final result always shows. Toggling a
-         pill writes the chosen set; a reader never sees this section. The pills are tracked by step,
-         not by object: a toggle re-reads the config and rebuilds the choices as new objects, and
-         re-created buttons would drop the keyboard focus from the pill just pressed. -->
+    <!-- Which results show after a run. Everyone gets the picker: in edit mode a pill sets the default
+         for all readers (written to the config); otherwise it changes only this viewer's page. A reader
+         with nothing to choose from sees no section; an author always does, with the hint on how to
+         add steps. The pills are tracked by step, not by object: a toggle rebuilds the choices as new
+         objects, and re-created buttons would drop the keyboard focus from the pill just pressed. -->
     <section
       class="card respick"
-      *ngIf="authoring">
+      *ngIf="authoring || resultChoices.length > 0">
       <h3>Results shown here</h3>
-      <p>The final result always shows. Toggle an earlier step here to feature its result too.</p>
+      <p>
+        {{ authoring ? "What everyone sees after a run. Until you choose, every final step is on; an earlier step needs
+        its result view on the canvas first." : "Choose which results to show after a run. This changes only your view."
+        }}
+      </p>
       <div class="opts">
         <button
           type="button"
@@ -469,7 +477,7 @@
         <p
           class="hint"
           *ngIf="resultChoices.length === 0">
-          No earlier steps to add yet. Turn on a step's result view on the canvas to feature it here.
+          No steps to choose from yet. Turn on a step's result view on the canvas to feature it here.
         </p>
       </div>
     </section>
