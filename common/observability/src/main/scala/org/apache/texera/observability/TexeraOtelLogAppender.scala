@@ -65,6 +65,8 @@ class TexeraOtelLogAppender extends UnsynchronizedAppenderBase[ILoggingEvent] {
   override def append(event: ILoggingEvent): Unit = {
     otelLogger match {
       case None => () // not bound
+      case Some(_) if isSelfDiagnostic(event) =>
+        () // drop the exporter's own diagnostics to avoid a feedback loop
       case Some(logger) =>
         try {
           emit(logger, event)
@@ -74,6 +76,16 @@ class TexeraOtelLogAppender extends UnsynchronizedAppenderBase[ILoggingEvent] {
             addError("OTel log emission failed", t)
         }
     }
+  }
+
+  /** OTel's own components report export failures through JUL, which the
+    *  jul-to-slf4j bridge routes to Logback ROOT and back into this appender.
+    *  Re-exporting them to the collector that just failed would feed the failure
+    *  back on itself, so drop any record from an io.opentelemetry logger.
+    */
+  private def isSelfDiagnostic(event: ILoggingEvent): Boolean = {
+    val name = event.getLoggerName
+    name != null && name.startsWith("io.opentelemetry")
   }
 
   private def emit(logger: Logger, event: ILoggingEvent): Unit = {
@@ -99,6 +111,21 @@ class TexeraOtelLogAppender extends UnsynchronizedAppenderBase[ILoggingEvent] {
 
     builder.setAttribute(AttributeKey.stringKey("logger.name"), event.getLoggerName)
     builder.setAttribute(AttributeKey.stringKey("thread.name"), event.getThreadName)
+
+    // Exception semantic-convention attributes so backends key error identity
+    // off exception.type / exception.message instead of parsing the body. The
+    // message and stack trace are redacted like the body.
+    Option(event.getThrowableProxy).foreach { proxy =>
+      builder.setAttribute(AttributeKey.stringKey("exception.type"), proxy.getClassName)
+      builder.setAttribute(
+        AttributeKey.stringKey("exception.message"),
+        LogSanitizer.redactSecrets(proxy.getMessage)
+      )
+      builder.setAttribute(
+        AttributeKey.stringKey("exception.stacktrace"),
+        LogSanitizer.truncate(LogSanitizer.redactSecrets(formatThrowable(proxy)))
+      )
+    }
 
     // Attach trace context so the SDK sets trace_id / span_id.
     val span = Span.current()

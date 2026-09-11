@@ -86,41 +86,56 @@ object OtelInit extends LazyLogging {
     synchronized {
       if (initialized.isDefined) return initialized
 
-      // Source the OTEL_* settings from observability.conf (HOCON defaults
-      // already merged with any env override); fall back to the raw environment
-      // for anything else.
-      val env = (key: String) =>
-        key match {
-          case EnvironmentalVariable.ENV_OTEL_SDK_DISABLED => Some(ObservabilityConfig.sdkDisabled)
-          case EnvironmentalVariable.ENV_OTEL_EXPORTER_OTLP_ENDPOINT =>
-            Some(ObservabilityConfig.endpoint)
-          case EnvironmentalVariable.ENV_OTEL_RESOURCE_ATTRIBUTES =>
-            Some(ObservabilityConfig.resourceAttributes)
-          case EnvironmentalVariable.ENV_TEXERA_OTEL_ALLOWED_HOSTS =>
-            Some(ObservabilityConfig.allowedHosts)
-          case EnvironmentalVariable.ENV_OTEL_METRIC_EXPORT_INTERVAL =>
-            Some(ObservabilityConfig.metricExportIntervalMs)
-          case other => Option(System.getenv(other))
+      // Guard the whole body: reading observability.conf (ObservabilityConfig's
+      // eager vals) and building the SDK are the fallible steps. A missing or
+      // malformed config would otherwise escape as ExceptionInInitializerError,
+      // even when telemetry is disabled, breaking init()'s "never throws"
+      // contract. On any failure, disable telemetry with one WARN and return None.
+      Try {
+        // Source the OTEL_* settings from observability.conf (HOCON defaults
+        // already merged with any env override); fall back to the raw environment
+        // for anything else.
+        val env = (key: String) =>
+          key match {
+            case EnvironmentalVariable.ENV_OTEL_SDK_DISABLED =>
+              Some(ObservabilityConfig.sdkDisabled)
+            case EnvironmentalVariable.ENV_OTEL_EXPORTER_OTLP_ENDPOINT =>
+              Some(ObservabilityConfig.endpoint)
+            case EnvironmentalVariable.ENV_OTEL_RESOURCE_ATTRIBUTES =>
+              Some(ObservabilityConfig.resourceAttributes)
+            case EnvironmentalVariable.ENV_TEXERA_OTEL_ALLOWED_HOSTS =>
+              Some(ObservabilityConfig.allowedHosts)
+            case EnvironmentalVariable.ENV_OTEL_METRIC_EXPORT_INTERVAL =>
+              Some(ObservabilityConfig.metricExportIntervalMs)
+            case other => Option(System.getenv(other))
+          }
+        val result = initInternal(
+          serviceName = serviceName,
+          envProvider = env,
+          spanExporterFactory = buildOtlpSpanExporter,
+          logExporterFactory = endpoint => Some(buildOtlpLogExporter(endpoint)),
+          metricExporterFactory = endpoint => Some(buildOtlpMetricExporter(endpoint)),
+          logbackAttacher = LogbackBinder.attach
+        )
+        // Register globally so OTel-aware code can use GlobalOpenTelemetry
+        // without threading the SDK through callsites. set() throws on a
+        // second call; wrap defensively.
+        result.foreach { sdk =>
+          Try(GlobalOpenTelemetry.set(sdk)).failed.foreach { t =>
+            logger.warn(
+              s"GlobalOpenTelemetry already set; using the existing instance: ${t.getMessage}"
+            )
+          }
         }
-      val result = initInternal(
-        serviceName = serviceName,
-        envProvider = env,
-        spanExporterFactory = buildOtlpSpanExporter,
-        logExporterFactory = endpoint => Some(buildOtlpLogExporter(endpoint)),
-        metricExporterFactory = endpoint => Some(buildOtlpMetricExporter(endpoint)),
-        logbackAttacher = LogbackBinder.attach
-      )
-      // Register globally so OTel-aware code can use GlobalOpenTelemetry
-      // without threading the SDK through callsites. set() throws on a
-      // second call; wrap defensively.
-      result.foreach { sdk =>
-        Try(GlobalOpenTelemetry.set(sdk)).failed.foreach { t =>
+        result
+      } match {
+        case Success(result) => result
+        case Failure(t) =>
           logger.warn(
-            s"GlobalOpenTelemetry already set; using the existing instance: ${t.getMessage}"
+            s"OpenTelemetry SDK initialization failed; continuing without telemetry: ${t.getMessage}"
           )
-        }
+          None
       }
-      result
     }
 
   /**

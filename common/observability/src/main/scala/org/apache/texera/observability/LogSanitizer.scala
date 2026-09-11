@@ -29,7 +29,7 @@ import scala.jdk.CollectionConverters._
 object LogSanitizer {
 
   /** Per-record body length cap, in chars. */
-  val MaxBodyBytes: Int = 16 * 1024
+  val MaxBodyChars: Int = 16 * 1024
 
   /** Suffix appended to truncated bodies. */
   val TruncatedMarker: String = "...[truncated]"
@@ -103,10 +103,10 @@ object LogSanitizer {
     truncate(redactSecrets(stripControlChars(body)))
   }
 
-  /** Truncate to MaxBodyBytes, appending the marker if cut. */
+  /** Truncate to MaxBodyChars, appending the marker if cut. */
   def truncate(body: String): String = {
-    if (body.length <= MaxBodyBytes) body
-    else body.substring(0, MaxBodyBytes - TruncatedMarker.length) + TruncatedMarker
+    if (body.length <= MaxBodyChars) body
+    else body.substring(0, MaxBodyChars - TruncatedMarker.length) + TruncatedMarker
   }
 
   /** Drop denied MDC keys, sanitize the surviving values. A key whose name is

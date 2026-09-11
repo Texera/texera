@@ -82,16 +82,16 @@ class LogSanitizerSpec extends AnyFlatSpec with Matchers {
 
   // ----- sanitize: size cap --------------------------------------------
 
-  it should "truncate bodies larger than MaxBodyBytes and append the marker" in {
-    val oversize = "a" * (LogSanitizer.MaxBodyBytes * 4) // ~64 KiB
+  it should "truncate bodies larger than MaxBodyChars and append the marker" in {
+    val oversize = "a" * (LogSanitizer.MaxBodyChars * 4) // ~64 KiB
     val out = LogSanitizer.sanitize(oversize)
-    out.length shouldBe LogSanitizer.MaxBodyBytes
+    out.length shouldBe LogSanitizer.MaxBodyChars
     out should endWith(LogSanitizer.TruncatedMarker)
   }
 
   it should "leave bodies at or below the cap unchanged in length" in {
-    val rightAtCap = "x" * LogSanitizer.MaxBodyBytes
-    LogSanitizer.sanitize(rightAtCap).length shouldBe LogSanitizer.MaxBodyBytes
+    val rightAtCap = "x" * LogSanitizer.MaxBodyChars
+    LogSanitizer.sanitize(rightAtCap).length shouldBe LogSanitizer.MaxBodyChars
   }
 
   // ----- filterMdc -----------------------------------------------------

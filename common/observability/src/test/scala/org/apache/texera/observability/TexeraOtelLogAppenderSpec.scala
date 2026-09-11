@@ -129,13 +129,13 @@ class TexeraOtelLogAppenderSpec extends AnyFlatSpec with Matchers {
     body should include("\n")
   }
 
-  it should "truncate a 1 MiB body to MaxBodyBytes with the marker" in {
+  it should "truncate a 1 MiB body to MaxBodyChars with the marker" in {
     val (_, exporter, appender) = newFixture()
     val oversize = "x" * (1024 * 1024)
     appender.doAppend(makeEvent(oversize))
 
     val body = exporter.getFinishedLogRecordItems.asScala.head.getBodyValue.asString
-    body.length shouldBe LogSanitizer.MaxBodyBytes
+    body.length shouldBe LogSanitizer.MaxBodyChars
     body should endWith(LogSanitizer.TruncatedMarker)
   }
 
@@ -190,6 +190,35 @@ class TexeraOtelLogAppenderSpec extends AnyFlatSpec with Matchers {
     attrs("password") shouldBe "[REDACTED]"
     attrs("api_key") shouldBe "[REDACTED]"
     attrs.values should contain noElementsOf Seq("p4ssw0rd", "plain")
+  }
+
+  // ----- exception attributes + self-diagnostic guard -------------------
+
+  it should "set exception.* semantic attributes with the message and trace redacted" in {
+    val (_, exporter, appender) = newFixture()
+    val ctx = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
+    val logger = ctx.getLogger("test.logger").asInstanceOf[Logger]
+    val boom = new IllegalStateException("connect failed for password=hunter2")
+    val ev = new LoggingEvent("fqcn", logger, Level.ERROR, "operation failed", boom, null)
+    appender.doAppend(ev)
+
+    val attrs = attrsOf(exporter.getFinishedLogRecordItems.asScala.head)
+    attrs("exception.type") shouldBe "java.lang.IllegalStateException"
+    attrs("exception.message") should include("[REDACTED]")
+    attrs("exception.message") should not include "hunter2"
+    attrs.keySet should contain("exception.stacktrace")
+    attrs("exception.stacktrace") should not include "hunter2"
+  }
+
+  it should "drop records from io.opentelemetry loggers to avoid a feedback loop" in {
+    val (_, exporter, appender) = newFixture()
+    val ctx = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
+    val otelLogger =
+      ctx.getLogger("io.opentelemetry.exporter.internal.grpc.GrpcExporter").asInstanceOf[Logger]
+    val ev = new LoggingEvent("fqcn", otelLogger, Level.WARN, "Failed to export spans", null, null)
+    appender.doAppend(ev)
+
+    exporter.getFinishedLogRecordItems.asScala shouldBe empty
   }
 
   // ----- lifecycle ------------------------------------------------------

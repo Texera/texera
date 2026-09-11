@@ -55,8 +55,10 @@ val openTelemetryVersion = "1.50.0"
 libraryDependencies ++= Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",            // for LazyLogging in OtelInit
   // OpenTelemetry SDK bootstrap (Apache-2.0). We deliberately do NOT use
-  // sdk-extension-autoconfigure: the security model requires that endpoint
-  // + resource-attribute filtering run before any exporter is configured.
+  // sdk-extension-autoconfigure: endpoint validation (scheme + host allowlist)
+  // must run before any exporter is configured, and we build the providers
+  // explicitly rather than let anything be wired from the environment behind
+  // our back.
   "io.opentelemetry" % "opentelemetry-api" % openTelemetryVersion,
   "io.opentelemetry" % "opentelemetry-sdk" % openTelemetryVersion,
   "io.opentelemetry" % "opentelemetry-exporter-otlp" % openTelemetryVersion,

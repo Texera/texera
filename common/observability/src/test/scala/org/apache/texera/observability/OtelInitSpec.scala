@@ -260,4 +260,36 @@ class OtelInitSpec extends AnyFlatSpec with Matchers with BeforeAndAfterEach {
     val second = OtelInit.initForTest("svc", env, exporter)
     second shouldBe first
   }
+
+  // ----- clampIntervalMs: parse + range fallback ------------------------
+
+  "clampIntervalMs" should "fall back to the default when the value is absent" in {
+    OtelInit.clampIntervalMs(None) shouldBe OtelInit.DefaultMetricIntervalMs
+  }
+
+  it should "fall back to the default when the value is not a number" in {
+    OtelInit.clampIntervalMs(Some("not-a-number")) shouldBe OtelInit.DefaultMetricIntervalMs
+  }
+
+  it should "fall back to the default when the value is below the minimum" in {
+    OtelInit.clampIntervalMs(Some((OtelInit.MinMetricIntervalMs - 1).toString)) shouldBe
+      OtelInit.DefaultMetricIntervalMs
+  }
+
+  it should "fall back to the default when the value is above the maximum" in {
+    OtelInit.clampIntervalMs(Some((OtelInit.MaxMetricIntervalMs + 1).toString)) shouldBe
+      OtelInit.DefaultMetricIntervalMs
+  }
+
+  it should "keep an in-range value" in {
+    val inRange = OtelInit.MinMetricIntervalMs + 1234
+    OtelInit.clampIntervalMs(Some(inRange.toString)) shouldBe inRange
+  }
+
+  it should "accept the range boundaries" in {
+    OtelInit.clampIntervalMs(Some(OtelInit.MinMetricIntervalMs.toString)) shouldBe
+      OtelInit.MinMetricIntervalMs
+    OtelInit.clampIntervalMs(Some(OtelInit.MaxMetricIntervalMs.toString)) shouldBe
+      OtelInit.MaxMetricIntervalMs
+  }
 }
