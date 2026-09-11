@@ -527,4 +527,21 @@ describe("WorkflowFormComponent (rendered template)", () => {
 
     expect(workflowActionService.clearWorkflow).toHaveBeenCalled();
   });
+
+  // The held rebuild is drained by a real blur: a focusout bubbling up from a control inside the
+  // page reaches the host listener. Dispatching the DOM event (not calling the handler) is what
+  // would catch the listener being removed or miswired.
+  it("runs a held rebuild when a control inside the page loses focus (the focusout host binding)", async () => {
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    const rebuild = vi.spyOn(c as any, "readConfig");
+    (c as any).rebuildDeferred = true;
+
+    el("input.wf-name")!.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    await new Promise(r => setTimeout(r, 10));
+
+    expect(rebuild).toHaveBeenCalledTimes(1);
+    expect((c as any).rebuildDeferred).toBe(false);
+  });
 });
