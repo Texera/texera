@@ -17,19 +17,24 @@
  * under the License.
  */
 
+import { FormArray, FormControl, FormGroup, Validators } from "@angular/forms";
 import { Router } from "@angular/router";
-import { throwError } from "rxjs";
+import { of, throwError } from "rxjs";
 
 import { WorkflowFormComponent } from "./workflow-form.component";
-import { setupHarness, formViewWorkflow } from "./workflow-form.spec-harness";
+import { setupHarness, formViewWorkflow, resolved } from "./workflow-form.spec-harness";
 import { USER_WORKFLOW, USER_WORKSPACE } from "../../../app-routing.constant";
 import { DefaultView } from "../../../dashboard/type/workflow-metadata.interface";
+import { FORM_DEBOUNCE_TIME_MS } from "../../service/execute-workflow/execute-workflow.service";
+import { ExecutionState } from "../../types/execute-workflow.interface";
+import { ComputingUnitState } from "../../../common/type/computing-unit-connection.interface";
 
 /**
- * These exercise the shell's own decisions -- what a reader is shown and where an ordinary
- * workflow is sent -- without standing up the JointJS canvas. The component is built directly
- * (not through TestBed) with the shared spec harness's mocks; the title bar, save and preview
- * are added, with their own tests, by later PRs.
+ * These exercise the page's own decisions -- what a reader is shown, where an ordinary
+ * workflow is sent, and how the title bar renames and saves -- without standing up the JointJS
+ * canvas. The component is built directly (not through TestBed) with the shared spec harness's
+ * mocks; the read-only preview, inputs, running and results are added, with their own tests, by
+ * later PRs.
  */
 describe("WorkflowFormComponent", () => {
   let component: WorkflowFormComponent;
@@ -37,6 +42,7 @@ describe("WorkflowFormComponent", () => {
   let router: { navigate: ReturnType<typeof vi.fn> };
   let workflowActionService: any;
   let workflowPersistService: any;
+  let formBindingService: any;
 
   const build = (workflow: any) => {
     h.useWorkflow(workflow);
@@ -47,13 +53,23 @@ describe("WorkflowFormComponent", () => {
       h.workflowActionService as any,
       h.workflowPersistService as any,
       h.operatorMetadataService as any,
+      h.formBindingService as any,
       h.executeWorkflowService as any,
       h.workflowResultService as any,
       h.notificationService as any,
       h.userService as any,
+      h.markdownService as any,
+      h.formlyJsonschema as any,
       h.cdr as any,
+      h.dynamicSchemaService as any,
+      h.workflowCompilingService as any,
       h.computingUnitStatusService as any,
       h.workflowConsoleService as any,
+      h.workflowWebsocketService as any,
+      h.host as any,
+      h.datePipe as any,
+      h.panelResizeService as any,
+      h.validationWorkflowService as any,
       h.config as any
     );
     return component;
@@ -64,6 +80,7 @@ describe("WorkflowFormComponent", () => {
     router = h.router;
     workflowActionService = h.workflowActionService;
     workflowPersistService = h.workflowPersistService;
+    formBindingService = h.formBindingService;
   });
 
   describe("who this page is for", () => {
@@ -128,6 +145,15 @@ describe("WorkflowFormComponent", () => {
       expect(h.notificationService.error).toHaveBeenCalled();
       expect(router.navigate).toHaveBeenCalledWith([USER_WORKFLOW]);
     });
+
+    // Write access decides whether a filled-in value writes back and whether the page saves.
+    it("has write access for a writable workflow and none for a read-only one", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(component.canEdit).toBe(true);
+
+      build({ ...formViewWorkflow, readonly: true }).ngOnInit();
+      expect(component.canEdit).toBe(false);
+    });
   });
 
   describe("leaving the page", () => {
@@ -143,6 +169,1425 @@ describe("WorkflowFormComponent", () => {
       expect(h.executeWorkflowService.resetExecutionAndWorkers).toHaveBeenCalled();
       expect(h.workflowConsoleService.clearConsoleMessages).toHaveBeenCalled();
       expect(h.workflowResultService.clearResults).toHaveBeenCalled();
+    });
+  });
+
+  describe("title bar and saving", () => {
+    const enableSave = () => {
+      h.userService.isLogin.mockReturnValue(true);
+      h.workflowPersistService.isWorkflowPersistEnabled.mockReturnValue(true);
+    };
+
+    it("shows the last-saved time from the workflow's metadata", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      expect(component.autoSaveState).toBe("Saved at 01/01/2026 00:00:00");
+    });
+
+    it("shows no saved state when the workflow has never been saved", () => {
+      workflowActionService.getWorkflowMetadata = () => ({ name: "x", lastModifiedTime: undefined });
+
+      build(formViewWorkflow).ngOnInit();
+
+      expect(component.autoSaveState).toBe("");
+    });
+
+    it("renames through the workflow action service and saves", () => {
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      component.workflowName = "New name";
+
+      component.onRenameWorkflow();
+
+      expect(workflowActionService.setWorkflowName).toHaveBeenCalledWith("New name");
+      expect(workflowPersistService.persistWorkflow).toHaveBeenCalled();
+    });
+
+    // The title bar is refreshed from one place: a rename or save -- here or by a co-editor --
+    // updates the shown name and the saved-at state, so the two views never drift apart. This
+    // is also where onRenameWorkflow's normalised name is read back.
+    it("follows the workflow metadata: refreshes the name and saved state when it changes", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      component.workflowName = "stale";
+      workflowActionService.getWorkflowMetadata = () => ({ name: "Renamed", lastModifiedTime: 1767225600000 });
+
+      h.workflowMetaDataChangedStream.next(undefined);
+      vi.runAllTimers();
+
+      expect(component.workflowName).toBe("Renamed");
+      expect(component.autoSaveState).toBe("Saved at 01/01/2026 00:00:00");
+      vi.useRealTimers();
+    });
+
+    it("persists the workflow, filling in a position for every operator", () => {
+      enableSave();
+      workflowActionService.getWorkflow.mockReturnValue({
+        wid: 7,
+        content: {
+          operators: [{ operatorID: "op-1" }, { operatorID: "op-2" }],
+          operatorPositions: { "op-1": { x: 5, y: 6 } },
+        },
+      });
+      build(formViewWorkflow).ngOnInit();
+
+      (component as any).save();
+
+      const saved = workflowPersistService.persistWorkflow.mock.calls.at(-1)[0];
+      expect(saved.content.operatorPositions).toEqual({ "op-1": { x: 5, y: 6 }, "op-2": { x: 0, y: 0 } });
+    });
+
+    // The graph is read-only here, but a co-editor can still move operators on the canvas; a save
+    // must carry those live positions, not revert them to where they sat when this page opened.
+    it("saves the live positions, not the load-time snapshot", () => {
+      enableSave();
+      build({ ...formViewWorkflow, content: { operatorPositions: { "op-1": { x: 1, y: 1 } } } }).ngOnInit();
+      // a co-editor has since dragged op-1; the shared graph reflects the new spot
+      workflowActionService.getWorkflow.mockReturnValue({
+        wid: 7,
+        content: { operators: [{ operatorID: "op-1" }], operatorPositions: { "op-1": { x: 9, y: 9 } } },
+      });
+
+      (component as any).save();
+
+      const saved = workflowPersistService.persistWorkflow.mock.calls.at(-1)[0];
+      expect(saved.content.operatorPositions).toEqual({ "op-1": { x: 9, y: 9 } });
+    });
+
+    // The canvas advances "Saved at ..." by feeding the persist response back into the metadata;
+    // the form must do the same, or the saved-at state never moves past the moment it opened.
+    it("feeds the persist response back into the workflow metadata", () => {
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      const updated = { wid: 7, name: "scGPT", lastModifiedTime: 999, content: {} };
+      workflowPersistService.persistWorkflow.mockReturnValue(of(updated));
+
+      (component as any).save();
+
+      expect(workflowActionService.setWorkflowMetadata).toHaveBeenCalledWith(updated);
+    });
+
+    it("does not save when the user is not logged in", () => {
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+
+      (component as any).save();
+
+      expect(workflowPersistService.persistWorkflow).not.toHaveBeenCalled();
+    });
+
+    it("does not save when persistence is disabled", () => {
+      h.userService.isLogin.mockReturnValue(true);
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+
+      (component as any).save();
+
+      expect(workflowPersistService.persistWorkflow).not.toHaveBeenCalled();
+    });
+
+    it("does not save when the viewer only has read access", () => {
+      h.userService.isLogin.mockReturnValue(true);
+      h.workflowPersistService.isWorkflowPersistEnabled.mockReturnValue(true);
+      build({ ...formViewWorkflow, readonly: true }).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+
+      (component as any).save();
+
+      expect(workflowPersistService.persistWorkflow).not.toHaveBeenCalled();
+    });
+
+    it("does not save a workflow that is not the one this page opened", () => {
+      enableSave();
+      workflowActionService.getWorkflow.mockReturnValue({ wid: 99, content: { operators: [], operatorPositions: {} } });
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+
+      (component as any).save();
+
+      expect(workflowPersistService.persistWorkflow).not.toHaveBeenCalled();
+    });
+
+    it("reports a failed save so a lost edit is not silent", () => {
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      // set after build(): build()'s useWorkflow() resets the persist mock
+      workflowPersistService.persistWorkflow.mockReturnValue(throwError(() => new Error("no")));
+
+      (component as any).save();
+
+      expect(h.notificationService.error).toHaveBeenCalled();
+    });
+
+    it("saves on any workflow change, debounced", () => {
+      vi.useFakeTimers();
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+
+      h.workflowChangedStream.next(undefined);
+      vi.runAllTimers();
+
+      expect(workflowPersistService.persistWorkflow).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("saves before handing over to the operator canvas", () => {
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+
+      component.openRegularCanvas();
+
+      expect(workflowPersistService.persistWorkflow).toHaveBeenCalled();
+    });
+
+    it("saves once more on the way out", () => {
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+
+      component.ngOnDestroy();
+
+      expect(workflowPersistService.persistWorkflow).toHaveBeenCalled();
+    });
+
+    it("measures the name field after load, and no-ops when it is not in the DOM", () => {
+      vi.useFakeTimers();
+      const query = vi.spyOn(h.host.nativeElement, "querySelector");
+      build(formViewWorkflow).ngOnInit();
+
+      vi.runAllTimers();
+
+      expect(query).toHaveBeenCalledWith("input.wf-name");
+      vi.useRealTimers();
+    });
+
+    it("stops a deferred name measurement once the page is gone", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      const query = vi.spyOn(h.host.nativeElement, "querySelector");
+      component.ngOnDestroy();
+
+      vi.runAllTimers();
+
+      expect(query).not.toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+  });
+
+  // JointJS measures the paper once, when the editor is created. Creating it in the same pass
+  // that uncollapses the strip races the browser's layout, and losing that race draws links up
+  // and over the boxes -- so the strip opens first, and the canvas is built a frame later.
+  describe("the workflow preview", () => {
+    const frame = () => new Promise(r => requestAnimationFrame(() => r(null)));
+
+    it("opens the strip but does not build the canvas in the same pass", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      component.toggleWorkflow();
+
+      expect(component.workflowOpen).toBe(true);
+      expect(component.workflowEverOpened).toBe(false);
+    });
+
+    it("builds the canvas a frame after the strip opens, then centres it", async () => {
+      build(formViewWorkflow).ngOnInit();
+
+      component.toggleWorkflow();
+      await frame();
+      expect(component.workflowEverOpened).toBe(true);
+
+      await frame();
+      expect(h.triggerCenterEvent).toHaveBeenCalled();
+    });
+
+    it("closes the strip again without rebuilding the canvas", () => {
+      build(formViewWorkflow).ngOnInit();
+      component.toggleWorkflow();
+
+      component.toggleWorkflow();
+
+      expect(component.workflowOpen).toBe(false);
+    });
+
+    // Opening then immediately collapsing must not build the children into a hidden (0-sized)
+    // strip -- the mini-map has no resize observer and would be stuck blank on the next open.
+    it("does not build the canvas if the strip is collapsed again before the frame", async () => {
+      build(formViewWorkflow).ngOnInit();
+
+      component.toggleWorkflow(); // open -> schedules the deferred build
+      component.toggleWorkflow(); // collapse again in the same tick, before the frame
+      await frame();
+
+      expect(component.workflowEverOpened).toBe(false);
+    });
+
+    // Leaving for the dashboard is an ordinary in-app navigation, so a reader can walk out in the
+    // frame between opening the strip and the canvas being built; that deferred build must not run
+    // on a page that is gone (detectChanges would throw on a destroyed view).
+    it("does not build the canvas for a page that has been left", async () => {
+      build(formViewWorkflow).ngOnInit();
+
+      component.toggleWorkflow();
+      component.ngOnDestroy();
+      await frame();
+
+      expect(component.workflowEverOpened).toBe(false);
+    });
+  });
+
+  // The heart of this slice: turn each exposed binding into its operator's own formly field, and
+  // write a filled-in value straight back to the operator.
+  describe("the exposed inputs", () => {
+    // Put op-1 on the graph and expose one of its properties, then read the config.
+    const renderOne = (id: string, extra: any = {}) => {
+      h.hasOperatorIds.add("op-1");
+      formBindingService.resolveFields.mockReturnValue([resolved(id, id, extra)]);
+      (component as any).readConfig();
+    };
+
+    it("renders a healthy input as a real formly field keyed by its binding id", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      renderOne("n_hvg");
+
+      expect(component.rendered).toHaveLength(1);
+      expect(component.rendered[0].fields[0].key).toBe(component.rendered[0].resolved.binding.id);
+    });
+
+    it("renders nothing for an input whose operator is no longer on the graph", () => {
+      build(formViewWorkflow).ngOnInit();
+      // op-1 deliberately not added to the graph.
+      formBindingService.resolveFields.mockReturnValue([resolved("n_hvg", "Genes")]);
+
+      (component as any).readConfig();
+
+      expect(component.rendered).toHaveLength(0);
+    });
+
+    it("skips an exposed property that has no matching schema field", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      renderOne("nonesuch");
+
+      expect(component.rendered).toHaveLength(0);
+    });
+
+    it("leaves broken inputs out of what a reader sees", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.hasOperatorIds.add("op-1");
+      formBindingService.resolveFields.mockReturnValue([
+        resolved("n_hvg", "Genes"),
+        resolved("gone", "Gone", { brokenReason: "the step it belonged to was removed" }),
+      ]);
+
+      (component as any).readConfig();
+
+      expect(component.visibleFields).toHaveLength(1);
+      expect(component.rendered).toHaveLength(1);
+    });
+
+    it("gives an exposed property its custom widget instead of a text box", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      renderOne("datasetVersionPath");
+
+      expect(component.rendered[0].fields[0].type).toBe("datasetversionselector");
+    });
+
+    it("uses the operator type to pick a widget (the HuggingFace model picker)", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "HuggingFace" });
+
+      renderOne("modelId");
+
+      expect(component.rendered[0].fields[0].type).toBe("huggingface");
+    });
+
+    it("renders a file property through its own picker type", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      renderOne("fileName");
+
+      expect(component.rendered[0].fields[0].type).toBe("inputautocomplete");
+    });
+
+    it("seeds the field model with the operator's other properties as read-only context", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.hasOperatorIds.add("op-1");
+      // A HuggingFace operator whose model picker (modelId) needs the sibling `task` to work.
+      h.graphOperators.push({
+        operatorID: "op-1",
+        operatorType: "HuggingFace",
+        operatorProperties: { task: "image-classification", modelId: "seed" },
+      });
+      formBindingService.resolveFields.mockReturnValue([resolved("modelId", "Model")]);
+
+      (component as any).readConfig();
+
+      const card = component.rendered[0];
+      // The sibling context is present (so the widget reads the right task) ...
+      expect(card.model.task).toBe("image-classification");
+      // ... alongside this input's own value, keyed by the binding id, which is what writes back.
+      expect(card.model[card.resolved.binding.id]).toBe("seed");
+    });
+
+    it("prefers the per-instance schema, falling back to the static one when it is unavailable", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "X" });
+      (component as any).dynamicSchemaService = {
+        getDynamicSchema: () => {
+          throw new Error("no dynamic schema");
+        },
+      };
+      (component as any).operatorMetadataService = {
+        getOperatorSchema: () => ({ jsonSchema: { properties: { n_hvg: {} } } }),
+      };
+
+      renderOne("n_hvg");
+
+      expect(component.rendered).toHaveLength(1);
+    });
+
+    it("renders nothing when neither the per-instance nor the static schema is available", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "X" });
+      (component as any).dynamicSchemaService = {
+        getDynamicSchema: () => {
+          throw new Error("no dynamic schema");
+        },
+      };
+      (component as any).operatorMetadataService = {
+        getOperatorSchema: () => {
+          throw new Error("no static schema");
+        },
+      };
+
+      renderOne("n_hvg");
+
+      expect(component.rendered).toHaveLength(0);
+    });
+
+    it("identifies a rendered card by its binding id", () => {
+      build(formViewWorkflow);
+
+      const key = component.trackByRendered(0, { resolved: { binding: { id: "b-1" } } } as any);
+
+      expect(key).toBe("b-1");
+    });
+
+    it("locks the inputs for a read-only viewer", () => {
+      build({ ...formViewWorkflow, readonly: true }).ngOnInit();
+
+      renderOne("n_hvg");
+
+      expect(component.canEdit).toBe(false);
+      // The field carries props.disabled, which is what actually disables the control formly builds
+      // (a form.disable() on the still-empty group does not, and does not persist). It cascades to
+      // a nested property's sub-fields.
+      expect((component.rendered[0].fields[0].props as any).disabled).toBe(true);
+    });
+
+    it("writes a dirtied value back to the operator", () => {
+      build(formViewWorkflow).ngOnInit();
+      renderOne("n_hvg");
+      const card = component.rendered[0];
+      const key = card.resolved.binding.id;
+      vi.useFakeTimers();
+
+      card.model[key] = "typed";
+      card.form.addControl(key, new FormControl("typed"));
+      card.form.markAsDirty();
+      vi.advanceTimersByTime(FORM_DEBOUNCE_TIME_MS + 50);
+      vi.useRealTimers();
+
+      expect(formBindingService.writeValue).toHaveBeenCalled();
+    });
+
+    it("ignores an unchanged form emission", () => {
+      build(formViewWorkflow).ngOnInit();
+      formBindingService.readValue.mockReturnValue("seed");
+      renderOne("n_hvg");
+      const card = component.rendered[0];
+      const key = card.resolved.binding.id;
+      vi.useFakeTimers();
+
+      card.model[key] = "seed";
+      card.form.addControl(key, new FormControl("seed"));
+      vi.advanceTimersByTime(FORM_DEBOUNCE_TIME_MS + 50);
+      vi.useRealTimers();
+
+      expect(formBindingService.writeValue).not.toHaveBeenCalled();
+    });
+
+    it("keeps a still-set value when formly emits a blank before an edit", () => {
+      build(formViewWorkflow).ngOnInit();
+      formBindingService.readValue.mockReturnValue("seed");
+      renderOne("n_hvg");
+      const card = component.rendered[0];
+      const key = card.resolved.binding.id;
+      vi.useFakeTimers();
+
+      card.model[key] = "";
+      card.form.addControl(key, new FormControl(""));
+      vi.advanceTimersByTime(FORM_DEBOUNCE_TIME_MS + 50);
+      vi.useRealTimers();
+
+      expect(formBindingService.writeValue).not.toHaveBeenCalled();
+    });
+
+    it("refreshes the card's snapshot after a write-back", () => {
+      build(formViewWorkflow).ngOnInit();
+      renderOne("n_hvg");
+      const card = component.rendered[0];
+      const key = card.resolved.binding.id;
+      // The re-read after a write returns the new value on the same binding.
+      formBindingService.resolveFields.mockReturnValue([resolved("n_hvg", "n_hvg", { value: "typed" })]);
+      vi.useFakeTimers();
+
+      card.model[key] = "typed";
+      card.form.addControl(key, new FormControl("typed"));
+      card.form.markAsDirty();
+      vi.advanceTimersByTime(FORM_DEBOUNCE_TIME_MS + 50);
+      vi.useRealTimers();
+
+      expect(component.rendered[0].resolved.value).toBe("typed");
+    });
+
+    it("leaves the card unchanged when the re-read no longer carries the binding", () => {
+      build(formViewWorkflow).ngOnInit();
+      renderOne("n_hvg");
+      const card = component.rendered[0];
+      const before = card.resolved;
+      const key = card.resolved.binding.id;
+      // The write succeeds, but the following resolve returns nothing for this binding.
+      formBindingService.resolveFields.mockReturnValue([]);
+      vi.useFakeTimers();
+
+      card.model[key] = "typed";
+      card.form.addControl(key, new FormControl("typed"));
+      card.form.markAsDirty();
+      vi.advanceTimersByTime(FORM_DEBOUNCE_TIME_MS + 50);
+      vi.useRealTimers();
+
+      expect(formBindingService.writeValue).toHaveBeenCalled();
+      expect(component.rendered[0].resolved).toBe(before);
+    });
+
+    it("labels an unnamed input by its schema title, not the raw key", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.hasOperatorIds.add("op-1");
+      formBindingService.resolveFields.mockReturnValue([
+        resolved("n_hvg", "", {
+          binding: { id: "b", operatorID: "op-1", propertyKey: "n_hvg", displayName: "" } as any,
+        }),
+      ]);
+
+      (component as any).readConfig();
+
+      // The schema's own title ("N"), not "n_hvg".
+      expect((component.rendered[0].fields[0].props as any).label).toBe("N");
+    });
+  });
+
+  // A nested (object) or repeated (array) property carries sub-fields; the author can rename and
+  // hide each one, and the schema's own per-field notes are dropped so only the author's help text
+  // guides a reader. Overrides are keyed by field path, array indices dropped.
+  describe("nested and array sub-fields", () => {
+    // Expose one property of op-1 with the given binding, then read the config.
+    const expose = (bindingExtra: any) => {
+      h.hasOperatorIds.add("op-1");
+      formBindingService.resolveFields.mockReturnValue([resolved("x", "x", { binding: bindingExtra })]);
+      (component as any).readConfig();
+      return component.rendered[0].fields[0] as any;
+    };
+
+    it("renames and hides an overridden sub-field of an object property", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({
+        id: "n",
+        operatorID: "op-1",
+        propertyKey: "nested",
+        displayName: "Nested",
+        overrides: { sub: { displayName: "Renamed sub", hidden: true } },
+      });
+
+      const sub = field.fieldGroup[0];
+      expect(sub.key).toBe("sub");
+      expect(sub.props.label).toBe("Renamed sub");
+      expect(sub.hide).toBe(true);
+      // Hidden must not strip the value: formly's resetFieldOnHide default would otherwise clear it
+      // from the model on render, and the card writes the whole nested object back -- deleting the
+      // author's pinned value. resetOnHide=false keeps it.
+      expect(sub.resetOnHide).toBe(false);
+    });
+
+    it("renames and hides an overridden sub-field of a repeated section, per row", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({
+        id: "p",
+        operatorID: "op-1",
+        propertyKey: "predicates",
+        displayName: "Predicates",
+        overrides: { alias: { displayName: "Renamed", hidden: true } },
+      });
+
+      // Formly builds a repeated section's rows on demand; invoke the wrapped builder so the walk
+      // decorates the row's sub-fields (every row formly ever makes comes out decorated).
+      const row = field.fieldArray({});
+      const alias = row.fieldGroup[0];
+      expect(alias.key).toBe("alias");
+      expect(alias.props.label).toBe("Renamed");
+      expect(alias.hide).toBe(true);
+      expect(alias.resetOnHide).toBe(false);
+    });
+
+    it("drops the schema's own descriptions on the field and its sub-fields", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({ id: "n", operatorID: "op-1", propertyKey: "nested", displayName: "Nested" });
+
+      expect(field.props.description).toBe("");
+      expect(field.fieldGroup[0].props.description).toBe("");
+    });
+
+    it("leaves a sub-field untouched when the author set no override for it", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({ id: "n", operatorID: "op-1", propertyKey: "nested", displayName: "Nested" });
+
+      const sub = field.fieldGroup[0];
+      // No override: keeps the schema label and stays visible.
+      expect(sub.props.label).toBe("Sub");
+      expect(sub.hide).toBeUndefined();
+      // A visible field is never opted out of reset-on-hide -- the switch rides with the hide.
+      expect(sub.resetOnHide).toBeUndefined();
+    });
+
+    it("drops the description on a scalar array's row template", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({ id: "t", operatorID: "op-1", propertyKey: "tags", displayName: "Tags" });
+
+      // The row template is a leaf (no sub-fields); its schema description is dropped like the rest.
+      expect(field.fieldArray.props.description).toBe("");
+    });
+
+    it("drops the description on a builder-backed scalar array's leaf row", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({ id: "tf", operatorID: "op-1", propertyKey: "tagsFn", displayName: "Tags" });
+      // Invoke the wrapped builder: it returns a leaf row (no fieldGroup), which the walk decorates.
+      const row = field.fieldArray({});
+
+      expect(row.props.description).toBe("");
+    });
+
+    it("drops the description on a builder-backed object row without reprinting its title", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({ id: "p", operatorID: "op-1", propertyKey: "predicates", displayName: "Predicates" });
+      // An object row (fieldGroup): its container is not walked as a root (that would reprint the
+      // array's title), but its own items.description would still render once per row, so it is
+      // dropped; the row's sub-field is walked as before.
+      const row = field.fieldArray({});
+
+      expect(row.props.description).toBe("");
+      expect(row.fieldGroup[0].props.description).toBe("");
+    });
+
+    it("drops the description on a static object-array's row template", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      const field = expose({ id: "r", operatorID: "op-1", propertyKey: "rules", displayName: "Rules" });
+
+      // The template container (fieldArray with a fieldGroup) carries items.description; it is
+      // dropped, and its sub-fields are still walked (their descriptions dropped too).
+      expect(field.fieldArray.props.description).toBe("");
+      expect(field.fieldArray.fieldGroup[0].props.description).toBe("");
+    });
+  });
+
+  describe("keeping the inputs in step with the workflow", () => {
+    it("rebuilds the inputs when compilation reports a new state", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const rebuild = vi.spyOn(component as any, "readConfig");
+
+      h.compilationChanged.next("Succeeded");
+      await new Promise(r => setTimeout(r, FORM_DEBOUNCE_TIME_MS + 50));
+
+      expect(rebuild).toHaveBeenCalled();
+    });
+
+    it("holds a rebuild while someone is typing and runs it once the focus leaves", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+
+      h.compilationChanged.next("Succeeded");
+      await new Promise(r => setTimeout(r, FORM_DEBOUNCE_TIME_MS + 50));
+      expect(rebuild).not.toHaveBeenCalled();
+
+      // The cursor leaves the field: the held rebuild runs, once. Held rather than dropped, or the
+      // compiled schema would never reach the cards until something else rebuilt them.
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps a held rebuild held when the focus only moves to another text field", async () => {
+      build(formViewWorkflow).ngOnInit();
+      vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined);
+
+      component.onFocusOut(); // tabbed to the next input: still typing when the check runs
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    it("rebuilds nothing on a focusout with no rebuild held", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const rebuild = vi.spyOn(component as any, "readConfig");
+
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).not.toHaveBeenCalled();
+    });
+
+    // Leaving the text field by clicking a tick box: focusout queues the held rebuild, then the tick
+    // box's own change rebuilds at once and clears the hold. The queued callback must notice and
+    // not rebuild the same cards a second time.
+    it("does not rebuild twice when the control that took the focus already rebuilt", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+      workflowActionService.formBindingChanged$.next(undefined); // held
+      component.onFocusOut(); // queued
+
+      typing.mockReturnValue(false);
+      workflowActionService.formBindingChanged$.next(undefined); // the tick box's own change: rebuilds now
+      expect(rebuild).toHaveBeenCalledTimes(1);
+      await new Promise(r => setTimeout(r, 10)); // the queued callback fires
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    it("re-reads the config when a property is exposed or un-exposed", () => {
+      build(formViewWorkflow).ngOnInit();
+      const before = formBindingService.resolveFields.mock.calls.length;
+
+      workflowActionService.formBindingChanged$.next(undefined);
+
+      expect(formBindingService.resolveFields.mock.calls.length).toBeGreaterThan(before);
+    });
+
+    // Once #8351 makes this stream fire for a co-editor's change, a rebuild under the cursor would
+    // discard a half-entered value -- so the binding path holds it while typing, like the
+    // compilation path, and runs it when the focus leaves.
+    it("holds a binding-change rebuild while the reader is typing, then runs it on focusout", async () => {
+      build(formViewWorkflow).ngOnInit();
+      const typing = vi.spyOn(component as any, "isTypingInTheForm").mockReturnValue(true);
+      const rebuild = vi.spyOn(component as any, "readConfig");
+
+      workflowActionService.formBindingChanged$.next(undefined);
+      expect(rebuild).not.toHaveBeenCalled();
+
+      typing.mockReturnValue(false);
+      component.onFocusOut();
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(rebuild).toHaveBeenCalledTimes(1);
+    });
+
+    // The bug this guards against: ticking a property in the step panel focuses the tick box, an
+    // <input type="checkbox"> inside this page. Counted as typing, the rebuild that should add the
+    // card was held back, so the tick looked like it did nothing until something else rebuilt.
+    it("does not count a focused tick box as typing", () => {
+      build(formViewWorkflow).ngOnInit();
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      document.body.appendChild(box);
+      (component as any).host = { nativeElement: { contains: () => true, querySelector: () => null } };
+      box.focus();
+
+      expect((component as any).isTypingInTheForm()).toBe(false);
+
+      document.body.removeChild(box);
+    });
+
+    it("reports typing when a form field inside the page is focused", () => {
+      build(formViewWorkflow).ngOnInit();
+      const input = document.createElement("input");
+      document.body.appendChild(input);
+      (component as any).host = { nativeElement: { contains: () => true, querySelector: () => null } };
+      input.focus();
+
+      expect((component as any).isTypingInTheForm()).toBe(true);
+
+      document.body.removeChild(input);
+    });
+
+    it("reports no typing when the focus is outside the page", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).host = { nativeElement: { contains: () => false, querySelector: () => null } };
+
+      expect((component as any).isTypingInTheForm()).toBe(false);
+    });
+
+    it("reports typing when a content-editable element inside the page is focused", () => {
+      build(formViewWorkflow).ngOnInit();
+      const editable = document.createElement("div");
+      editable.tabIndex = 0;
+      // jsdom does not derive isContentEditable from the attribute; set it directly.
+      Object.defineProperty(editable, "isContentEditable", { value: true });
+      document.body.appendChild(editable);
+      (component as any).host = { nativeElement: { contains: () => true, querySelector: () => null } };
+      editable.focus();
+
+      expect((component as any).isTypingInTheForm()).toBe(true);
+
+      document.body.removeChild(editable);
+    });
+  });
+
+  describe("the author's instruction", () => {
+    it("shows the instruction as rendered markdown when there is one", async () => {
+      formBindingService.getConfig.mockReturnValue({
+        instruction: { title: "Read me", body: "**bold**" },
+        fields: [],
+        resultOperatorIds: [],
+      });
+      build(formViewWorkflow).ngOnInit();
+      // renderInstruction resolves the parsed markdown on a microtask; let it settle.
+      await Promise.resolve();
+
+      expect(component.hasInstruction).toBe(true);
+      expect(component.instructionTitle).toBe("Read me");
+      // The markdown mock returns its input; the point is renderInstruction populated the html.
+      expect(component.instructionPreviewHtml).toBe("**bold**");
+    });
+
+    it("has no instruction when the body is blank", async () => {
+      formBindingService.getConfig.mockReturnValue({
+        instruction: { title: "T", body: "   " },
+        fields: [],
+        resultOperatorIds: [],
+      });
+      build(formViewWorkflow).ngOnInit();
+      await Promise.resolve();
+
+      expect(component.hasInstruction).toBe(false);
+      expect(component.instructionPreviewHtml).toBe("");
+    });
+
+    it("discards a stale instruction render when the body changed while parsing", async () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).instructionBody = "first";
+      const pending = (component as any).renderInstruction();
+      // A newer readConfig sets a different body before the parse microtask resolves.
+      (component as any).instructionBody = "second";
+      await pending;
+
+      // The stale "first" result is dropped rather than overwriting the newer body's render.
+      expect(component.instructionPreviewHtml).not.toBe("first");
+    });
+
+    it("toggles the instruction open and closed", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(component.instructionOpen).toBe(true);
+
+      component.toggleInstruction();
+
+      expect(component.instructionOpen).toBe(false);
+    });
+  });
+
+  describe("the run button, mirroring the operator canvas", () => {
+    // Put the page in a ready-to-run state: a WRITE-access unit is up, the socket is connected, the
+    // graph valid.
+    const makeReady = () => {
+      h.workflowWebsocketService.isConnected = true;
+      h.statusStream.next(ComputingUnitState.Running);
+      (component as any).selectedUnit = { accessPrivilege: "WRITE" };
+      h.validationStream.next({ errors: {}, workflowEmpty: false });
+    };
+
+    it("stores the selected unit from the status service so Run can gate on write access", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      h.selectedUnitStream.next({ accessPrivilege: "WRITE" });
+
+      expect((component as any).selectedUnit).toEqual({ accessPrivilege: "WRITE" });
+    });
+
+    it("offers Connect before a unit is chosen", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      expect(component.runButtonState).toEqual({ label: "Connect", icon: "plus-circle", disabled: true });
+    });
+
+    it("offers Run once a unit is up and the graph is valid", () => {
+      build(formViewWorkflow).ngOnInit();
+      makeReady();
+
+      expect(component.runButtonState.label).toBe("Run");
+      expect(component.runButtonState.disabled).toBe(false);
+    });
+
+    it("shows Stop while running", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.executionStateStream.next({ current: { state: ExecutionState.Running } });
+
+      expect(component.isRunning).toBe(true);
+      expect(component.runButtonState).toEqual({ label: "Stop", icon: "stop", disabled: false });
+    });
+
+    it("disables and says Invalid for a broken graph", () => {
+      build(formViewWorkflow).ngOnInit();
+      makeReady();
+      h.validationStream.next({ errors: { op: {} }, workflowEmpty: false });
+
+      expect(component.runButtonState).toEqual({ label: "Invalid", icon: "warning", disabled: true });
+    });
+
+    it("disables and says Empty for an empty graph", () => {
+      build(formViewWorkflow).ngOnInit();
+      makeReady();
+      h.validationStream.next({ errors: {}, workflowEmpty: true });
+
+      expect(component.runButtonState).toEqual({ label: "Empty", icon: "info-circle", disabled: true });
+    });
+
+    it("disables and says Connecting while the unit's socket comes up", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.statusStream.next(ComputingUnitState.Running);
+      h.validationStream.next({ errors: {}, workflowEmpty: false });
+      h.workflowWebsocketService.isConnected = false;
+
+      expect(component.runButtonState).toEqual({ label: "Connecting", icon: "loading", disabled: true });
+    });
+
+    it("disables with No access when the chosen unit is shared read-only", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.workflowWebsocketService.isConnected = true;
+      h.statusStream.next(ComputingUnitState.Running);
+      h.validationStream.next({ errors: {}, workflowEmpty: false });
+      (component as any).selectedUnit = { accessPrivilege: "READ" };
+
+      expect(component.runButtonState).toEqual({ label: "No access", icon: "lock", disabled: true });
+    });
+
+    it("does not offer a dead Stop when the socket drops mid-run", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.statusStream.next(ComputingUnitState.Running); // a unit is selected
+      h.executionStateStream.next({ current: { state: ExecutionState.Running } }); // a run is in flight
+      h.workflowWebsocketService.isConnected = false; // its socket drops
+
+      // Still "running", but the button must not offer a Stop that would kill through a dead socket.
+      expect(component.isRunning).toBe(true);
+      expect(component.runButtonState).toEqual({ label: "Connecting", icon: "loading", disabled: true });
+    });
+
+    it("repaints when the websocket connection status changes", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.cdr.markForCheck.mockClear();
+
+      h.connectionStream.next(true);
+
+      expect(h.cdr.markForCheck).toHaveBeenCalled();
+    });
+  });
+
+  describe("running", () => {
+    const makeReady = () => {
+      h.workflowWebsocketService.isConnected = true;
+      h.statusStream.next(ComputingUnitState.Running);
+      (component as any).selectedUnit = { accessPrivilege: "WRITE" };
+      h.validationStream.next({ errors: {}, workflowEmpty: false });
+    };
+
+    it("runs the workflow with its name and clears any prior error", () => {
+      build(formViewWorkflow).ngOnInit();
+      makeReady();
+      component.runError = "old error";
+
+      component.onRun();
+
+      expect(h.executeWorkflowService.executeWorkflow).toHaveBeenCalledWith("scGPT");
+      expect(component.runError).toBe("");
+    });
+
+    it("clears a stale failure banner when a new run starts, even a co-editor's", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.executionStateStream.next({ current: { state: ExecutionState.Failed, errorMessages: [{ message: "boom" }] } });
+      expect(component.runError).not.toBe("");
+
+      // A co-editor starts the next run: the shared stream goes in-flight without this page's onRun().
+      h.executionStateStream.next({ current: { state: ExecutionState.Running } });
+
+      expect(component.runError).toBe("");
+    });
+
+    it("tells apart a never-run form from a completed run that produced nothing", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(component.hasRunFinished).toBe(false);
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Completed } });
+
+      expect(component.hasRunFinished).toBe(true);
+    });
+
+    it("stops a running workflow instead of starting another", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.executionStateStream.next({ current: { state: ExecutionState.Running } });
+
+      component.onRun();
+
+      expect(h.executeWorkflowService.killWorkflow).toHaveBeenCalled();
+      expect(h.executeWorkflowService.executeWorkflow).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when the button is disabled", () => {
+      build(formViewWorkflow).ngOnInit();
+      // Default state is "Connect" (disabled): no unit chosen.
+
+      component.onRun();
+
+      expect(h.executeWorkflowService.executeWorkflow).not.toHaveBeenCalled();
+      expect(h.executeWorkflowService.killWorkflow).not.toHaveBeenCalled();
+    });
+
+    it("counts the run clock off the engine's duration event", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      h.durationEvents.next({ duration: 5000, isRunning: false });
+
+      expect(component.executionDuration).toBe(5000);
+    });
+
+    it("ticks the clock a second at a time while a run is going", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+
+      h.durationEvents.next({ duration: 1000, isRunning: true });
+      vi.advanceTimersByTime(1000);
+      vi.useRealTimers();
+
+      expect(component.executionDuration).toBe(2000);
+    });
+  });
+
+  describe("showing the chosen results", () => {
+    // The terminal always shows (the engine always materializes it); a chosen intermediate shows only
+    // while it still has view-result on the canvas. The form never writes the view-result set
+    // (display filter, per the settled design).
+    const chosen = (resultOperatorIds: string[]) =>
+      formBindingService.getConfig.mockReturnValue({ instruction: undefined, fields: [], resultOperatorIds });
+
+    it("shows a chosen result only while its operator still has view-result on the canvas", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a", "b"]);
+      h.viewResultIds.add("a"); // b's eye is off on the canvas
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["a"]);
+    });
+
+    it("shows a chosen terminal operator with no eye", () => {
+      // The engine materializes a terminal operator unconditionally, so its result is always available.
+      // The form must show it, or an author who picks the workflow's final operator -- the most natural
+      // choice -- would get a card that never appears.
+      build(formViewWorkflow).ngOnInit();
+      chosen(["last"]);
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      h.terminalIds.add("last"); // no downstream link, and its eye is off
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["last"]);
+    });
+
+    it("shows the terminal result with nothing chosen", () => {
+      // A reader who never curates still sees the workflow's final result: the engine always
+      // materializes the terminal operator, so its result is always available to show.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "last", operatorType: "Limit" });
+      h.hasOperatorIds.add("last");
+      h.terminalIds.add("last"); // terminal, no eye, not chosen
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual(["last"]);
+    });
+
+    it("does not show a chosen non-terminal operator whose eye is off", () => {
+      // A mid-graph step with an enabled downstream link is materialized only when its eye is on;
+      // without the eye it produces no result, so the form must not show a card that sits forever empty.
+      build(formViewWorkflow).ngOnInit();
+      chosen(["mid"]);
+      h.graphOperators.push({ operatorID: "mid", operatorType: "Filter" }); // enabled downstream, no eye
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual([]);
+    });
+
+    it("treats an operator whose only downstream link is disabled as terminal", () => {
+      // The backend's storage rule is out-degree 0 on the ENABLED plan, so an operator whose downstream
+      // link is disabled is terminal and gets materialized. The form must match, reading enabled links.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "a", operatorType: "Filter" });
+      h.graphOperators.push({ operatorID: "b", operatorType: "Limit" });
+      h.disabledDownstream.add("a"); // a -> b link disabled, so a has no enabled downstream
+      h.terminalIds.add("b"); // b is the true end
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toContain("a");
+      expect(component.shownResultIds).toContain("b");
+    });
+
+    it("does not treat a disabled operator as terminal", () => {
+      // A disabled operator is not in the compiled plan, so the engine never materializes it; even with
+      // no downstream it must not be shown as a terminal result.
+      build(formViewWorkflow).ngOnInit();
+      chosen([]);
+      h.graphOperators.push({ operatorID: "off", operatorType: "Limit", isDisabled: true });
+      h.terminalIds.add("off"); // no downstream, but disabled
+
+      (component as any).readConfig();
+
+      expect(component.shownResultIds).toEqual([]);
+    });
+
+    it("drops a card when the canvas view-result set changes, without a result update", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a", "b"]);
+      h.viewResultIds.add("a");
+      h.viewResultIds.add("b");
+      (component as any).readConfig();
+      expect(component.shownResultIds).toEqual(["a", "b"]);
+
+      // A co-editor turns b's eye off on the canvas. This emits no result-update event, so the
+      // filter must react to the view-result set changing directly, or b's card would go stale.
+      h.viewResultIds.delete("b");
+      h.viewResultChanged.next({});
+
+      expect(component.shownResultIds).toEqual(["a"]);
+    });
+
+    it("cards only the chosen, viewed steps that actually produced a result", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["produces", "produces-nothing"]);
+      h.viewResultIds.add("produces");
+      h.viewResultIds.add("produces-nothing");
+      h.anyResultIds.add("produces"); // the other ran but yielded nothing (e.g. a download UDF)
+
+      (component as any).readConfig();
+
+      expect(component.resultIdsToShow).toEqual(["produces"]);
+      expect(component.hasResults).toBe(true);
+    });
+
+    it("has no results when nothing chosen has produced anything", () => {
+      build(formViewWorkflow).ngOnInit();
+      chosen(["a"]);
+      h.viewResultIds.add("a");
+      (component as any).readConfig();
+
+      expect(component.hasResults).toBe(false);
+    });
+
+    it("calls a paginated result a table, and gates visualisation content on a snapshot", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).workflowResultService.hasPaginatedResult = (id: string) => id === "tab";
+
+      expect(component.isTabularResult("tab")).toBe(true);
+      expect(component.vizHasContent("tab")).toBe(false); // tables take the tabular branch
+      // A non-tabular op with a non-empty snapshot has viz content; an empty one does not.
+      h.snapshotById.set("viz", [{ a: 1 }]);
+      expect(component.vizHasContent("viz")).toBe(true);
+      expect(component.vizHasContent("blank")).toBe(false);
+    });
+
+    it("labels a result by the operator's friendly name, falling back to the id", () => {
+      build(formViewWorkflow).ngOnInit();
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "CSVFileScan" });
+
+      expect(component.resultLabel("op-1")).toBe("CSVFileScan");
+      expect(component.resultLabel("gone")).toBe("gone");
+    });
+
+    it("keeps a result's frame identity stable until its version moves", () => {
+      build(formViewWorkflow).ngOnInit();
+      const before = component.resultKey("op-1");
+      expect(component.resultKey("op-1")).toBe(before);
+
+      (component as any).resultVersion.set("op-1", 1);
+
+      expect(component.resultKey("op-1")).not.toBe(before);
+      expect(component.trackByKey(0, "k")).toBe("k");
+    });
+
+    it("resizes a result within bounds, per result, and re-fits after", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+      expect(component.resultZoom("op-1")).toBe(1);
+
+      component.zoomResult("op-1", 1);
+      component.zoomResult("op-1", 1);
+      expect(component.resultZoom("op-1")).toBe(2); // clamped at 2
+
+      component.zoomResult("op-1", -1);
+      component.zoomResult("op-1", -1);
+      component.zoomResult("op-1", -1);
+      expect(component.resultZoom("op-1")).toBe(0); // clamped at 0
+      expect(component.resultZoom("op-2")).toBe(1); // untouched
+
+      // The deferred re-fit runs after the card height lands.
+      vi.advanceTimersByTime(60);
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("bumps the result version and re-fits on a result update", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+
+      h.resultUpdateStream.next({ "op-1": {} });
+      expect(component.resultKey("op-1")).toBe("op-1#1");
+      vi.advanceTimersByTime(300);
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("re-fits the charts once a finished run has results", () => {
+      vi.useFakeTimers();
+      build(formViewWorkflow).ngOnInit();
+      vi.spyOn(component, "hasResults", "get").mockReturnValue(true);
+      const fit = vi.spyOn(component as any, "fitVisualisations").mockImplementation(() => {});
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Completed } });
+      vi.advanceTimersByTime(400);
+
+      expect(fit).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("gives the result tables a realistic page height on init", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(h.panelResizeService.changePanelSize).toHaveBeenCalled();
+    });
+  });
+
+  describe("reporting a failed run", () => {
+    it("blames empty required inputs when a required field is left empty", () => {
+      build(formViewWorkflow).ngOnInit();
+      const form = new FormGroup({ v: new FormControl("", Validators.required) });
+      component.rendered = [{ form } as any];
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Failed, errorMessages: [{ message: "x" }] } });
+
+      expect(component.runError).toBe("Run failed: please fill in the required fields.");
+    });
+
+    it("finds a required error nested inside an array input", () => {
+      build(formViewWorkflow).ngOnInit();
+      const form = new FormGroup({ arr: new FormArray([new FormControl("", Validators.required)]) });
+      component.rendered = [{ form } as any];
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Failed, errorMessages: [{ message: "x" }] } });
+
+      expect(component.runError).toBe("Run failed: please fill in the required fields.");
+    });
+
+    it("does not blame required fields for a non-required validation error", () => {
+      build(formViewWorkflow).ngOnInit();
+      // A pattern failure, not an empty required field: the reader gets the engine message, not
+      // "fill in the required fields".
+      const form = new FormGroup({ v: new FormControl("abc", Validators.pattern(/^\d+$/)) });
+      component.rendered = [{ form } as any];
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Failed, errorMessages: [{ message: "boom" }] } });
+
+      expect(component.runError).toBe("Run failed: boom");
+    });
+
+    it("keeps a short human message, dropping the exception prefix", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      h.executionStateStream.next({
+        current: {
+          state: ExecutionState.Failed,
+          errorMessages: [{ message: "java.lang.RuntimeException: too many rows" }],
+        },
+      });
+
+      expect(component.runError).toBe("Run failed: too many rows");
+    });
+
+    it("collapses an opaque engine trace to a reload sentence", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      h.executionStateStream.next({
+        current: {
+          state: ExecutionState.Failed,
+          errorMessages: [{ message: "org.jooq.DataAccessException: SQL [..]" }],
+        },
+      });
+
+      expect(component.runError).toBe("Run failed -- please reload and try again.");
+    });
+
+    it("collapses an empty error message to the reload sentence too", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      h.executionStateStream.next({ current: { state: ExecutionState.Failed, errorMessages: [] } });
+
+      expect(component.runError).toBe("Run failed -- please reload and try again.");
+    });
+
+    it("gives a generic tail when the message cleans down to nothing", () => {
+      build(formViewWorkflow).ngOnInit();
+
+      h.executionStateStream.next({
+        current: { state: ExecutionState.Failed, errorMessages: [{ message: "requirement failed: " }] },
+      });
+
+      expect(component.runError).toBe("Run failed: please check your inputs and try again.");
+    });
+  });
+
+  describe("inspecting a step read-only", () => {
+    const withOp = () => {
+      h.hasOperatorIds.add("op-1");
+      h.graphOperators.push({ operatorID: "op-1", operatorType: "Filter" });
+    };
+
+    // Model a highlight the way the real graph does: the stream emits only the newly-highlighted
+    // ids (the delta), while getCurrentHighlightedOperatorIDs returns the whole selection. So set
+    // the full selection first, then emit the delta.
+    const highlight = (full: string[], delta: string[] = full) => {
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push(...full);
+      h.highlightStream.next(delta);
+    };
+
+    it("turns highlighting on so a click selects a step", () => {
+      build(formViewWorkflow).ngOnInit();
+      expect(workflowActionService.setHighlightingEnabled).toHaveBeenCalledWith(true);
+    });
+
+    it("opens the read-only panel for the clicked step", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-1");
+    });
+
+    it("never broadcasts editing itself: silence is delegated to the panel (actsAsEditor=false)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+
+      highlight(["op-1"]);
+
+      // The form component does not touch the co-editor channel at all; the panel is mounted with
+      // [actsAsEditor]="false", which suppresses every write at the frame (the only writer).
+      // The frame's suppression is covered in operator-property-edit-frame.component.spec.ts.
+      expect(h.updateSharedModelAwareness).not.toHaveBeenCalled();
+    });
+
+    it("clears the selection when the clicked step is not on the graph", () => {
+      build(formViewWorkflow).ngOnInit();
+      (component as any).selectedOperatorId = "old";
+
+      highlight(["ghost"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("closes the panel when the canvas clears its highlight", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      h.highlightedIds.length = 0; // nothing highlighted any more
+      h.unhighlightStream.next([]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("opens the panel on the one step left after dropping one of two selected", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      h.hasOperatorIds.add("op-2");
+      h.graphOperators.push({ operatorID: "op-2", operatorType: "Filter" });
+
+      highlight(["op-1", "op-2"], ["op-2"]);
+      expect(component.selectedOperatorId).toBeUndefined(); // two selected: no single step to show
+
+      // Ctrl-clicking op-1 off leaves exactly one selected, which has to OPEN the panel. Only the
+      // un-highlight stream fires here -- nothing was newly highlighted -- so that stream has to
+      // apply the same rule as the highlight stream, not just test for an empty selection.
+      h.highlightedIds.length = 0;
+      h.highlightedIds.push("op-2");
+      h.unhighlightStream.next(["op-1"]);
+
+      expect(component.selectedOperatorId).toBe("op-2");
+    });
+
+    it("keeps the panel closed while more than one step is still highlighted", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1", "op-2", "op-3"], ["op-2", "op-3"]);
+
+      h.highlightedIds.splice(h.highlightedIds.indexOf("op-3"), 1); // two left
+      h.unhighlightStream.next(["op-3"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("dismisses the panel via the close button, dropping the highlight for co-editors too", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+
+      component.closeOperatorPanel();
+
+      // Through the action service, whose unhighlight also publishes the new selection on the
+      // shared awareness channel. Calling the joint wrapper's method directly would drop the ring
+      // locally and leave co-editors still seeing it on this reader's behalf.
+      expect(h.serviceUnhighlightOperators).toHaveBeenCalledWith("op-1");
+      expect(h.updateSharedModelAwareness).toHaveBeenCalledWith("highlighted", []);
+      expect(component.selectedOperatorId).toBeUndefined();
+    });
+
+    it("ignores a multi-select highlight, closing the panel (no single step to show)", () => {
+      build(formViewWorkflow).ngOnInit();
+      withOp();
+      highlight(["op-1"]);
+      expect(component.selectedOperatorId).toBe("op-1");
+
+      // Shift-clicking a second step: the stream emits only the new id, but the full selection is
+      // now two, so the panel closes rather than opening whichever was clicked last.
+      highlight(["op-1", "op-2"], ["op-2"]);
+
+      expect(component.selectedOperatorId).toBeUndefined();
     });
   });
 });

@@ -75,13 +75,16 @@ export class WorkflowPersistService {
       );
     }
 
+    // A save carries name, description and content only. The publish flag is not sent: the
+    // backend does not read it on this endpoint (publishing goes through /public and /private),
+    // and it is not reliably known here anyway, since the metadata fed back after a save names
+    // it differently (see WorkflowUtilService.parseWorkflowInfo).
     return this.http
       .post<Workflow>(`${AppSettings.getApiEndpoint()}/${WORKFLOW_PERSIST_URL}`, {
         wid: workflow.wid,
         name: workflow.name,
         description: workflow.description,
         content: JSON.stringify(workflow.content),
-        isPublic: workflow.isPublished,
       })
       .pipe(
         filter((updatedWorkflow: Workflow) => updatedWorkflow != null),
