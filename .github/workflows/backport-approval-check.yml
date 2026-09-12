@@ -58,7 +58,12 @@ permissions:
 
 concurrency:
   group: backport-approvals-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Queue, never cancel: this is a required status check, and GitHub takes the LATEST
+  # check run with this name. Two events close together (a push right after a label or
+  # review request) made the newer run cancel the older one, whose "cancelled" state then
+  # landed after the newer run's success and blocked the merge as a failed required
+  # check. The job runs in seconds, so queuing costs nothing.
+  cancel-in-progress: false
 
 jobs:
   backport-approvals:
