@@ -71,6 +71,7 @@ import { NzSwitchComponent } from "ng-zorro-antd/switch";
 import { NzBadgeComponent } from "ng-zorro-antd/badge";
 import { NzTooltipDirective } from "ng-zorro-antd/tooltip";
 import { JupyterPanelService } from "../../service/jupyter-panel/jupyter-panel.service";
+import { SpyComponent } from "../spy/spy.component";
 
 /**
  * MenuComponent is the top level menu bar that shows
@@ -624,6 +625,26 @@ export class MenuComponent implements OnInit, OnDestroy {
     // with TestBed instead of module-mocking the CommonJS file-saver package, which the unit-test
     // builder cannot hoist reliably.
     this.fileSaverService.saveAs(new Blob([workflowContentJson], { type: "text/plain;charset=utf-8" }), fileName);
+  }
+
+  /**
+   * Opens the spy case file: the footage of how this workflow was built, and
+   * the autopsy of which edit changed the results. The data is served by
+   * spy/server.py, which reads what Texera records without showing it.
+   */
+  public onClickSpy(): void {
+    this.modalService.create({
+      nzContent: SpyComponent,
+      nzData: { wid: this.workflowId },
+      nzWidth: "min(1400px, 94vw)",
+      // The panel owns the whole sheet: it draws its own rail, title bar and
+      // scrolling stage, so the modal gives it the surface and gets out of it.
+      nzBodyStyle: { padding: "0", borderRadius: "18px", overflow: "hidden" },
+      nzMaskClosable: true,
+      nzKeyboard: true,
+      nzClosable: true,
+      nzFooter: null,
+    });
   }
 
   /**

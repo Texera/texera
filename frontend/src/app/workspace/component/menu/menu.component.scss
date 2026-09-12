@@ -215,3 +215,9 @@ texera-coeditor-user-icon {
   width: auto;
   vertical-align: -0.2em;
 }
+
+// The spy button carries its own inline SVG emblem rather than a library icon:
+// a fedora and a pair of dark glasses.
+.spy-boton-insignia {
+  vertical-align: -2px;
+}

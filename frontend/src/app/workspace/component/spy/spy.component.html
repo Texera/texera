@@ -1,0 +1,1723 @@
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one
+ or more contributor license agreements.  See the NOTICE file
+ distributed with this work for additional information
+ regarding copyright ownership.  The ASF licenses this file
+ to you under the Apache License, Version 2.0 (the
+ "License"); you may not use this file except in compliance
+ with the License.  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing,
+ software distributed under the License is distributed on an
+ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ KIND, either express or implied.  See the License for the
+ specific language governing permissions and limitations
+ under the License.
+-->
+
+<div class="spy">
+  <!-- The rail. Short nouns only; the question each view answers is its title. -->
+  <aside
+    class="spy-rail"
+    [class.folded]="!railOpen">
+    <div class="spy-mark">
+      <svg
+        class="spy-emblem"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true">
+        <path
+          d="M12 2.2c3.7 0 5.7 2 6.3 6.2 2 .3 3.2.9 3.2 1.6 0 1.1-4.3 2-9.5 2s-9.5-.9-9.5-2c0-.7 1.2-1.3 3.2-1.6C6.3 4.2 8.3 2.2 12 2.2z" />
+        <rect
+          x="2.4"
+          y="13.1"
+          width="8.3"
+          height="5.2"
+          rx="2.2" />
+        <rect
+          x="13.3"
+          y="13.1"
+          width="8.3"
+          height="5.2"
+          rx="2.2" />
+        <path d="M10.4 15.2h3.2v1.2h-3.2z" />
+      </svg>
+      <span class="spy-mark-name">Spy</span>
+      <button
+        type="button"
+        class="spy-fold"
+        [title]="railOpen ? 'Hide the sidebar' : 'Show the sidebar'"
+        [attr.aria-label]="railOpen ? 'Hide the sidebar' : 'Show the sidebar'"
+        [attr.aria-expanded]="railOpen"
+        (click)="toggleRail()">
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          aria-hidden="true">
+          <rect
+            x="2.5"
+            y="3.5"
+            width="15"
+            height="13"
+            rx="3" />
+          <path d="M8 3.5v13" />
+        </svg>
+      </button>
+    </div>
+
+    <nav class="spy-nav">
+      <ng-container *ngFor="let group of rail">
+        <p
+          class="spy-nav-group"
+          *ngIf="railOpen">
+          {{ group.group }}
+        </p>
+        <hr
+          class="spy-nav-split"
+          *ngIf="!railOpen" />
+        <button
+          type="button"
+          *ngFor="let item of group.items"
+          [class.on]="tab === item.id"
+          [title]="item.label"
+          (click)="show(item.id)">
+          <svg
+            class="spy-nav-icon"
+            viewBox="0 0 20 20"
+            fill="none"
+            aria-hidden="true">
+            <path
+              *ngFor="let d of item.icon"
+              [attr.d]="d" />
+          </svg>
+          <span *ngIf="railOpen">{{ item.label }}</span>
+        </button>
+      </ng-container>
+    </nav>
+
+    <p
+      class="spy-rail-foot"
+      *ngIf="railOpen">
+      Texera writes down every save and every run, and shows you neither. This opens both.
+    </p>
+  </aside>
+
+  <div class="spy-main">
+    <header class="spy-topbar">
+      <div class="spy-topbar-name">
+        <h3>{{ history?.name || "No workflow open" }}</h3>
+        <span
+          class="spy-state"
+          [ngClass]="'is-' + stateKind">
+          <i></i>{{ state }}
+        </span>
+      </div>
+
+      <dl class="spy-topbar-meta">
+        <div *ngIf="lastRun as r">
+          <dt>Last run</dt>
+          <dd>{{ r.name || "run " + r.eid }}</dd>
+        </div>
+        <div *ngIf="lastRun">
+          <dt>Took</dt>
+          <dd>{{ lastRunTook }}</dd>
+        </div>
+        <div *ngIf="history as h">
+          <dt>Runs</dt>
+          <dd>{{ runs.length }}</dd>
+        </div>
+        <div *ngIf="history as h">
+          <dt>Saves</dt>
+          <dd>{{ h.total }}</dd>
+        </div>
+      </dl>
+
+      <div class="spy-topbar-actions">
+        <label
+          class="spy-version"
+          *ngIf="frames.length">
+          <span>Version</span>
+          <select (change)="show('footage'); goTo(+$any($event.target).value)">
+            <option
+              *ngFor="let f of frames; index as i"
+              [value]="i"
+              [selected]="i === index">
+              {{ when(f.time) }}
+            </option>
+          </select>
+        </label>
+        <!-- The one button in the panel that does something instead of
+             reporting something, so it is the only filled one. -->
+        <button
+          type="button"
+          class="spy-run"
+          [disabled]="keeping"
+          (click)="show('autopsy'); runAndKeep()"
+          title="Runs the workflow and writes down every step's rows, which Texera would otherwise throw away 30 seconds later. Slower than the editor's Run button, because every step's output is kept, not just the last one.">
+          <span
+            class="spy-run-dot"
+            *ngIf="keeping"></span>
+          {{ keeping ? "Running" : "Run and keep rows" }}
+        </button>
+      </div>
+    </header>
+
+    <div class="spy-scroll">
+      <div
+        *ngIf="error"
+        class="spy-error">
+        {{ error }}
+      </div>
+
+      <h2 class="spy-title">{{ titles[tab] }}</h2>
+
+      <!-- ======================= how this workflow works ======================= -->
+      <section
+        class="spy-panel"
+        *ngIf="tab === 'brief'">
+        <p
+          *ngIf="loadingBrief"
+          class="spy-loading">
+          Reading the workflow…
+        </p>
+
+        <div *ngIf="brief as b">
+          <p
+            class="spy-headline"
+            *ngIf="tour.headline">
+            {{ tour.headline }}
+          </p>
+          <p
+            class="spy-headline-wait"
+            *ngIf="tourPending && !tour.headline">
+            Working out what this does…
+          </p>
+
+          <p
+            *ngIf="briefEmpty"
+            class="spy-note">
+            There is nothing on this canvas yet. Once it has a step or two, this is where what they do will be spelled
+            out.
+          </p>
+
+          <!-- The whole workflow as one picture: boxes for steps, pipes for data,
+           and every pipe as thick as the rows that run through it. -->
+          <!-- The stage: the drawing on bare paper, its inspector beside it. -->
+          <div class="spy-stage">
+            <div class="spy-stage-main">
+              <figure
+                class="spy-flowmap"
+                *ngIf="flowNodes.length">
+                <svg
+                  [attr.viewBox]="flowViewBox"
+                  preserveAspectRatio="xMidYMid meet">
+                  <path
+                    *ngFor="let pipe of flowPipes"
+                    [attr.d]="pipe.path"
+                    [attr.stroke-width]="pipe.width"
+                    class="spy-pipe" />
+                  <text
+                    *ngFor="let pipe of flowPipes"
+                    [attr.x]="pipe.midX"
+                    [attr.y]="pipe.midY"
+                    text-anchor="middle"
+                    class="spy-pipe-n">
+                    {{ count(pipe.rows) }}
+                  </text>
+                  <g
+                    *ngFor="let node of flowNodes"
+                    [ngClass]="['spy-map-node', 'spy-map-' + node.step.role, picked === node.step.id ? 'here' : '']"
+                    (click)="pickStep(node.step.id)">
+                    <title>{{ node.step.name }} · {{ node.step.type }}</title>
+                    <rect
+                      [attr.x]="node.x"
+                      [attr.y]="node.y"
+                      [attr.width]="nodeWidth"
+                      [attr.height]="nodeHeight"
+                      rx="3"
+                      class="spy-map-box"
+                      [attr.opacity]="node.step.disabled ? 0.45 : 1" />
+                    <svg
+                      [attr.x]="node.x + 12"
+                      [attr.y]="node.y + 12"
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24">
+                      <path
+                        [attr.d]="node.glyph"
+                        class="spy-map-glyph" />
+                    </svg>
+                    <text
+                      [attr.x]="node.x + 44"
+                      [attr.y]="node.y + 26"
+                      class="spy-map-name">
+                      {{ node.step.name }}
+                    </text>
+                    <text
+                      [attr.x]="node.x + 44"
+                      [attr.y]="node.y + 48"
+                      class="spy-map-rows">
+                      {{ node.rows === null || node.rows === undefined ? "not measured" : count(node.rows) + " rows out"
+                      }}
+                    </text>
+                    <text
+                      *ngIf="node.drop"
+                      [attr.x]="node.x + nodeWidth - 10"
+                      [attr.y]="node.y + 48"
+                      text-anchor="end"
+                      class="spy-map-drop">
+                      −{{ count(node.drop) }}
+                    </text>
+                  </g>
+                </svg>
+                <figcaption>
+                  <span class="spy-key added">where data comes in</span>
+                  <span class="spy-key edited">where it ends up</span>
+                  <span class="spy-map-legend">
+                    <i class="thin"></i>
+                    <i class="thick"></i>
+                    the thicker the pipe, the more rows run through it
+                  </span>
+                </figcaption>
+              </figure>
+
+              <!-- The dials: what people in this workflow actually turn. -->
+              <div
+                class="spy-knobs"
+                *ngIf="b.knobs.length">
+                <h4>What people keep changing here</h4>
+                <ul>
+                  <li *ngFor="let knob of b.knobs">
+                    <button
+                      type="button"
+                      class="spy-knob-where"
+                      (click)="pickStep(knob.stepId)">
+                      <b>{{ knob.step }}</b>
+                      <span class="spy-muted">{{ knobLabel(knob) }}</span>
+                    </button>
+                    <span class="spy-chip-now">{{ knobValue(knob) || "—" }}</span>
+                    <span class="spy-knob-dots">
+                      <i
+                        *ngFor="let i of range(knob.times)"
+                        [class.tried]="knob.tried"></i>
+                    </span>
+                    <span class="spy-muted">{{ knob.times }} {{ knob.times === 1 ? "change" : "changes" }}</span>
+                  </li>
+                </ul>
+                <p class="spy-flow-lead">
+                  Every other setting has been left alone since it was written. A filled dot means that value was run,
+                  not only saved.
+                </p>
+              </div>
+            </div>
+
+            <!-- One step at a time: the flow is walked, not read all at once. -->
+            <div
+              class="spy-picked"
+              *ngIf="pickedStep as step">
+              <p class="spy-picked-kicker">Step inspector</p>
+              <div class="spy-picked-head">
+                <svg
+                  class="spy-picked-glyph"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true">
+                  <path [attr.d]="glyphForKind(kindOfStep(step))" />
+                </svg>
+                <div>
+                  <h4>{{ step.name }}</h4>
+                  <span class="spy-muted"
+                    >{{ roleWord(step) }}<span *ngIf="feedersOf(step)"> · {{ feedersOf(step) }}</span></span
+                  >
+                </div>
+                <div class="spy-picked-walk">
+                  <button
+                    type="button"
+                    class="spy-transport"
+                    title="the step before"
+                    [disabled]="pickedAt <= 0"
+                    (click)="stepAlong(-1)">
+                    <svg
+                      class="spy-glyph"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true">
+                      <path d="M15 5v14l-9-7z" />
+                    </svg>
+                  </button>
+                  <span class="spy-muted">{{ pickedAt + 1 }} of {{ steps.length }}</span>
+                  <button
+                    type="button"
+                    class="spy-transport"
+                    title="the next step"
+                    [disabled]="pickedAt >= steps.length - 1"
+                    (click)="stepAlong(1)">
+                    <svg
+                      class="spy-glyph"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true">
+                      <path d="M9 5v14l9-7z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <p
+                class="spy-picked-said"
+                *ngIf="stepTold(step.id)">
+                {{ stepTold(step.id) }}
+              </p>
+
+              <!-- What it did to the data, drawn: in on top, out underneath. -->
+              <div
+                class="spy-picked-volume"
+                *ngIf="step.rowsOut !== null && step.rowsOut !== undefined">
+                <span
+                  class="spy-bar earlier"
+                  *ngIf="hasInput(step)">
+                  <span
+                    class="spy-fill"
+                    [style.width.%]="inBar(step)"></span>
+                  <span class="spy-bar-n">{{ count(step.rowsIn || 0) }} in</span>
+                </span>
+                <span class="spy-bar later">
+                  <span
+                    class="spy-fill"
+                    [style.width.%]="outBar(step)"></span>
+                  <span class="spy-bar-n">{{ count(step.rowsOut) }} out</span>
+                </span>
+                <span class="spy-picked-keeps">{{ keepsOf(step) }}</span>
+              </div>
+
+              <ul class="spy-setting-list">
+                <li *ngFor="let setting of settingsOf(step)">
+                  <span class="spy-setting-label">{{ setting.label }}</span>
+                  <span [ngClass]="setting.big ? 'spy-setting-big' : 'spy-setting-value'">{{ setting.text }}</span>
+                </li>
+                <li
+                  *ngIf="settingsOf(step).length === 0"
+                  class="spy-muted">
+                  nothing set: it does the same thing every time
+                </li>
+              </ul>
+
+              <div
+                class="spy-picked-rows"
+                *ngIf="step.sample.length">
+                <table class="spy-grid">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let col of columns(step.sample)">{{ col }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of step.sample">
+                      <td *ngFor="let col of columns(step.sample)">{{ cell(row, col) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p
+                  class="spy-muted"
+                  *ngIf="b.sampleFrom as from">
+                  A few of its rows, kept from the run {{ from.name || "number " + from.eid }}.
+                  <span *ngIf="!from.current">That run did not use the settings the workflow has today.</span>
+                </p>
+              </div>
+
+              <p class="spy-picked-foot">
+                <span *ngIf="step.edits"
+                  >changed {{ step.edits }} {{ step.edits === 1 ? "time" : "times" }}<span *ngIf="step.lastEdited"
+                    >, last {{ when(step.lastEdited) }}</span
+                  ></span
+                >
+                <span *ngIf="!step.edits">never changed since it was added</span>
+                <button
+                  type="button"
+                  class="spy-quiet"
+                  (click)="rewindTo(step.id); show('footage')">
+                  see what was changed
+                </button>
+                <span
+                  class="spy-off-tag"
+                  *ngIf="step.disabled"
+                  >switched off</span
+                >
+              </p>
+            </div>
+
+            <p
+              class="spy-stage-hint"
+              *ngIf="!pickedStep && flowNodes.length">
+              Pick a step in the drawing to open it here.
+            </p>
+          </div>
+
+          <!-- The numbers, and then the prose, in that order and folded. -->
+          <div class="spy-band">
+            <div
+              class="spy-figures"
+              *ngIf="briefFigures.length">
+              <div
+                class="spy-figure"
+                *ngFor="let f of briefFigures"
+                [ngClass]="'spy-figure-' + f.tone">
+                <span class="spy-figure-value">{{ f.value }}</span>
+                <span class="spy-figure-label">{{ f.label }}</span>
+              </div>
+            </div>
+          </div>
+
+          <p
+            class="spy-note spy-caution"
+            *ngIf="tour.watchOut">
+            <b>Before you touch anything:</b>&ngsp;{{ tour.watchOut }}
+          </p>
+
+          <p class="spy-disclosure">
+            <button
+              type="button"
+              (click)="unfold('purpose')">
+              {{ isUnfolded("purpose") ? "Hide the written version" : "Read it in words instead" }}
+            </button>
+          </p>
+          <div
+            class="spy-reading"
+            *ngIf="isUnfolded('purpose')">
+            <p *ngIf="tour.purpose">{{ tour.purpose }}</p>
+            <p class="spy-muted">{{ pulseLine }} {{ whoLine }}</p>
+            <p
+              class="spy-warn"
+              *ngIf="b.record.broken">
+              Part of the record cannot be read back: {{ b.record.unreadable }} of the {{ b.record.saves }} saved
+              versions are lost, so how this workflow started is not recoverable.
+            </p>
+            <p class="spy-source">
+              The steps, their settings and their row counts were read from Texera's own record: the saved versions of
+              the canvas and the statistics it keeps for every run. The sentences are written from those facts and
+              nothing else.
+            </p>
+          </div>
+
+          <ng-container *ngTemplateOutlet="askBox"></ng-container>
+        </div>
+      </section>
+
+      <!-- ======================= edit history ======================= -->
+      <section
+        class="spy-panel"
+        *ngIf="tab === 'footage'">
+        <p
+          *ngIf="loadingHistory"
+          class="spy-loading">
+          Loading version history…
+        </p>
+
+        <div *ngIf="history as h">
+          <div class="spy-band">
+            <div
+              class="spy-figures"
+              *ngIf="recordFigures.length">
+              <div
+                class="spy-figure"
+                *ngFor="let h of recordFigures"
+                [ngClass]="'spy-figure-' + h.tone">
+                <span class="spy-figure-value">{{ h.value }}</span>
+                <span class="spy-figure-label">{{ h.label }}</span>
+              </div>
+            </div>
+
+            <!-- The workflow's shape as boxes, so its size is seen and not read. -->
+            <div
+              class="spy-shape"
+              *ngIf="shapeCounts as s">
+              <div class="spy-shape-group">
+                <span class="spy-boxes">
+                  <i *ngFor="let i of range(s.sources)"></i>
+                </span>
+                <span class="spy-shape-label">{{ s.sources }} {{ s.sources === 1 ? "source" : "sources" }}</span>
+              </div>
+              <svg
+                class="spy-shape-arrow"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true">
+                <path d="M4 11h11V7.2L20 12l-5 4.8V13H4z" />
+              </svg>
+              <div
+                class="spy-shape-group"
+                *ngIf="s.middle > 0">
+                <span class="spy-boxes">
+                  <i *ngFor="let i of range(s.middle)"></i>
+                </span>
+                <span class="spy-shape-label">{{ s.middle }} {{ s.middle === 1 ? "step" : "steps" }} in between</span>
+              </div>
+              <svg
+                class="spy-shape-arrow"
+                *ngIf="s.middle > 0"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true">
+                <path d="M4 11h11V7.2L20 12l-5 4.8V13H4z" />
+              </svg>
+              <div class="spy-shape-group">
+                <span class="spy-boxes">
+                  <i *ngFor="let i of range(s.outputs)"></i>
+                </span>
+                <span class="spy-shape-label">{{ s.outputs }} {{ s.outputs === 1 ? "output" : "outputs" }}</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="spy-story">{{ story }}</p>
+
+          <div
+            class="spy-reading"
+            *ngIf="reading.footage">
+            <h4>How this workflow came to be</h4>
+            <div class="spy-reading-body">
+              <p *ngFor="let part of paragraphs(reading.footage)">{{ part }}</p>
+            </div>
+
+            <p class="spy-source">
+              Written from the edits listed below. Every edit it names was rebuilt from Texera's own saved patches.
+            </p>
+          </div>
+          <p
+            class="spy-reading-wait"
+            *ngIf="readingPending.footage">
+            Reading the record…
+          </p>
+
+          <p
+            *ngIf="h.tolerated"
+            class="spy-method">
+            Texera's own record asks {{ h.tolerated === 1 ? "once" : h.tolerated + " times" }} to undo something that
+            was no longer there. Those moments were rebuilt anyway: taking away what is already gone leaves the very
+            same canvas, and every version here still matches what Texera itself returns.
+          </p>
+
+          <p
+            *ngIf="h.broken"
+            class="spy-warn spy-method">
+            Part of the record is unreadable: {{ h.recovered }} of the {{ h.total }} saved versions could be rebuilt,
+            and everything before {{ when(brokenTime) }} is lost. Texera's own "restore this version" cannot reach it
+            either.
+          </p>
+
+          <p class="spy-disclosure">
+            <button
+              type="button"
+              (click)="showMethod = !showMethod">
+              {{ showMethod ? "Hide how this is worked out" : "How is this worked out?" }}
+            </button>
+          </p>
+          <p
+            *ngIf="showMethod"
+            class="spy-method">
+            Texera never stores what a version looked like. It stores the difference between each version and the next
+            one, backwards. To show you a moment, this panel starts from today's canvas and undoes those differences one
+            at a time, which is the same thing the product does when you restore an old version.
+          </p>
+
+          <div class="spy-controls">
+            <div class="spy-transport-group">
+              <button
+                type="button"
+                class="spy-transport"
+                title="previous version (←)"
+                [disabled]="index === 0"
+                (click)="previous()">
+                <svg
+                  class="spy-glyph"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true">
+                  <path d="M11 5v14l-9-7zM22 5v14l-9-7z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="spy-transport"
+                [title]="playing ? 'pause (space)' : 'play through every version (space)'"
+                (click)="play()">
+                <svg
+                  class="spy-glyph"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true">
+                  <path
+                    *ngIf="!playing"
+                    d="M6 4l14 8-14 8z" />
+                  <path
+                    *ngIf="playing"
+                    d="M6 4h4v16H6zM14 4h4v16h-4z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="spy-transport"
+                title="next version (→)"
+                [disabled]="index === last"
+                (click)="next()">
+                <svg
+                  class="spy-glyph"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true">
+                  <path d="M2 5v14l9-7zM13 5v14l9-7z" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="spy-tape">
+              <button
+                type="button"
+                *ngFor="let b of tape"
+                class="spy-block"
+                [ngClass]="[b.tone, b.index === index ? 'here' : '']"
+                [title]="b.label"
+                (click)="onScrub(b.index)">
+                <span
+                  class="spy-ran"
+                  *ngIf="b.ran"></span>
+              </button>
+            </div>
+
+            <div
+              class="spy-position"
+              *ngIf="frame as f">
+              <span class="spy-vid">{{ when(f.time) }}</span>
+              <span class="spy-count">{{ index + 1 }} of {{ frames.length }}</span>
+            </div>
+          </div>
+
+          <p class="spy-legend">
+            <span class="spy-key-word">Each block is one save:</span>
+            <span class="spy-swatch added">a step appeared</span>
+            <span class="spy-swatch removed">a step went away</span>
+            <span class="spy-swatch edited">a setting changed</span>
+            <span class="spy-swatch quiet">nothing changed</span>
+            <span class="spy-swatch ran">you ran it here</span>
+          </p>
+
+          <p
+            class="spy-caption"
+            *ngIf="frame as f">
+            <b>{{ headline }}</b>
+            <span class="spy-muted">{{ sincePrevious }}</span>
+            <span
+              class="spy-muted"
+              *ngIf="f.runs.length">
+              · you ran the workflow from here
+            </span>
+            <button
+              type="button"
+              class="spy-quiet"
+              *ngIf="hiddenCount > 0 || showEverySave"
+              (click)="toggleEverySave()">
+              {{ showEverySave ? "hide saves that changed nothing" : hiddenCount === 1 ? "1 save that changed nothing is
+              hidden" : hiddenCount + " saves that changed nothing are hidden" }}
+            </button>
+          </p>
+
+          <div class="spy-columns">
+            <figure class="spy-canvas">
+              <div class="spy-canvas-head">
+                <span>The canvas at that moment</span>
+                <span class="spy-muted"
+                  >{{ boxes.length }} {{ boxes.length === 1 ? "operator" : "operators" }} · {{ arrows.length }} {{
+                  arrows.length === 1 ? "link" : "links" }}</span
+                >
+              </div>
+              <svg
+                [attr.viewBox]="viewBox"
+                preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <marker
+                    id="spy-arrowhead"
+                    markerWidth="7"
+                    markerHeight="7"
+                    refX="6.5"
+                    refY="2.5"
+                    orient="auto">
+                    <path
+                      d="M0,0 L6.5,2.5 L0,5 z"
+                      fill="#8c8c8c" />
+                  </marker>
+                </defs>
+                <rect
+                  *ngFor="let g of ghosts"
+                  [attr.x]="g.x"
+                  [attr.y]="g.y"
+                  [attr.width]="boxWidth"
+                  [attr.height]="boxHeight"
+                  rx="2"
+                  class="spy-ghost" />
+                <line
+                  *ngFor="let a of arrows"
+                  [attr.x1]="a.x1"
+                  [attr.y1]="a.y1"
+                  [attr.x2]="a.x2"
+                  [attr.y2]="a.y2"
+                  class="spy-edge"
+                  marker-end="url(#spy-arrowhead)" />
+                <g
+                  *ngFor="let b of boxes"
+                  class="spy-node"
+                  (click)="focus(b.op.id)">
+                  <title>{{ b.note }}</title>
+                  <rect
+                    [attr.x]="b.x"
+                    [attr.y]="b.y"
+                    [attr.width]="boxWidth"
+                    [attr.height]="boxHeight"
+                    rx="2"
+                    [attr.class]="'spy-box spy-box-' + b.mark + (focused === b.op.id ? ' spy-box-focused' : '')"
+                    [attr.opacity]="b.op.disabled ? 0.4 : 1" />
+                  <text
+                    [attr.x]="b.x + 10"
+                    [attr.y]="b.y + 20"
+                    class="spy-box-name">
+                    {{ b.op.name }}
+                  </text>
+                  <text
+                    [attr.x]="b.x + 10"
+                    [attr.y]="b.y + 34"
+                    class="spy-box-id">
+                    {{ b.op.id }}
+                  </text>
+                </g>
+              </svg>
+              <figcaption>
+                <span class="spy-key added">added at this point</span>
+                <span class="spy-key edited">edited at this point</span>
+                <span class="spy-key plain">unchanged</span>
+                <span class="spy-key ghost">not built yet</span>
+              </figcaption>
+            </figure>
+
+            <aside
+              class="spy-log"
+              *ngIf="frame as f">
+              <h4>What you did</h4>
+
+              <p
+                class="spy-filter"
+                *ngIf="focused">
+                <span>Only what you did to <b>{{ nameOf(focused) }}</b></span>
+                <button
+                  type="button"
+                  (click)="focus(focused)">
+                  show all
+                </button>
+              </p>
+
+              <p
+                *ngIf="!f.recoverable"
+                class="spy-warn">
+                This moment is lost. Texera saved it in a way that can no longer be read back, and its own restore
+                cannot reach it either.
+              </p>
+              <p
+                *ngIf="f.recoverable && f.changes.length === 0 && index > 0"
+                class="spy-muted">
+                Nothing changed on the canvas here. Texera saves by itself every so often, even when you have not
+                touched anything.
+              </p>
+              <p
+                *ngIf="f.recoverable && index === 0"
+                class="spy-muted">
+                The empty canvas you started from.
+              </p>
+              <p
+                *ngIf="focused && log.length === 0 && f.changes.length > 0"
+                class="spy-muted">
+                You did not touch {{ nameOf(focused) }} at this moment.
+              </p>
+
+              <ul>
+                <li
+                  *ngFor="let entry of toldLog"
+                  [ngClass]="['spy-c-' + entry.change.kind, toneOf(entry.change.kind)]"
+                  [title]="entry.told.detail">
+                  <svg
+                    class="spy-chip"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true">
+                    <path [attr.d]="glyphOf(entry.change.kind)" />
+                  </svg>
+                  <span class="spy-said">
+                    {{ entry.told.lead }}
+                    <span
+                      class="spy-was"
+                      *ngIf="entry.told.before !== undefined"
+                      >{{ entry.told.before }}</span
+                    >&ngsp;<span *ngIf="entry.told.join">{{ entry.told.join }}</span>&ngsp;<span
+                      class="spy-now"
+                      *ngIf="entry.told.after !== undefined"
+                      >{{ entry.told.after }}</span
+                    >
+                  </span>
+                </li>
+              </ul>
+
+              <div
+                class="spy-runs"
+                *ngIf="f.runs.length">
+                <h4>You ran it from here</h4>
+                <ul>
+                  <li *ngFor="let r of f.runs">{{ when(r.started) }} · {{ r.status }}</li>
+                </ul>
+              </div>
+            </aside>
+          </div>
+
+          <p class="spy-help">
+            Click an operator to follow only that one. The arrow keys move through time, space plays it back, and the
+            blue marks under the timeline are the moments you ran the workflow.
+          </p>
+
+          <ng-container *ngTemplateOutlet="askBox"></ng-container>
+        </div>
+      </section>
+
+      <!-- ======================= what has been tried ======================= -->
+      <section
+        class="spy-panel"
+        *ngIf="tab === 'experiments'">
+        <p class="spy-lead">
+          Every run of this workflow, with the settings it was run at. Texera throws the results away, but it keeps the
+          counts, so runs from weeks ago can still be read.
+        </p>
+
+        <p
+          *ngIf="loadingExperiments"
+          class="spy-loading">
+          Reading every run…
+        </p>
+
+        <div *ngIf="experiments as e">
+          <div
+            class="spy-figures"
+            *ngIf="e.runs.length">
+            <div class="spy-figure spy-figure-flat">
+              <span class="spy-figure-value">{{ count(e.runs.length) }}</span>
+              <span class="spy-figure-label">{{ e.runs.length === 1 ? "run" : "runs" }} on record</span>
+            </div>
+            <div class="spy-figure spy-figure-flat">
+              <span class="spy-figure-value">{{ count(distinctRuns) }}</span>
+              <span class="spy-figure-label">of them different from each other</span>
+            </div>
+            <div class="spy-figure spy-figure-flat">
+              <span class="spy-figure-value">{{ count(knobs.length) }}</span>
+              <span class="spy-figure-label"
+                >{{ knobs.length === 1 ? "setting" : "settings" }} tried at more than one value</span
+              >
+            </div>
+          </div>
+
+          <!-- How the runs moved, run after run. A run that produced nothing is
+           not a low point on the line: the line stops, and picks up after. -->
+          <div
+            class="spy-trends"
+            *ngIf="trends.length">
+            <div
+              class="spy-trend"
+              *ngFor="let t of trends">
+              <div class="spy-trend-head">
+                <span class="spy-trend-label">{{ t.label }}</span>
+                <span class="spy-trend-now">{{ t.latest }}</span>
+                <span
+                  class="spy-trend-change"
+                  [ngClass]="'is-' + (t.verdict || 'plain')">
+                  {{ t.change }}
+                </span>
+              </div>
+              <svg
+                class="spy-plot"
+                [attr.viewBox]="'0 0 ' + trendW + ' ' + trendH"
+                aria-hidden="true">
+                <polyline
+                  *ngFor="let line of t.segments"
+                  [attr.points]="line" />
+                <circle
+                  *ngFor="let dot of t.dots"
+                  [attr.cx]="dot.x"
+                  [attr.cy]="dot.y"
+                  [attr.r]="dot.empty ? 3.2 : 2.6"
+                  [class.empty]="dot.empty"
+                  [class.last]="dot === t.dots[t.dots.length - 1]">
+                  <title>{{ dot.label }} · {{ dot.empty ? "produced nothing" : dot.value }}</title>
+                </circle>
+              </svg>
+              <p class="spy-trend-foot">{{ t.dots.length }} runs, from {{ t.low }} to {{ t.high }}</p>
+            </div>
+          </div>
+
+          <p
+            *ngIf="e.runs.length === 0"
+            class="spy-note">
+            This workflow has never been run, so there is nothing to compare yet.
+          </p>
+
+          <p
+            *ngIf="e.runs.length && knobs.length === 0"
+            class="spy-note">
+            Every run used exactly the same settings. Whatever differs between these runs, it is not something anyone
+            typed into the canvas.
+          </p>
+
+          <!-- One dial at a time: every value it was run at, and what came out. -->
+          <div
+            class="spy-dials"
+            *ngIf="dials.length">
+            <div
+              class="spy-dial"
+              *ngFor="let dial of dials">
+              <div class="spy-dial-head">
+                <b>{{ dial.knob.step }}</b>
+                <span class="spy-muted">{{ knobLabel(dial.knob) }}</span>
+              </div>
+              <ol class="spy-dial-values">
+                <li *ngFor="let value of dial.values">
+                  <span class="spy-dial-value">{{ value.text }}</span>
+                  <span class="spy-bar later">
+                    <span class="spy-dial-track">
+                      <span
+                        class="spy-fill spy-fill-spread"
+                        [style.width.%]="value.bar"></span>
+                      <span
+                        class="spy-fill"
+                        [style.width.%]="value.floor"></span>
+                    </span>
+                    <span class="spy-bar-n"
+                      >{{ value.mixed ? count(value.low) + "–" + count(value.high) : count(value.high) }} out</span
+                    >
+                  </span>
+                  <span class="spy-dial-runs">
+                    <i
+                      *ngFor="let i of range(value.runs - value.empty)"
+                      class="tried"></i>
+                    <i *ngFor="let i of range(value.empty)"></i>
+                    <span class="spy-muted"
+                      >{{ value.runs }} {{ value.runs === 1 ? "run" : "runs" }}<span *ngIf="value.empty"
+                        >, {{ value.empty }} empty</span
+                      ></span
+                    >
+                  </span>
+                </li>
+              </ol>
+              <p class="spy-dial-verdict">{{ dial.verdict }}</p>
+            </div>
+          </div>
+
+          <!-- What was tried, which is a shorter list than what was run. -->
+          <table
+            class="spy-table spy-trials"
+            *ngIf="trials.length">
+            <caption>
+              One row per experiment, oldest first. The columns in between are the only settings that were not the same
+              in every run; everything else was left alone. Running the same settings again is the same experiment, and
+              is counted here rather than repeated.
+            </caption>
+            <thead>
+              <tr>
+                <th
+                  scope="col"
+                  *ngFor="let knob of knobs">
+                  {{ knob.step }}
+                  <span class="spy-id">{{ knobLabel(knob) }}</span>
+                </th>
+                <th scope="col">when it was run</th>
+                <th
+                  scope="col"
+                  class="num">
+                  rows out
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let trial of trials"
+                [class.spy-empty-trial]="trial.produced === 0">
+                <td *ngFor="let value of trial.values">
+                  <span class="spy-setting-value">{{ value.text }}</span>
+                </td>
+                <td class="spy-muted">{{ trialWhen(trial.runs) }}</td>
+                <td class="num">
+                  <span class="spy-bar later spy-bar-inline">
+                    <span
+                      class="spy-fill"
+                      [style.width.%]="trialBar(trial.produced)"></span>
+                    <span class="spy-bar-n">{{ count(trial.produced) }}</span>
+                  </span>
+                  <span
+                    class="spy-nothing"
+                    *ngIf="trial.produced === 0"
+                    >nothing came out of this one</span
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p
+            class="spy-disclosure"
+            *ngIf="e.runs.length">
+            <button
+              type="button"
+              (click)="showEveryRun = !showEveryRun">
+              {{ showEveryRun ? "Hide the run log" : "Show every run, one by one" }}
+            </button>
+          </p>
+
+          <table
+            class="spy-table spy-trials"
+            *ngIf="e.runs.length && showEveryRun">
+            <caption>
+              Every run, oldest first. A run in grey repeats an earlier experiment exactly. To compare two of them row
+              by row, open "Why did my results change?".
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">run</th>
+                <th scope="col">when</th>
+                <th
+                  scope="col"
+                  *ngFor="let knob of knobs">
+                  {{ knob.step }}
+                  <span class="spy-id">{{ knobLabel(knob) }}</span>
+                </th>
+                <th
+                  scope="col"
+                  class="num">
+                  rows out
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of experimentRows">
+                <tr
+                  class="spy-move-row"
+                  *ngIf="moveText(row.move)">
+                  <td [attr.colspan]="knobs.length + 3">
+                    <span class="spy-move">changed in between · {{ moveText(row.move) }}</span>
+                  </td>
+                </tr>
+                <tr [class.spy-repeat]="row.repeatOf !== undefined && row.repeatOf !== row.run.eid">
+                  <td>
+                    {{ row.run.name || "unnamed run" }}
+                    <span class="spy-id">{{ row.run.who }}</span>
+                    <span
+                      class="spy-off-tag"
+                      *ngIf="row.run.status !== 'completed'"
+                      >{{ row.run.status }}</span
+                    >
+                  </td>
+                  <td class="spy-muted">{{ when(row.run.started) }}</td>
+                  <td *ngFor="let value of row.values">
+                    <span [class.spy-chip-now]="value.changed">{{ value.text }}</span>
+                  </td>
+                  <td class="num">
+                    <span class="spy-bar later spy-bar-inline">
+                      <span
+                        class="spy-fill"
+                        [style.width.%]="row.bar"></span>
+                      <span class="spy-bar-n">{{ count(row.run.produced) }}</span>
+                    </span>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+
+          <ng-container *ngTemplateOutlet="askBox"></ng-container>
+        </div>
+      </section>
+
+      <!-- ======================= run comparison ======================= -->
+      <section
+        class="spy-panel"
+        *ngIf="tab === 'autopsy'">
+        <p class="spy-lead">
+          Pick two runs and this will tell you where their results start to disagree, and what you changed in between.
+        </p>
+
+        <p class="spy-disclosure">
+          <button
+            type="button"
+            (click)="showMethod = !showMethod">
+            {{ showMethod ? "Hide how this is worked out" : "How is this worked out?" }}
+          </button>
+        </p>
+        <p
+          *ngIf="showMethod"
+          class="spy-method">
+          The two runs are compared one step at a time, following the flow from the sources onwards. The first step
+          whose output is not identical is where the difference entered; everything after it only carries it along. The
+          settings of both versions are then compared to see what you changed in between.
+        </p>
+
+        <div class="spy-controls spy-controls-compare">
+          <label>
+            <span>The earlier run</span>
+            <select
+              class="spy-select"
+              (change)="eidA = +$any($event.target).value">
+              <option
+                *ngFor="let r of comparable"
+                [value]="r.eid"
+                [selected]="r.eid === eidA">
+                {{ runLabel(r) }}
+              </option>
+            </select>
+          </label>
+          <label>
+            <span>The later run</span>
+            <select
+              class="spy-select"
+              (change)="eidB = +$any($event.target).value">
+              <option
+                *ngFor="let r of comparable"
+                [value]="r.eid"
+                [selected]="r.eid === eidB">
+                {{ runLabel(r) }}
+              </option>
+            </select>
+          </label>
+          <button
+            type="button"
+            class="spy-primary"
+            [disabled]="eidA === undefined || eidB === undefined || eidA === eidB"
+            (click)="compare()">
+            Compare
+          </button>
+        </div>
+
+        <p
+          *ngIf="keepingStep"
+          class="spy-loading">
+          {{ keepingStep }}
+        </p>
+        <p
+          *ngIf="keptError"
+          class="spy-note spy-warn">
+          {{ keptError }}
+        </p>
+        <p
+          *ngIf="kept?.kept && !keeping"
+          class="spy-note">
+          Kept run {{ kept?.eid }}: {{ kept?.steps }} steps, {{ count(kept?.rows ?? 0) }} rows written down. It is the
+          later side of the comparison below.
+        </p>
+
+        <p
+          *ngIf="comparable.length < 2"
+          class="spy-note">
+          This needs two runs whose rows were kept, and this workflow has {{ comparable.length }}. Texera throws a run's
+          results away 30 seconds after you stop working on the workflow, so by the time you want to compare them they
+          are already gone. Press "Run and keep rows" at the top to make one that survives. The runs above it are still
+          on record, with their row counts, under "What has been tried?".
+        </p>
+
+        <p
+          *ngIf="loadingAutopsy"
+          class="spy-loading">
+          Looking for where they disagree…
+        </p>
+
+        <div *ngIf="autopsy as a">
+          <!-- The answer in two columns: what happened on the left, what caused it
+           on the right, so the panel's width carries something. -->
+          <div class="spy-answer">
+            <div class="spy-answer-main">
+              <p
+                class="spy-headline"
+                *ngIf="narration.headline">
+                {{ narration.headline }}
+              </p>
+              <p
+                class="spy-headline-wait"
+                *ngIf="narrationPending && !narration.headline">
+                Reading the two runs…
+              </p>
+
+              <div
+                class="spy-summary"
+                [class.clean]="!a.firstDivergent">
+                <div
+                  class="spy-figures"
+                  *ngIf="figures.length">
+                  <div
+                    class="spy-figure"
+                    *ngFor="let h of figures"
+                    [ngClass]="'spy-figure-' + h.tone">
+                    <span class="spy-figure-value">{{ h.value }}</span>
+                    <span class="spy-figure-label">{{ h.label }}</span>
+                  </div>
+                </div>
+
+                <p>{{ verdict }}</p>
+                <p *ngIf="blame">{{ blame }}</p>
+              </div>
+            </div>
+            <aside class="spy-answer-side">
+              <!-- The edit itself, drawn: what the dial said before, and after. -->
+              <div class="spy-swaps-card">
+                <h4>What you changed in between</h4>
+                <p
+                  *ngIf="a.edits.length === 0"
+                  class="spy-muted">
+                  Nothing on the canvas. If the results still differ, the cause is somewhere else: the incoming data, a
+                  random draw, or the engine itself.
+                </p>
+                <ul class="spy-swaps">
+                  <li
+                    *ngFor="let e of a.edits"
+                    [class.blamed]="e.operatorId === a.firstDivergent">
+                    <span class="spy-swap-where">
+                      <b>{{ opName(e.operatorId) }}</b>
+                      <span class="spy-muted">{{ settingLabel(e) }}</span>
+                    </span>
+                    <span class="spy-swap-pair">
+                      <span class="spy-chip-was">{{ said(e.before) }}</span>
+                      <svg
+                        class="spy-swap-arrow"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true">
+                        <path d="M4 11h11V7.2L20 12l-5 4.8V13H4z" />
+                      </svg>
+                      <span class="spy-chip-now">{{ said(e.after) }}</span>
+                    </span>
+                    <span
+                      class="spy-swap-tag"
+                      *ngIf="e.operatorId === a.firstDivergent"
+                      >this is the one</span
+                    >
+                  </li>
+                </ul>
+              </div>
+            </aside>
+          </div>
+
+          <!-- The data, drawn: two bars per step say it before any number does. -->
+          <div
+            class="spy-flow"
+            *ngIf="pipeline.length">
+            <div class="spy-flow-head">
+              <h4>What it did to your data</h4>
+              <span class="spy-runkeys">
+                <span class="spy-runkey earlier">{{ earlierName }}</span>
+                <span class="spy-runkey later">{{ laterName }}</span>
+              </span>
+            </div>
+            <p class="spy-flow-lead">
+              Each bar is how many rows came out of that step. The data flows downwards, from the sources to the
+              outputs.
+            </p>
+            <ol class="spy-steps">
+              <li
+                *ngFor="let step of pipeline"
+                [ngClass]="'spy-step-' + step.state">
+                <span class="spy-step-no">{{ step.position }}</span>
+                <span class="spy-step-body">
+                  <span class="spy-step-name">{{ step.name }}</span>
+                  <span class="spy-bar earlier">
+                    <span
+                      class="spy-fill"
+                      [style.width.%]="step.barA"></span>
+                    <span class="spy-bar-n">{{ count(step.rowsA) }}</span>
+                  </span>
+                  <span class="spy-bar later">
+                    <span
+                      class="spy-fill"
+                      [style.width.%]="step.barB"></span>
+                    <span class="spy-bar-n">{{ count(step.rowsB) }}</span>
+                  </span>
+                </span>
+                <span class="spy-step-note">
+                  <span
+                    class="spy-starts"
+                    *ngIf="step.state === 'starts'"
+                    >the difference starts here</span
+                  >
+                  <span
+                    class="spy-carried"
+                    *ngIf="step.state === 'carried'"
+                    >carried along from above</span
+                  >
+                  <span
+                    class="spy-carried"
+                    *ngIf="step.state === 'reordered'"
+                    >not a change, only the order</span
+                  >
+                  <span class="spy-step-said">{{ sentenceFor(step.id) || step.note }}</span>
+                  <span
+                    class="spy-step-count"
+                    *ngIf="sentenceFor(step.id)"
+                    >{{ step.note }}</span
+                  >
+                </span>
+              </li>
+            </ol>
+            <p
+              class="spy-takeaway"
+              *ngIf="narration.takeaway">
+              {{ narration.takeaway }}
+            </p>
+            <p class="spy-source">
+              The counts, the step where the difference starts and the edit behind it are worked out from the record.
+              The sentences are written from those facts, and from nothing else.
+            </p>
+          </div>
+
+          <p class="spy-disclosure">
+            <button
+              type="button"
+              (click)="showNumbers = !showNumbers">
+              {{ showNumbers ? "Hide the exact numbers" : "Show the exact numbers, step by step" }}
+            </button>
+          </p>
+
+          <table
+            class="spy-table"
+            *ngIf="showNumbers">
+            <caption>
+              The steps in the order the data flows through them; the counts are what each step produced. A difference
+              of zero next to "differs" means the same number of rows came out, but not the same rows.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">step</th>
+                <th
+                  scope="col"
+                  class="num">
+                  earlier
+                </th>
+                <th
+                  scope="col"
+                  class="num">
+                  later
+                </th>
+                <th
+                  scope="col"
+                  class="num">
+                  difference
+                </th>
+                <th scope="col">verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let oid of a.order; let i = index">
+                <tr
+                  [ngClass]="{ 'spy-divergent': oid === a.firstDivergent, 'spy-clickable': !!finding(oid)?.diff }"
+                  (click)="toggle(oid)">
+                  <td class="spy-muted">{{ i + 1 }}</td>
+                  <td>
+                    {{ opName(oid) }}
+                    <span class="spy-id">{{ oid }}</span>
+                  </td>
+                  <td class="num">{{ finding(oid)?.diff?.rowsA ?? "—" }}</td>
+                  <td class="num">{{ finding(oid)?.diff?.rowsB ?? "—" }}</td>
+                  <td class="num">{{ delta(oid) }}</td>
+                  <td>
+                    <span
+                      *ngIf="!finding(oid)?.diff"
+                      class="spy-muted"
+                      >identical</span
+                    >
+                    <span *ngIf="finding(oid)?.diff">
+                      <b [class.spy-flag]="oid === a.firstDivergent"
+                        >{{ oid === a.firstDivergent ? "differs · starts here" : "differs" }}</b
+                      >
+                      <span class="spy-muted">{{ isExpanded(oid) ? " · hide rows" : " · show rows" }}</span>
+                    </span>
+                  </td>
+                </tr>
+                <tr
+                  class="spy-detail"
+                  *ngIf="isExpanded(oid) && finding(oid)?.diff as d">
+                  <td colspan="6">
+                    <div class="spy-rows">
+                      <div>
+                        <h5>Only in the earlier run</h5>
+                        <table
+                          class="spy-grid"
+                          *ngIf="d.onlyInA.length">
+                          <thead>
+                            <tr>
+                              <th *ngFor="let col of columns(d.onlyInA)">{{ col }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let row of d.onlyInA">
+                              <td *ngFor="let col of columns(d.onlyInA)">{{ cell(row, col) }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <p
+                          *ngIf="d.onlyInA.length === 0"
+                          class="spy-muted">
+                          nothing
+                        </p>
+                      </div>
+                      <div>
+                        <h5>Only in the later run</h5>
+                        <table
+                          class="spy-grid"
+                          *ngIf="d.onlyInB.length">
+                          <thead>
+                            <tr>
+                              <th *ngFor="let col of columns(d.onlyInB)">{{ col }}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let row of d.onlyInB">
+                              <td *ngFor="let col of columns(d.onlyInB)">{{ cell(row, col) }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <p
+                          *ngIf="d.onlyInB.length === 0"
+                          class="spy-muted">
+                          nothing
+                        </p>
+                      </div>
+                    </div>
+                    <p
+                      class="spy-muted"
+                      *ngIf="d.sameSetDifferentOrder">
+                      The same rows came out on both sides, just in a different order. Nothing about the data changed.
+                    </p>
+                    <p
+                      class="spy-muted"
+                      *ngIf="!d.sampleTruncated">
+                      Up to five rows are shown from each side.
+                    </p>
+                    <p
+                      class="spy-warn"
+                      *ngIf="d.sampleTruncated">
+                      The counts above are the real ones, reported by the engine. The rows are not: this step produced
+                      more output than Texera hands back in one go, so it returned only part of it. A row shown on one
+                      side may well exist on the other.
+                    </p>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+
+          <ng-container *ngTemplateOutlet="askBox"></ng-container>
+        </div>
+      </section>
+
+      <!-- ======================= the report ======================= -->
+      <section
+        class="spy-panel"
+        *ngIf="tab === 'report'">
+        <p class="spy-lead">
+          The whole record written up as a handover document: what this workflow does, how it got here, what has been
+          tried, and what the record cannot tell you. Written once, from the same facts the other tabs draw.
+        </p>
+
+        <div
+          class="spy-report-actions"
+          *ngIf="!report && !reportPending">
+          <button
+            type="button"
+            class="spy-primary"
+            (click)="writeReport()">
+            Write the report
+          </button>
+          <span class="spy-muted">Takes about a minute. Nothing is written until you ask for it.</span>
+        </div>
+
+        <p
+          *ngIf="reportPending"
+          class="spy-loading">
+          Writing the report. It reads every version and every run first, so this takes a minute.
+        </p>
+
+        <p
+          *ngIf="reportFailed && !reportPending"
+          class="spy-note">
+          No report came back. Everything else in this panel is unaffected: it is derived, and does not need a model at
+          all.
+          <button
+            type="button"
+            class="spy-quiet"
+            (click)="writeReport(true)">
+            Try again
+          </button>
+        </p>
+
+        <article
+          class="spy-report"
+          *ngIf="report as r">
+          <h3>{{ r.title }}</h3>
+          <p class="spy-report-summary">{{ r.summary }}</p>
+
+          <!-- Five sections, each folded until it is asked for: a report is a wall
+           of prose otherwise, and nobody reads a wall. -->
+          <section
+            *ngFor="let section of r.sections; let i = index"
+            class="spy-report-section">
+            <button
+              type="button"
+              class="spy-report-toggle"
+              [class.open]="isUnfolded(section.heading) || i === 0"
+              (click)="unfold(section.heading)">
+              <svg
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true">
+                <path d="M9 5l8 7-8 7z" />
+              </svg>
+              {{ section.heading }}
+            </button>
+            <div *ngIf="isUnfolded(section.heading) || i === 0">
+              <p *ngFor="let part of paragraphs(section.body)">{{ part }}</p>
+            </div>
+          </section>
+
+          <div class="spy-report-actions">
+            <button
+              type="button"
+              class="spy-primary"
+              (click)="downloadReport()">
+              Save as a file
+            </button>
+            <button
+              type="button"
+              class="spy-quiet"
+              (click)="copyReport()">
+              {{ copied ? "copied" : "copy it" }}
+            </button>
+            <button
+              type="button"
+              class="spy-quiet"
+              [disabled]="reportPending"
+              (click)="writeReport(true)">
+              write it again
+            </button>
+          </div>
+
+          <p class="spy-source">
+            Every figure in this report was derived from Texera's saved versions and run statistics. {{ r.model }} wrote
+            the prose from those figures and was given nothing else.
+          </p>
+        </article>
+      </section>
+    </div>
+  </div>
+</div>
+
+<ng-template #askBox>
+  <!-- The only part of the panel that talks back, so the only one that carries
+       real colour: a spark and a gradient hairline. -->
+  <section
+    class="spy-ask"
+    [class.thinking]="asking">
+    <div class="spy-ask-head">
+      <svg
+        class="spy-spark"
+        viewBox="0 0 24 24"
+        aria-hidden="true">
+        <defs>
+          <linearGradient
+            id="spySpark"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="1">
+            <stop
+              offset="0%"
+              stop-color="#0071e3" />
+            <stop
+              offset="48%"
+              stop-color="#6b5cf6" />
+            <stop
+              offset="100%"
+              stop-color="#ff7fae" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M12 1.8c.95 4.85 3 6.9 7.85 7.85C15 10.6 12.95 12.65 12 17.5c-.95-4.85-3-6.9-7.85-7.85C9 8.7 11.05 6.65 12 1.8z"
+          fill="url(#spySpark)" />
+        <path
+          d="M18.6 15.1c.44 2.3 1.4 3.26 3.7 3.7-2.3.44-3.26 1.4-3.7 3.7-.44-2.3-1.4-3.26-3.7-3.7 2.3-.44 3.26-1.4 3.7-3.7z"
+          fill="url(#spySpark)"
+          opacity="0.5" />
+      </svg>
+      <h4>Ask about this</h4>
+    </div>
+
+    <p class="spy-ask-lead">
+      Anything you want to understand about what is on screen. It answers from the record only, and says so when the
+      record does not hold the answer.
+    </p>
+
+    <div
+      class="spy-suggestions"
+      *ngIf="suggestions.length">
+      <button
+        type="button"
+        *ngFor="let s of suggestions"
+        [disabled]="asking"
+        (click)="askAbout(s)">
+        {{ s }}
+      </button>
+    </div>
+
+    <div
+      class="spy-turn"
+      *ngFor="let t of turns">
+      <p class="spy-question">{{ t.question }}</p>
+      <div class="spy-reply">
+        <span
+          class="spy-reply-mark"
+          [class.waiting]="!t.answer && !t.failed"
+          aria-hidden="true"></span>
+        <p
+          class="spy-answer"
+          *ngIf="t.answer">
+          {{ t.answer }}
+        </p>
+        <p
+          class="spy-answer spy-pending"
+          *ngIf="!t.answer && !t.failed">
+          Reading the record…
+        </p>
+        <p
+          class="spy-answer spy-failed"
+          *ngIf="t.failed">
+          No answer came back. The record above is unaffected.
+        </p>
+      </div>
+    </div>
+
+    <div class="spy-askline">
+      <input
+        class="spy-input"
+        type="text"
+        placeholder="Ask your own question"
+        [value]="draft"
+        [disabled]="asking"
+        (input)="draft = $any($event.target).value"
+        (keydown.enter)="askAbout(draft)" />
+      <button
+        type="button"
+        class="spy-ask-go"
+        [disabled]="asking || !draft.trim()"
+        (click)="askAbout(draft)">
+        {{ asking ? "Reading" : "Ask" }}
+      </button>
+    </div>
+  </section>
+</ng-template>

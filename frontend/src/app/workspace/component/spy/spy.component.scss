@@ -1,0 +1,2952 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+// The panel as a window: one white sheet on a pale ground, hairline rules, and
+// a single blue that only ever means "this is the thing you are looking at".
+// Two surfaces and no more. The drawings sit on bare paper because they are the
+// content; only the readings beside them are put on a card.
+
+:host {
+  // ink
+  --spy-text: #1d1d1f;
+  --spy-secondary: #55606c;
+  --spy-muted: #89919c;
+  --spy-faint: #b4bac2;
+
+  // paper
+  --spy-paper: #fff;
+  --spy-ground: #f8fafc;
+  --spy-surface: #f3f6fa;
+  --spy-rule: #ecf0f4;
+  --spy-border: #dee3ea;
+  --spy-grid: #f5f8fb;
+  --spy-ghost: #e8ecf2;
+  --spy-edge: #c7ced7;
+  --spy-chip-bg: #f1f4f9;
+  --spy-carried-bg: #fcfdfe;
+
+  // the one accent
+  --spy-accent: #0071e3;
+  --spy-accent-ink: #0057b3;
+  --spy-accent-hover: #1a84ef;
+  --spy-accent-wash: #edf4ff;
+
+  // the four meanings, kept as quiet as they can be and still be read
+  --spy-added-tint: #edf8f1;
+  --spy-added: #1f8a4c;
+  --spy-edited-tint: #fdf4e7;
+  --spy-edited: #b4740f;
+  --spy-alert-tint: #fdf0ef;
+  --spy-alert: #cf3127;
+  --spy-alert-line: #f6d4d1;
+  --spy-now-line: #cfe9d8;
+  --spy-now-ink: #1f8a4c;
+  --spy-filter-line: #cfe2fb;
+  --spy-filter-bg: #f4f9ff;
+
+  // the two runs held side by side: yesterday in grey, today in blue
+  --spy-run-a: #b3bcc6;
+  --spy-run-b: #0071e3;
+
+  // the ribbon of saves
+  --spy-tape-quiet: #e5eaf0;
+  --spy-tape-added: #8cc9a4;
+  --spy-tape-removed: #e0a49e;
+  --spy-tape-edited: #e6c088;
+  --spy-tape-broken: #f6dedb;
+  --spy-ran: #0b4d8f;
+  --spy-box-line: #cdd5de;
+
+  --spy-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Inter, Arial,
+    sans-serif;
+  --spy-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  // Radius carries rank: the window, then a card, then a node, then a chip.
+  --r-window: 18px;
+  --r-card: 14px;
+  --r-node: 10px;
+  --r-chip: 7px;
+
+  // Barely there on purpose. A card is lifted off the page, not floating over it.
+  --lift: 0 1px 2px rgba(16, 24, 40, 0.05), 0 0 0 0.5px rgba(16, 24, 40, 0.03);
+  --lift-high: 0 10px 28px rgba(16, 24, 40, 0.09), 0 1px 3px rgba(16, 24, 40, 0.05);
+}
+
+@mixin label {
+  font-size: 11.5px;
+  font-weight: 590;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--spy-muted);
+}
+
+:host {
+  display: block;
+  color: var(--spy-text);
+  font-family: var(--spy-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  letter-spacing: -0.004em;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+
+  // One spacing scale, so everything lands on the same grid.
+  --gap: 8px;
+}
+
+// ---------- the window ----------
+
+.spy {
+  display: grid;
+  // The rail sets its own width, so folding it is a transition rather than
+  // the whole grid jumping.
+  grid-template-columns: auto minmax(0, 1fr);
+  height: min(78vh, 880px);
+  min-height: 560px;
+  overflow: hidden;
+  border-radius: var(--r-window);
+  background: var(--spy-ground);
+}
+
+.spy-rail {
+  --rail-pad: 14px;
+
+  display: flex;
+  width: 232px;
+  flex-direction: column;
+  padding: 20px var(--rail-pad) 16px;
+  overflow: hidden;
+  border-right: 1px solid var(--spy-rule);
+  background: var(--spy-surface);
+  transition: width 220ms cubic-bezier(0.32, 0.72, 0, 1);
+
+  &.folded {
+    --rail-pad: 10px;
+    width: 60px;
+  }
+}
+
+.spy-mark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px 20px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  color: var(--spy-text);
+}
+
+.spy-mark-name {
+  flex: 1;
+}
+
+// The sidebar button, where macOS puts it: top left.
+.spy-fold {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--spy-muted);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+  }
+
+  &:hover {
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--spy-text);
+  }
+}
+
+.spy-rail.folded {
+  .spy-mark {
+    justify-content: center;
+    padding: 0 0 18px;
+  }
+
+  .spy-emblem,
+  .spy-mark-name {
+    display: none;
+  }
+
+  .spy-nav button {
+    justify-content: center;
+    height: 36px;
+    padding: 0;
+  }
+}
+
+// Folded, the group headings do not fit: a hairline stands in for them.
+.spy-nav-split {
+  height: 0;
+  margin: 9px 6px;
+  border: 0;
+  border-top: 1px solid var(--spy-rule);
+
+  &:first-child {
+    display: none;
+  }
+}
+
+.spy-emblem {
+  width: 21px;
+  height: 21px;
+  color: var(--spy-accent);
+}
+
+.spy-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.spy-nav-group {
+  margin: 14px 0 5px;
+  padding: 0 12px;
+  @include label;
+  font-size: 11px;
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+// Where you are, not somewhere to go: a wash of the accent and a short mark on
+// the rail's own edge, so the eye finds it without anything shouting.
+.spy-nav button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  color: var(--spy-secondary);
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+
+  &:hover:not(.on) {
+    background: rgba(15, 23, 42, 0.05);
+    color: var(--spy-text);
+  }
+
+  &.on {
+    background: var(--spy-accent-wash);
+    font-weight: 590;
+    color: var(--spy-accent-ink);
+  }
+
+  &.on::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--rail-pad) * -1);
+    width: 3px;
+    height: 15px;
+    margin-top: -7.5px;
+    border-radius: 0 2px 2px 0;
+    background: var(--spy-accent);
+  }
+}
+
+.spy-nav-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+
+.spy-nav button.on .spy-nav-icon {
+  opacity: 1;
+}
+
+.spy-rail-foot {
+  margin: 20px 0 0;
+  padding: 0 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--spy-muted);
+}
+
+.spy-main {
+  display: flex;
+  min-width: 0;
+  // Without this the scrolling stage pushes the window taller than the sheet.
+  min-height: 0;
+  flex-direction: column;
+  background: var(--spy-ground);
+}
+
+// ---------- the title bar ----------
+
+.spy-topbar {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 13px 62px 13px 26px;
+  border-bottom: 1px solid var(--spy-rule);
+  background: var(--spy-paper);
+}
+
+.spy-topbar-name {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 8ch;
+  align-items: center;
+  gap: 10px;
+
+  h3 {
+    min-width: 0;
+    overflow: hidden;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.014em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--spy-text);
+  }
+}
+
+.spy-state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  background: var(--spy-chip-bg);
+  font-size: 11.5px;
+  font-weight: 560;
+  color: var(--spy-secondary);
+
+  i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--spy-faint);
+  }
+
+  &.is-good i {
+    background: var(--spy-added);
+  }
+
+  &.is-bad {
+    background: var(--spy-alert-tint);
+    color: var(--spy-alert);
+
+    i {
+      background: var(--spy-alert);
+    }
+  }
+
+  // The only thing on the panel that moves on its own, and only while a run is
+  // actually on: a breathing dot, which is what "still going" looks like.
+  &.is-live {
+    background: var(--spy-accent-wash);
+    color: var(--spy-accent-ink);
+
+    i {
+      background: var(--spy-accent);
+      animation: spy-breathe 1.8s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes spy-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(0, 113, 227, 0.35);
+  }
+
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px rgba(0, 113, 227, 0);
+  }
+}
+
+.spy-topbar-meta {
+  display: flex;
+  flex: none;
+  gap: 26px;
+  margin: 0;
+
+  dt {
+    @include label;
+    margin-bottom: 1px;
+    font-size: 10.5px;
+    font-weight: 500;
+  }
+
+  dd {
+    max-width: 18ch;
+    overflow: hidden;
+    margin: 0;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--spy-text);
+  }
+}
+
+.spy-topbar-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.spy-version {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--spy-muted);
+
+  select {
+    height: 28px;
+    max-width: 150px;
+    padding: 0 8px;
+    border: 1px solid var(--spy-border);
+    border-radius: var(--r-chip);
+    background: var(--spy-paper);
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--spy-text);
+    cursor: pointer;
+  }
+}
+
+.spy-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--spy-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+
+  &:hover:not(:disabled) {
+    background: var(--spy-accent-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    background: var(--spy-accent);
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+
+.spy-run-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  animation: spy-breathe 1.8s ease-in-out infinite;
+}
+
+// ---------- the stage ----------
+
+.spy-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 30px 44px;
+  scroll-behavior: smooth;
+}
+
+.spy-title {
+  margin: 0 0 18px;
+  font-size: 25px;
+  font-weight: 620;
+  letter-spacing: -0.022em;
+  color: var(--spy-text);
+}
+
+// The drawing keeps the paper to itself; the reading of it sits alongside on a
+// card, which is what makes one of the two the subject and the other a note.
+.spy-stage-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.spy-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 22px;
+  align-items: start;
+}
+
+.spy-stage-hint {
+  margin: 0;
+  padding: 22px 18px;
+  border: 1px dashed var(--spy-border);
+  border-radius: var(--r-card);
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--spy-faint);
+}
+
+@media (max-width: 1180px) {
+  .spy-stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spy * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.spy-panel > div > * + * {
+  margin-top: calc(var(--gap) * 3.5);
+}
+
+.spy-muted {
+  color: var(--spy-muted);
+}
+
+.spy-mono {
+  font-family: var(--spy-mono);
+}
+
+.spy-warn {
+  color: var(--spy-alert);
+}
+
+// The error strip: still the only place a whole block turns red.
+.spy-error {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--spy-alert-line);
+  border-radius: var(--r-card);
+  background: var(--spy-alert-tint);
+  color: var(--spy-alert);
+}
+
+.spy-loading {
+  padding: 20px 0;
+  color: var(--spy-muted);
+}
+
+// ---------- method note ----------
+
+.spy-method {
+  max-width: 100ch;
+  margin: 0 0 14px;
+  color: var(--spy-secondary);
+
+  b {
+    font-weight: 600;
+    color: var(--spy-text);
+  }
+}
+
+.spy-note {
+  max-width: 92ch;
+  margin: 14px 0 0;
+  color: var(--spy-secondary);
+
+  code {
+    padding: 0 4px;
+    border: 1px solid var(--spy-rule);
+    border-radius: 5px;
+    background: var(--spy-surface);
+    font-family: var(--spy-mono);
+    font-size: 12px;
+    color: var(--spy-secondary);
+  }
+}
+
+// ---------- controls ----------
+
+.spy-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-surface);
+}
+
+.spy-transport-group {
+  display: flex;
+  gap: 4px;
+}
+
+.spy-transport {
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--spy-border);
+  border-radius: var(--r-chip);
+  background: var(--spy-paper);
+  color: var(--spy-secondary);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--spy-accent);
+    color: var(--spy-accent-ink);
+  }
+
+  &:disabled {
+    color: var(--spy-faint);
+    cursor: default;
+  }
+}
+
+.spy-glyph {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 0 auto;
+}
+
+.spy-position {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--spy-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--spy-muted);
+}
+
+.spy-vid {
+  font-weight: 600;
+  color: var(--spy-text);
+}
+
+.spy-count {
+  color: var(--spy-secondary);
+}
+
+// ---------- caption ----------
+
+.spy-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 12px 2px 0;
+
+  b {
+    font-weight: 600;
+  }
+}
+
+// ---------- canvas ----------
+
+.spy-columns {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.spy-canvas {
+  display: flex;
+  flex: 2;
+  flex-direction: column;
+  margin: 0;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: repeating-linear-gradient(0deg, transparent 0 23px, var(--spy-grid) 23px 24px),
+    repeating-linear-gradient(90deg, transparent 0 23px, var(--spy-grid) 23px 24px), var(--spy-paper);
+
+  svg {
+    width: 100%;
+    height: 372px;
+  }
+}
+
+.spy-canvas-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--spy-rule);
+  background: var(--spy-paper);
+  font-size: 12px;
+  color: var(--spy-secondary);
+}
+
+.spy-canvas figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--spy-rule);
+  background: var(--spy-paper);
+  @include label;
+}
+
+.spy-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &::before {
+    content: "";
+    width: 11px;
+    height: 11px;
+    border: 1px solid var(--spy-border);
+    border-radius: 5px;
+    background: var(--spy-paper);
+  }
+
+  &.added::before {
+    border-color: var(--spy-added);
+    background: var(--spy-added-tint);
+  }
+
+  &.edited::before {
+    border-color: var(--spy-edited);
+    background: var(--spy-edited-tint);
+  }
+
+  &.ghost::before {
+    border-style: dashed;
+    border-color: var(--spy-faint);
+    background: transparent;
+  }
+}
+
+.spy-edge {
+  stroke: var(--spy-edge);
+  stroke-width: 1;
+}
+
+.spy-ghost {
+  fill: none;
+  stroke: var(--spy-ghost);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.spy-node {
+  cursor: pointer;
+}
+
+.spy-box {
+  fill: var(--spy-paper);
+  stroke: var(--spy-border);
+  stroke-width: 1;
+}
+
+.spy-box-added {
+  fill: var(--spy-added-tint);
+  stroke: var(--spy-added);
+}
+
+.spy-box-edited {
+  fill: var(--spy-edited-tint);
+  stroke: var(--spy-edited);
+}
+
+.spy-box-focused {
+  stroke: var(--spy-accent);
+  stroke-width: 2;
+}
+
+.spy-box-name {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--spy-text);
+}
+
+.spy-box-id {
+  font-family: var(--spy-mono);
+  font-size: 9px;
+  fill: var(--spy-muted);
+}
+
+// ---------- change log ----------
+
+.spy-log {
+  flex: 1;
+  max-height: 430px;
+  overflow-y: auto;
+  padding: 10px 14px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+
+  h4 {
+    margin: 0 0 8px;
+    @include label;
+    color: var(--spy-secondary);
+  }
+
+  p {
+    margin: 0 0 8px;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    padding: 5px 0 5px 11px;
+    border-left: 2px solid var(--spy-rule);
+    line-height: 1.5;
+    color: var(--spy-secondary);
+    word-break: break-word;
+  }
+}
+
+.spy-c-operator_added,
+.spy-c-link_added {
+  border-left-color: var(--spy-added);
+}
+
+.spy-c-operator_deleted,
+.spy-c-link_removed {
+  border-left-color: var(--spy-alert);
+}
+
+.spy-c-property,
+.spy-c-renamed {
+  border-left-color: var(--spy-edited);
+}
+
+.spy-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 9px;
+  border: 1px solid var(--spy-filter-line);
+  border-radius: var(--r-chip);
+  background: var(--spy-filter-bg);
+  font-size: 12px;
+
+  button {
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--spy-accent-ink);
+    font-size: 12px;
+    cursor: pointer;
+  }
+}
+
+.spy-runs {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--spy-rule);
+}
+
+.spy-help {
+  margin: 12px 2px 0;
+  color: var(--spy-muted);
+  font-size: 12px;
+}
+
+// ---------- run comparison ----------
+
+.spy-controls-compare {
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 4px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    span {
+      @include label;
+    }
+  }
+}
+
+// A run is named in words, not in code, so the picker is set in words too.
+.spy-select {
+  min-width: 320px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--spy-border);
+  border-radius: var(--r-chip);
+  background: var(--spy-paper);
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--spy-text);
+  cursor: pointer;
+  transition: border-color 160ms ease;
+
+  &:hover {
+    border-color: var(--spy-edge);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--spy-accent);
+    outline-offset: 1px;
+  }
+}
+
+.spy-primary {
+  align-self: flex-end;
+  height: 30px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--spy-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+
+  &:hover:not(:disabled) {
+    background: var(--spy-accent-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    background: var(--spy-chip-bg);
+    color: var(--spy-faint);
+    cursor: default;
+  }
+}
+
+// The button that runs sits one weight below Compare: it is the one that costs
+// time and data, so it should not ask for the finger first. It is not called
+// .spy-quiet because that name already belongs to the panel's text links.
+.spy-second {
+  align-self: flex-end;
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--spy-border);
+  border-radius: 9px;
+  background: var(--spy-paper);
+  font: inherit;
+  font-size: 13px;
+  color: var(--spy-text);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: var(--spy-accent);
+    color: var(--spy-accent);
+  }
+
+  &:disabled {
+    color: var(--spy-faint);
+    cursor: default;
+  }
+}
+
+// The verdict is no longer a grey box with a red rule. The sentence above is
+// the headline, the two figures back it up and these lines are the footnote:
+// three different weights in one column, with nothing boxed in.
+.spy-summary {
+  margin: 0;
+
+  p {
+    max-width: 74ch;
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--spy-secondary);
+
+    & + p {
+      margin-top: 2px;
+    }
+  }
+}
+
+.spy-table {
+  width: 100%;
+  margin: 16px 0 20px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+
+  // Table notes belong under the table, as in a paper.
+  caption {
+    padding-top: 8px;
+    caption-side: bottom;
+    max-width: 104ch;
+    text-align: left;
+    color: var(--spy-muted);
+    font-size: 12px;
+  }
+
+  // Only this table's own cells: the samples inside a row are a table too.
+  > thead > tr > th,
+  > tbody > tr > td {
+    padding: 6px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--spy-rule);
+  }
+
+  > thead > tr > th {
+    border-bottom: 1px solid var(--spy-border);
+    @include label;
+  }
+
+  .num {
+    text-align: right;
+    font-family: var(--spy-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.spy-clickable {
+  cursor: pointer;
+
+  &:hover > td {
+    background: var(--spy-surface);
+  }
+}
+
+.spy-divergent > td {
+  background: var(--spy-alert-tint);
+}
+
+.spy-flag {
+  color: var(--spy-alert);
+}
+
+.spy-detail > td {
+  padding-top: 10px;
+  padding-bottom: 12px;
+  background: var(--spy-surface);
+}
+
+.spy-rows {
+  display: flex;
+  gap: 32px;
+
+  > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  h5 {
+    margin: 0 0 5px;
+    @include label;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.spy-sample {
+  overflow: hidden;
+  font-family: var(--spy-mono);
+  font-size: 11.5px;
+  color: var(--spy-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spy-was {
+  font-family: var(--spy-mono);
+  color: var(--spy-alert);
+}
+
+.spy-now {
+  font-family: var(--spy-mono);
+  color: var(--spy-added);
+}
+
+// ---------- plain words ----------
+
+.spy-story {
+  max-width: 96ch;
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--spy-text);
+}
+
+// Prose written from the derived facts. A neutral rule, never the red one:
+// the verdict above is worked out, this is only put into words.
+.spy-reading {
+  margin: 12px 0 4px;
+  padding: 2px 0 2px 14px;
+  border-left: 1px solid var(--spy-border);
+
+  h4 {
+    margin: 0 0 6px;
+    @include label;
+  }
+
+  p {
+    max-width: 96ch;
+    margin: 0 0 8px;
+    color: var(--spy-text);
+    line-height: 1.55;
+  }
+
+  .spy-source {
+    margin: 10px 0 0;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--spy-muted);
+  }
+}
+
+.spy-reading-wait {
+  margin: 12px 0 4px;
+  padding-left: 15px;
+  @include label;
+}
+
+// The verdict's figures. They come first and large because magnitude reads
+// before explanation; the paragraph below no longer repeats them.
+.spy-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 26px;
+  margin: 0 0 14px;
+}
+
+.spy-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--spy-border);
+
+  &:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+.spy-figure-value {
+  font-size: 29px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--spy-text);
+}
+
+.spy-figure-loud .spy-figure-value {
+  color: var(--spy-alert);
+}
+
+.spy-figure-label {
+  max-width: 22ch;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--spy-muted);
+}
+
+// Questions: the conversational part, set apart from the record by a full
+// rule, so it reads as something else beginning.
+// ---------- the one part that answers back ----------
+
+// The whole panel is flat blue because the whole panel derives what it says.
+// Not this: this one is written by a model, and it is the only thing here with
+// a gradient. That is the point.
+.spy-ask {
+  margin: 34px 0 0;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-paper);
+  box-shadow: var(--lift);
+}
+
+.spy-ask-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+
+  h4 {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--spy-text);
+  }
+}
+
+.spy-spark {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+// While it reads, the spark pulses. At rest, nothing moves.
+.spy-ask.thinking .spy-spark {
+  animation: spy-twinkle 1.9s ease-in-out infinite;
+}
+
+@keyframes spy-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+
+  50% {
+    opacity: 0.68;
+    transform: scale(0.9) rotate(-12deg);
+  }
+}
+
+.spy-ask-lead {
+  max-width: 78ch;
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: var(--spy-muted);
+}
+
+.spy-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 16px;
+
+  button {
+    padding: 6px 13px;
+    border: 1px solid var(--spy-border);
+    border-radius: 999px;
+    background: var(--spy-paper);
+    font: inherit;
+    font-size: 12.5px;
+    color: var(--spy-secondary);
+    cursor: pointer;
+    transition:
+      border-color 160ms ease,
+      color 160ms ease,
+      background 160ms ease,
+      transform 160ms ease;
+
+    &:hover:not(:disabled) {
+      border-color: var(--spy-accent);
+      background: var(--spy-accent-wash);
+      color: var(--spy-accent-ink);
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      color: var(--spy-faint);
+      cursor: default;
+    }
+  }
+}
+
+.spy-turn {
+  margin: 0 0 16px;
+
+  .spy-question {
+    max-width: 88ch;
+    margin: 0 0 7px;
+    font-weight: 600;
+    color: var(--spy-text);
+  }
+}
+
+// The answer arrives once. Nothing moves after that.
+.spy-reply {
+  display: flex;
+  gap: 10px;
+  animation: spy-rise 280ms cubic-bezier(0.32, 0.72, 0, 1);
+
+  .spy-answer {
+    max-width: 88ch;
+    margin: 0;
+    color: var(--spy-text);
+    line-height: 1.58;
+  }
+
+  .spy-failed {
+    color: var(--spy-muted);
+  }
+}
+
+@keyframes spy-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+// A gradient dot instead of the grey rule: it says who is talking.
+.spy-reply-mark {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0071e3, #6b5cf6 50%, #ff7fae);
+
+  &.waiting {
+    animation: spy-breathe 1.6s ease-in-out infinite;
+  }
+}
+
+// While it reads, the sentence carries a sweep of light. It is the only way to
+// say "this is not finished yet" without putting another spinner on screen.
+.spy-pending {
+  background: linear-gradient(100deg, var(--spy-muted) 20%, var(--spy-text) 42%, var(--spy-muted) 62%);
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: spy-sweep 1.7s linear infinite;
+}
+
+@keyframes spy-sweep {
+  from {
+    background-position: 130% 0;
+  }
+
+  to {
+    background-position: -30% 0;
+  }
+}
+
+// The field: a gradient hairline, dim at rest and lit while you are talking to
+// it or while it answers.
+.spy-askline {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 4px 4px 6px;
+  border-radius: 999px;
+  background: var(--spy-paper);
+  transition: box-shadow 220ms ease;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1.3px;
+    border-radius: inherit;
+    background: linear-gradient(100deg, #0071e3, #6b5cf6 32%, #ff7fae 56%, #6b5cf6 78%, #0071e3);
+    background-size: 300% 100%;
+    opacity: 0.42;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: opacity 220ms ease;
+  }
+
+  &:focus-within::before {
+    opacity: 1;
+  }
+
+  &:focus-within {
+    box-shadow: 0 0 0 4px rgba(107, 92, 246, 0.1);
+  }
+
+  .spy-input {
+    min-width: 0;
+    flex: 1;
+    padding: 5px 8px;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--spy-text);
+
+    &:focus {
+      outline: none;
+    }
+
+    &::placeholder {
+      color: var(--spy-faint);
+    }
+  }
+}
+
+// While it reads, the hairline drifts: the only thing here that moves on its own.
+.spy-ask.thinking .spy-askline::before {
+  opacity: 1;
+  animation: spy-drift 2.6s linear infinite;
+}
+
+@keyframes spy-drift {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 300% 0;
+  }
+}
+
+.spy-ask-go {
+  height: 28px;
+  flex: none;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--spy-accent);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+
+  &:hover:not(:disabled) {
+    background: var(--spy-accent-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:disabled {
+    background: var(--spy-chip-bg);
+    color: var(--spy-faint);
+    cursor: default;
+  }
+}
+
+.spy-lead {
+  max-width: 96ch;
+  margin: 0 0 6px;
+  color: var(--spy-text);
+}
+
+.spy-disclosure {
+  margin: 0 0 12px;
+
+  button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--spy-accent-ink);
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+// A second register for the same fact: the id behind the name.
+.spy-id {
+  margin-left: 6px;
+  font-family: var(--spy-mono);
+  font-size: 11px;
+  color: var(--spy-faint);
+}
+
+.spy-quiet {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--spy-muted);
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--spy-accent-ink);
+  }
+}
+
+// Sample rows, shown as the little table they are.
+.spy-grid {
+  border-collapse: collapse;
+  font-size: 11.5px;
+
+  // The outer table styles every descendant cell; these are a table of their
+  // own and read as data, not as headings.
+  th,
+  td {
+    padding: 3px 14px 3px 0;
+    border: 0;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  th {
+    border-bottom: 1px solid var(--spy-rule);
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--spy-muted);
+  }
+
+  td {
+    font-family: var(--spy-mono);
+    color: var(--spy-secondary);
+  }
+}
+
+// ---------- the filmstrip ----------
+// Twenty-nine saves as twenty-nine blocks. The colour says what that save did,
+// so the shape of the work is visible before a single word is read.
+
+.spy-tape {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  align-items: stretch;
+  height: 30px;
+  padding-top: 7px;
+}
+
+.spy-block {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--spy-tape-quiet);
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(0.94);
+  }
+
+  &.added {
+    background: var(--spy-tape-added);
+  }
+
+  &.removed {
+    background: var(--spy-tape-removed);
+  }
+
+  &.edited {
+    background: var(--spy-tape-edited);
+  }
+
+  &.quiet {
+    background: var(--spy-tape-quiet);
+  }
+
+  &.broken {
+    background: repeating-linear-gradient(45deg, var(--spy-tape-removed) 0 3px, var(--spy-tape-broken) 3px 6px);
+  }
+
+  // Where you are: a blue playhead down the ribbon, not a colour change, so
+  // the block underneath keeps saying what kind of save it was.
+  &.here::before {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    border: 4px solid transparent;
+    border-top-color: var(--spy-accent);
+    transform: translateX(-50%);
+  }
+
+  &.here::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background: var(--spy-accent);
+  }
+}
+
+// A run is a fact about a save, so it rides on the block rather than beside it.
+.spy-ran {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--spy-ran);
+  transform: translateX(-50%);
+}
+
+.spy-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 9px 2px 0;
+  font-size: 12px;
+  color: var(--spy-secondary);
+}
+
+.spy-key-word {
+  color: var(--spy-muted);
+}
+
+.spy-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &::before {
+    content: "";
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    background: var(--spy-tape-quiet);
+  }
+
+  &.added::before {
+    background: var(--spy-tape-added);
+  }
+
+  &.removed::before {
+    background: var(--spy-tape-removed);
+  }
+
+  &.edited::before {
+    background: var(--spy-tape-edited);
+  }
+
+  &.ran::before {
+    width: 6px;
+    height: 6px;
+    margin: 0 2px;
+    border-radius: 50%;
+    background: var(--spy-ran);
+  }
+}
+
+// ---------- an icon for every edit ----------
+
+.spy-log li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.spy-chip {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--spy-chip-bg);
+  color: var(--spy-secondary);
+
+  li.added & {
+    background: var(--spy-added-tint);
+    color: var(--spy-added);
+  }
+
+  li.removed & {
+    background: var(--spy-alert-tint);
+    color: var(--spy-alert);
+  }
+
+  li.edited & {
+    background: var(--spy-edited-tint);
+    color: var(--spy-edited);
+  }
+}
+
+.spy-said {
+  min-width: 0;
+}
+
+// ---------- the edit that did it ----------
+// The dial before and the dial after, side by side. This is the whole answer
+// for most comparisons, so it is drawn, not described.
+
+.spy-swaps-card {
+  margin: 24px 0 0;
+
+  h4 {
+    margin: 0 0 10px;
+    @include label;
+    color: var(--spy-muted);
+  }
+}
+
+.spy-swaps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    align-items: center;
+    padding: 14px 16px;
+    border: 1px solid var(--spy-rule);
+    border-radius: 5px;
+
+    & + li {
+      margin-top: 6px;
+    }
+
+    // The only tinted box on screen: it is the answer to the view's own
+    // question, and nothing else should compete with it.
+    &.blamed {
+      border-color: var(--spy-alert-line);
+      background: var(--spy-alert-tint);
+    }
+  }
+}
+
+.spy-swap-where {
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+
+  b {
+    font-weight: 600;
+  }
+
+  span {
+    font-size: 12px;
+  }
+}
+
+.spy-swap-pair {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.spy-swap-arrow {
+  width: 15px;
+  height: 15px;
+  color: var(--spy-muted);
+}
+
+.spy-chip-was,
+.spy-chip-now {
+  padding: 4px 12px;
+  border: 1px solid;
+  border-radius: 5px;
+  font-family: var(--spy-mono);
+  font-size: 13.5px;
+}
+
+.spy-chip-was {
+  border-color: var(--spy-border);
+  background: var(--spy-paper);
+  color: var(--spy-secondary);
+}
+
+.spy-chip-now {
+  border-color: var(--spy-filter-line);
+  background: var(--spy-accent-wash);
+  color: var(--spy-accent-ink);
+}
+
+.spy-swap-tag {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--spy-alert-line);
+  background: var(--spy-paper);
+  color: var(--spy-alert);
+  font-size: 11.5px;
+  font-weight: 560;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+// ---------- the data, as volume ----------
+// One row per step, two bars per row. Equal bars mean the two runs agreed;
+// the first row where they stop matching is where the difference was born.
+
+.spy-flow {
+  margin: 28px 0 0;
+}
+
+.spy-flow-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--spy-rule);
+
+  h4 {
+    margin: 0;
+    @include label;
+    color: var(--spy-muted);
+  }
+}
+
+.spy-runkeys {
+  display: flex;
+  gap: 14px;
+}
+
+.spy-runkey {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--spy-secondary);
+
+  &::before {
+    content: "";
+    width: 14px;
+    height: 9px;
+    border-radius: 3px;
+  }
+
+  &.earlier::before {
+    background: var(--spy-run-a);
+  }
+
+  &.later::before {
+    background: var(--spy-run-b);
+  }
+}
+
+.spy-flow-lead {
+  max-width: 72ch;
+  margin: 10px 0 6px;
+  font-size: 12px;
+  color: var(--spy-muted);
+}
+
+.spy-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    // Number, the step with its bars, and the sentence always at the same
+    // place: the left edge of the text does not dance from row to row.
+    grid-template-columns: 26px minmax(0, 1fr) minmax(260px, 38%);
+    gap: 18px;
+    align-items: center;
+    padding: 11px 12px 11px 10px;
+    border-left: 2px solid transparent;
+    border-radius: 5px;
+
+    &:hover {
+      background: var(--spy-surface);
+    }
+  }
+
+  li:last-child .spy-step-no::after {
+    display: none;
+  }
+}
+
+.spy-step-no {
+  position: relative;
+  align-self: start;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--spy-border);
+  border-radius: 50%;
+  background: var(--spy-paper);
+  font-family: var(--spy-mono);
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  color: var(--spy-secondary);
+
+  // The thread that makes a list of rows read as a flow.
+  &::after {
+    content: "";
+    position: absolute;
+    top: 23px;
+    left: 50%;
+    width: 1px;
+    height: 32px;
+    background: var(--spy-rule);
+  }
+}
+
+.spy-step-body {
+  display: block;
+  min-width: 0;
+}
+
+.spy-step-name {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.spy-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 460px;
+
+  & + .spy-bar {
+    margin-top: 4px;
+  }
+}
+
+.spy-fill {
+  height: 11px;
+  min-width: 2px;
+  border-radius: 3px;
+  background: var(--spy-run-a);
+  transition: width 0.2s ease;
+}
+
+.spy-bar.later .spy-fill {
+  background: var(--spy-run-b);
+}
+
+.spy-bar-n {
+  font-family: var(--spy-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--spy-muted);
+  white-space: nowrap;
+}
+
+.spy-step-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--spy-muted);
+}
+
+.spy-starts {
+  @include label;
+  color: var(--spy-alert);
+}
+
+// Said quietly, and four times over: it is the same fact each time, and the
+// row above is where the eye should stay.
+.spy-carried {
+  font-size: 11px;
+  color: var(--spy-faint);
+}
+
+// The step where the two runs part company: the only red in the picture.
+.spy-step-starts {
+  border-left-color: var(--spy-alert);
+  background: var(--spy-alert-tint);
+
+  .spy-step-no {
+    border-color: var(--spy-alert);
+    color: var(--spy-alert);
+  }
+
+  .spy-step-note > span:last-child {
+    color: var(--spy-alert);
+    font-weight: 500;
+  }
+}
+
+.spy-step-carried {
+  background: var(--spy-carried-bg);
+}
+
+// ---------- the band above the film ----------
+// The counts on one side, the shape of the workflow on the other, so the width
+// of the panel carries something instead of sitting empty.
+
+.spy-band {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 40px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 10px 0 14px;
+}
+
+.spy-shape {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 16px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-surface);
+}
+
+.spy-shape-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+
+.spy-boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 116px;
+  justify-content: center;
+
+  i {
+    width: 15px;
+    height: 15px;
+    border: 1px solid var(--spy-box-line);
+    border-radius: 5px;
+    background: var(--spy-paper);
+  }
+}
+
+.spy-shape-label {
+  font-size: 11px;
+  color: var(--spy-muted);
+}
+
+.spy-shape-arrow {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--spy-faint);
+}
+
+// ---------- what gets read first ----------
+// The headline, one sentence per step, and the closing line. The counts are
+// still underneath, but nobody has to translate them: that is already done.
+
+// The first thing read, and it shows: more weight than anything on screen but
+// the workflow's name, and a short measure so the sentence lands at a glance.
+.spy-headline {
+  max-width: 56ch;
+  margin: 22px 0 16px;
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.38;
+  letter-spacing: -0.01em;
+  color: var(--spy-text);
+}
+
+.spy-headline-wait {
+  margin: 22px 0 16px;
+  font-size: 21px;
+  line-height: 1.38;
+  color: var(--spy-faint);
+}
+
+.spy-step-said {
+  color: var(--spy-text);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.spy-step-count {
+  color: var(--spy-muted);
+}
+
+.spy-takeaway {
+  max-width: 78ch;
+  margin: 18px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--r-card);
+  background: var(--spy-surface);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--spy-text);
+}
+
+.spy-flow .spy-source {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--spy-muted);
+}
+
+// ===================== the walk-through =====================
+// The flow read top to bottom, one step per row: a sentence, what the step is
+// set to do, and how much data came out of it. Everything else folds away.
+
+.spy-walk-head {
+  margin: 22px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.spy-walk {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--spy-rule);
+
+  > li {
+    border-bottom: 1px solid var(--spy-rule);
+    padding: 12px 0;
+
+    &.off {
+      opacity: 0.55;
+    }
+  }
+}
+
+// The rail on the left says where a step sits in the flow without a word: the
+// two ends of the pipe are marked, the middle is not.
+.spy-walk-source .spy-step-no {
+  border-color: var(--spy-accent);
+  color: var(--spy-accent-ink);
+}
+
+.spy-walk-output .spy-step-no {
+  background: var(--spy-chip-bg);
+}
+
+.spy-walk-line {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.spy-walk-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.spy-walk-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+
+  b {
+    font-weight: 600;
+  }
+
+  .spy-muted {
+    font-size: 12px;
+  }
+}
+
+.spy-walk-said {
+  margin: 3px 0 0;
+  color: var(--spy-secondary);
+}
+
+.spy-off-tag {
+  @include label;
+  color: var(--spy-edited);
+  border: 1px solid var(--spy-edited-tint);
+  background: var(--spy-edited-tint);
+  padding: 0 5px;
+  border-radius: 5px;
+}
+
+.spy-setting-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+
+  > li {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+}
+
+.spy-setting-label {
+  @include label;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.spy-setting-value {
+  font-family: var(--spy-mono);
+  font-size: 11.5px;
+  background: var(--spy-chip-bg);
+  border-radius: 5px;
+  padding: 0 5px;
+}
+
+.spy-setting-big {
+  color: var(--spy-muted);
+  font-style: italic;
+}
+
+.spy-walk-volume {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  min-width: 190px;
+
+  .spy-bar {
+    width: 170px;
+    max-width: 170px;
+  }
+}
+
+.spy-walk-rows-label {
+  @include label;
+  font-size: 10px;
+}
+
+.spy-walk-detail {
+  margin: 10px 0 0 36px;
+  padding: 10px 12px;
+  background: var(--spy-surface);
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+
+  h5 {
+    @include label;
+    margin: 0 0 6px;
+  }
+}
+
+.spy-walk-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 26px;
+  margin: 0 0 10px;
+
+  dt {
+    @include label;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 12.5px;
+  }
+}
+
+.spy-caution {
+  border-left: 2px solid var(--spy-edited);
+  background: var(--spy-edited-tint);
+}
+
+// ===================== what people keep changing =====================
+
+.spy-knobs {
+  margin: 0;
+  padding: 15px 18px 14px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-paper);
+  box-shadow: var(--lift);
+
+  h4 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  ul {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+  }
+
+  li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    padding: 5px 0;
+    border-top: 1px solid var(--spy-rule);
+    font-size: 12.5px;
+  }
+}
+
+// ===================== what has been tried =====================
+
+.spy-trials {
+  th .spy-id {
+    display: block;
+    font-weight: 400;
+  }
+
+  .spy-bar-inline {
+    width: 150px;
+    max-width: 150px;
+    margin-left: auto;
+  }
+}
+
+// A run that repeats an earlier one is not news, and reads quieter for it.
+.spy-repeat td {
+  color: var(--spy-muted);
+}
+
+.spy-repeat-note td {
+  padding-top: 0;
+  border-top: 0;
+  font-size: 11.5px;
+}
+
+.spy-move-row td {
+  border-top: 1px solid var(--spy-rule);
+  padding-top: 8px;
+}
+
+.spy-move {
+  @include label;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--spy-edited);
+}
+
+// ===================== the report =====================
+
+.spy-report {
+  max-width: 760px;
+  margin-top: 6px;
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 18px 0 4px;
+  }
+
+  p {
+    margin: 0 0 8px;
+    color: var(--spy-secondary);
+  }
+}
+
+.spy-report-summary {
+  font-size: 14px;
+  color: var(--spy-text) !important;
+  border-left: 2px solid var(--spy-border);
+  padding-left: 12px;
+}
+
+.spy-report-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 18px 0 6px;
+}
+
+// The report tab sits apart: it is the one thing here that is written, not read.
+.spy-tab-report {
+  margin-left: auto;
+}
+
+// A setting that holds a whole program, printed only when its step is opened.
+.spy-program {
+  font-family: var(--spy-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre;
+  background: var(--spy-paper);
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  color: var(--spy-secondary);
+}
+
+// The canvas in the walkthrough is the same drawing as in the footage, but it
+// stands alone rather than beside a log, so it gets the full width.
+.spy-canvas-today {
+  margin: 18px 0 0;
+  max-height: 300px;
+
+  svg {
+    max-height: 240px;
+  }
+}
+
+// A run that produced nothing is not a small result: it is a different event,
+// and the table says so rather than leaving a zero to be noticed.
+.spy-empty-trial td {
+  color: var(--spy-muted);
+}
+
+.spy-nothing {
+  @include label;
+  display: block;
+  color: var(--spy-alert);
+  text-align: right;
+}
+
+// ===================== the flow, drawn =====================
+// The whole workflow as one picture: a box per step, a pipe per connection, and
+// every pipe as thick as the rows that run through it. Where the flow narrows
+// is seen before a number is read, which is the entire point of drawing it.
+
+.spy-flowmap {
+  margin: 0;
+  padding: 18px 18px 12px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-paper);
+  box-shadow: var(--lift);
+
+  svg {
+    display: block;
+    width: 100%;
+    max-height: 340px;
+  }
+
+  figcaption {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--spy-rule);
+  }
+}
+
+.spy-pipe {
+  fill: none;
+  stroke: var(--spy-run-b);
+  stroke-opacity: 0.32;
+  stroke-linecap: round;
+}
+
+.spy-pipe-n {
+  font-family: var(--spy-mono);
+  font-size: 10px;
+  fill: var(--spy-muted);
+}
+
+.spy-map-node {
+  cursor: pointer;
+
+  .spy-map-box {
+    fill: var(--spy-paper);
+    stroke: var(--spy-box-line);
+    stroke-width: 1;
+  }
+
+  .spy-map-glyph {
+    fill: var(--spy-muted);
+  }
+
+  .spy-map-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    fill: var(--spy-text);
+  }
+
+  .spy-map-rows {
+    font-family: var(--spy-mono);
+    font-size: 11px;
+    fill: var(--spy-secondary);
+  }
+
+  // What a step swallows, said where it happens rather than in a table.
+  .spy-map-drop {
+    font-family: var(--spy-mono);
+    font-size: 11px;
+    fill: var(--spy-alert);
+  }
+
+  &:hover .spy-map-box {
+    stroke: var(--spy-accent);
+  }
+
+  &.here .spy-map-box {
+    stroke: var(--spy-accent);
+    stroke-width: 2;
+  }
+}
+
+// The two ends of the pipe are the only ones that need a colour of their own.
+.spy-map-source .spy-map-box {
+  stroke: var(--spy-added);
+}
+
+.spy-map-source .spy-map-glyph {
+  fill: var(--spy-added);
+}
+
+.spy-map-output .spy-map-box {
+  stroke: var(--spy-edited);
+}
+
+.spy-map-output .spy-map-glyph {
+  fill: var(--spy-edited);
+}
+
+.spy-map-legend {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  @include label;
+
+  i {
+    display: block;
+    width: 22px;
+    border-radius: 5px;
+    background: var(--spy-run-b);
+    opacity: 0.32;
+  }
+
+  i.thin {
+    height: 2px;
+  }
+
+  i.thick {
+    height: 9px;
+  }
+}
+
+// ===================== the step being looked at =====================
+
+.spy-picked {
+  position: sticky;
+  top: 0;
+  margin: 0;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-paper);
+  box-shadow: var(--lift);
+}
+
+.spy-picked-kicker {
+  margin: 0 0 10px;
+  @include label;
+}
+
+.spy-picked-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  > div:nth-child(2) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .spy-muted {
+    font-size: 12px;
+  }
+}
+
+.spy-picked-glyph {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  color: var(--spy-secondary);
+}
+
+.spy-picked-walk {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  @include label;
+}
+
+.spy-picked-said {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--spy-text);
+}
+
+.spy-picked-volume {
+  margin: 12px 0 0;
+
+  .spy-bar {
+    max-width: 420px;
+  }
+}
+
+.spy-picked-keeps {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--spy-muted);
+}
+
+.spy-picked-rows {
+  margin-top: 12px;
+
+  .spy-muted {
+    font-size: 11.5px;
+  }
+}
+
+.spy-picked-foot {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  color: var(--spy-muted);
+}
+
+// A dot per change, filled when that value was actually run: the dials of this
+// workflow at a glance, without a column of counts.
+.spy-knob-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+
+  i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1px solid var(--spy-border);
+  }
+
+  i.tried {
+    background: var(--spy-accent);
+    border-color: var(--spy-accent);
+  }
+}
+
+.spy-knob-where {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  color: inherit;
+  font: inherit;
+
+  &:hover b {
+    color: var(--spy-accent-ink);
+  }
+}
+
+// ===================== one dial at a time =====================
+// What a setting was tried at, and what came out each time. Two or three bars
+// answer the tab's question before the table underneath is even looked at.
+
+.spy-dials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 16px 0 18px;
+}
+
+.spy-dial {
+  flex: 1 1 320px;
+  min-width: 300px;
+  padding: 12px 14px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-paper);
+}
+
+.spy-dial-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+
+  b {
+    font-weight: 600;
+  }
+
+  .spy-muted {
+    font-size: 11.5px;
+  }
+}
+
+.spy-dial-values {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+
+  > li {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 4px 0;
+  }
+
+  .spy-bar {
+    flex: 1;
+    max-width: none;
+  }
+}
+
+.spy-dial-value {
+  font-family: var(--spy-mono);
+  font-size: 11.5px;
+  background: var(--spy-chip-bg);
+  border-radius: 5px;
+  padding: 1px 6px;
+  min-width: 62px;
+  text-align: center;
+}
+
+// A tick per run at that value: how much evidence there is, drawn.
+.spy-dial-runs {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  min-width: 92px;
+
+  i {
+    width: 3px;
+    height: 11px;
+    border-radius: 3px;
+    background: var(--spy-faint);
+  }
+
+  .spy-muted {
+    margin-left: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+}
+
+.spy-dial-verdict {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--spy-rule);
+  font-size: 12px;
+  color: var(--spy-secondary);
+}
+
+// A value whose runs disagreed is drawn as a spread, not as a single bar: the
+// pale part is how far apart those runs were.
+.spy-dial-track {
+  position: relative;
+  flex: 1;
+  height: 11px;
+
+  .spy-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 11px;
+  }
+
+  .spy-fill-spread {
+    opacity: 0.3;
+  }
+}
+
+// The report's sections open one at a time. The first is already open, so the
+// tab never opens on a closed door.
+.spy-report-section {
+  border-top: 1px solid var(--spy-rule);
+  padding: 4px 0 8px;
+}
+
+.spy-report-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--spy-text);
+  text-align: left;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    color: var(--spy-muted);
+    transition: transform 0.15s ease;
+  }
+
+  &.open svg {
+    transform: rotate(90deg);
+  }
+}
+
+// A tick for a run that produced rows, a hollow one for a run that came out
+// empty: how much evidence a value has, and how much of it is worth anything.
+.spy-dial-runs i.tried {
+  background: var(--spy-run-b);
+}
+
+// ---------- how the runs moved ----------
+
+// Thin lines, small dots, and room around them. Two metrics is all the record
+// actually holds: how long a run took, and how many rows came out the end.
+.spy-trends {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.spy-trend {
+  padding: 15px 18px 13px;
+  border: 1px solid var(--spy-rule);
+  border-radius: var(--r-card);
+  background: var(--spy-paper);
+  box-shadow: var(--lift);
+}
+
+.spy-trend-head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.spy-trend-label {
+  flex: 1;
+  @include label;
+  font-size: 12px;
+}
+
+.spy-trend-now {
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.018em;
+  color: var(--spy-text);
+}
+
+// Blue when it got quicker, red only when it got slower. More rows is neither,
+// so that one stays grey rather than pretending to be a verdict.
+.spy-trend-change {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--spy-muted);
+
+  &.is-better {
+    color: var(--spy-accent-ink);
+  }
+
+  &.is-worse {
+    color: var(--spy-alert);
+  }
+}
+
+.spy-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 6px 0 2px;
+  overflow: visible;
+
+  polyline {
+    fill: none;
+    stroke: var(--spy-accent);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  circle {
+    fill: var(--spy-paper);
+    stroke: var(--spy-accent);
+    stroke-width: 1.4;
+  }
+
+  // The run you are looking at last is the filled one.
+  circle.last {
+    fill: var(--spy-accent);
+  }
+
+  // A run that produced nothing is drawn hollow, on the floor, with the line
+  // broken either side of it: it is a different event, not a small number.
+  circle.empty {
+    fill: var(--spy-paper);
+    stroke: var(--spy-edge);
+    stroke-dasharray: 2 1.6;
+  }
+}
+
+.spy-trend-foot {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--spy-faint);
+}
