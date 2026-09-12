@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789131079661,
+  "lastUpdate": 1789218320835,
   "repoUrl": "https://github.com/apache/texera",
   "entries": {
     "Arrow Flight E2E Throughput": [
@@ -13452,6 +13452,163 @@ window.BENCHMARK_DATA = {
           {
             "name": "throughput / bs=1000 sw=50 sl=512",
             "value": 730.245436418592,
+            "unit": "tuples/sec"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Meng Wang",
+            "username": "mengw15",
+            "email": "mengw15@uci.edu"
+          },
+          "committer": {
+            "name": "GitHub",
+            "username": "web-flow",
+            "email": "noreply@github.com"
+          },
+          "id": "069cd208c68d3f3a8e50d583a0a0ff7e00a4e536",
+          "message": "ci: give GitHub Actions bypass on the release-branch ruleset (#8379)\n\n### What changes were proposed in this PR?\n\nThe Merge Queue ruleset requires every change into `release/*` to arrive\nas a PR with one approving review, green required checks, and a pass\nthrough the merge queue. Right for people — but it also blocks\n`direct-backport-push.yml`, whose fast path pushes clean cherry-picks;\nevery such push has been rejected since 2026-07-24, and five backports\nwere silently lost (#8377).\n\nThis splits the ruleset in two, rule-for-rule identical: `Merge Queue`\nkeeps `~DEFAULT_BRANCH`, and a new `Merge Queue (release)` carries the\nthree release branches plus a `bypass_actors` entry for the GitHub\nActions app (`actor_id: 15368`). The split exists because a bypass is\nruleset-wide — kept in one ruleset, it would let workflows push `main`\ntoo.\n\nScope, stated precisely: the bypass exempts actions performed as the\nActions app — any workflow's `GITHUB_TOKEN`, not just the backport\nworkflow, since rulesets cannot scope a bypass to one workflow. People\nand PATs still face every rule on every branch; `main` gets no bypass;\nforce pushes and branch deletion stay blocked for everyone, Actions\nincluded, by `Default Branch Protection`.\n\nOrdering inside the file is load-bearing: asfyaml applies rulesets in\nfile order, so `Merge Queue (release)` is created before `Merge Queue`\nstops covering the release branches. If GitHub rejects the new ruleset,\nthe apply aborts with today's protections fully intact — no failure path\nleaves the release branches uncovered.\n\nThe bypass alone would not revive the fast path: since #4676 the push\njob checked out with `AUTO_MERGE_TOKEN`, so GitHub evaluated its pushes\nas that PAT's owner — every pre-ruleset direct push shows a person as\nthe pusher — and an Actions-app bypass would not cover them. The push\njob now uses the default `GITHUB_TOKEN`, which the bypass does cover,\nand dispatches `Required Checks` on the pushed branch explicitly, since\na `GITHUB_TOKEN` push starts no push-triggered runs while\n`workflow_dispatch` is the documented exception that always creates one.\nThe conflict path keeps the PAT: it pushes unprotected `backport/*`\nbranches, where the opened PR's CI must still trigger.\n\n### Any related issues, documentation, discussions?\n\nCloses #8377. #8378 took the PR-plus-auto-merge route to the same\nproblem and is closed in favor of trying the bypass first. What lands on\na release branch through this path is still only a cherry-pick of a\ncommit that passed main's full CI and, once #8096 lands, its release\nmanager's approving review.\n\n### How was this PR tested?\n\n`.asf.yaml` and the workflows parse, and the structural check is now\ncommitted instead of run once: `.github/scripts/test_asf_rulesets.sh`\n(picked up by build.yml's glob-discovered infra tests) asserts the two\nrulesets' `rules` blocks stay deep-equal and that `.asf.yaml` and every\nworkflow parse under a duplicate-key-strict loader, with PyYAML pinned\nin `amber/dev-requirements.txt` — the file the infra job installs; every\nfailure path (duplicate key, rules drift, bypass on main, bypass\ntampered, ruleset reorder, missing PyYAML) was verified red before\ntrusting the green. asfyaml treats a ruleset carrying\n`target`/`rules`/`bypass_actors` as a raw payload and forwards it\nverbatim (`_RAW_RULESET_KEYS` in `feature/github/rulesets.py`; its\nupstream tests assert the POST payload carries `bypass_actors`).\n\nWhat cannot be proven before merge is GitHub accepting the Actions app\nas a bypass actor on this org: the same payload on a personal repository\nis rejected with \"Actor GitHub Actions integration must be part of the\nruleset source or owner organization\", and no ASF repository uses an\nIntegration bypass actor yet — hence the fail-safe ordering above. After\nInfra applies the merged file, `GET /repos/apache/texera/rulesets`\nshould list `Merge Queue (release)`; if it does not, the apply failed\nclosed and nothing changed. The next clean backport is the end-to-end\ntest.\n\n### Was this PR authored or co-authored using generative AI tooling?\n\nGenerated-by: Claude Code (claude-fable-5)",
+          "timestamp": "2026-09-11T14:11:59Z",
+          "url": "https://github.com/apache/texera/commit/069cd208c68d3f3a8e50d583a0a0ff7e00a4e536"
+        },
+        "date": 1789218320214,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "throughput / bs=10 sw=1 sl=8",
+            "value": 676.0976199774948,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=8",
+            "value": 1091.8900829971356,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=8",
+            "value": 1168.0384665401457,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=64",
+            "value": 826.4082757727987,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=64",
+            "value": 1130.9407062144458,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=64",
+            "value": 1151.710819079806,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=1 sl=512",
+            "value": 873.339372475094,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=1 sl=512",
+            "value": 1133.3348260221883,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=1 sl=512",
+            "value": 1155.2966359331854,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=8",
+            "value": 718.0081722656236,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=8",
+            "value": 917.9417245621447,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=8",
+            "value": 940.0387611487963,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=64",
+            "value": 733.3896551653252,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=64",
+            "value": 925.1439396161408,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=64",
+            "value": 936.5093393113706,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=10 sl=512",
+            "value": 733.7793114598635,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=10 sl=512",
+            "value": 903.48263933326,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=10 sl=512",
+            "value": 917.1987798036109,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=8",
+            "value": 457.6488209173992,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=8",
+            "value": 533.8415150370436,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=8",
+            "value": 536.2660188167306,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=64",
+            "value": 453.42570739488724,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=64",
+            "value": 524.9278616829665,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=64",
+            "value": 530.3227574090616,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=10 sw=50 sl=512",
+            "value": 440.0658836628527,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=100 sw=50 sl=512",
+            "value": 504.2737045175753,
+            "unit": "tuples/sec"
+          },
+          {
+            "name": "throughput / bs=1000 sw=50 sl=512",
+            "value": 511.3826035692455,
             "unit": "tuples/sec"
           }
         ]
