@@ -56,10 +56,23 @@ class VisualizationHtmlComparatorSpec extends AnyFlatSpec with Matchers {
     noException should be thrownBy VisualizationHtmlComparator.assertEqual(actual, expected)
   }
 
+  /** The two places a Styler writes its uuid: the CSS selector and the `id` attribute. */
+  private def styledCell(uuid: String, value: String) =
+    s"""<style>#${uuid}_row0_col0 { color: red; }</style>""" +
+      s"""<td id="${uuid}_row0_col0">$value</td>"""
+
   it should "accept two sides that differ only in a Styler uuid" in {
-    val actual = writeActual("styler-actual.jsonl", "<td id=\"T_a1b2c3_row0_col0\">1</td>")
-    val expected = writeExpected("styler-expected.html", "<td id=\"T_9f8e7d_row0_col0\">1</td>")
+    val actual = writeActual("styler-actual.jsonl", styledCell("T_a1b2c3", "1"))
+    val expected = writeExpected("styler-expected.html", styledCell("T_9f8e7d", "1"))
     noException should be thrownBy VisualizationHtmlComparator.assertEqual(actual, expected)
+  }
+
+  // A Styler does not escape a cell, so a value can read exactly like a uuid.
+  it should "still reject two sides whose cell text only looks like a Styler uuid" in {
+    val actual = writeActual("cell-uuid-actual.jsonl", styledCell("T_a1b2c3", "T_dead"))
+    val expected = writeExpected("cell-uuid-expected.html", styledCell("T_a1b2c3", "T_beef"))
+    a[VisualizationHtmlMismatchException] should be thrownBy VisualizationHtmlComparator
+      .assertEqual(actual, expected)
   }
 
   it should "still reject markup that differs in more than its line endings" in {

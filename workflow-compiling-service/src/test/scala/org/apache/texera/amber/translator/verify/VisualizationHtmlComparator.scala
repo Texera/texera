@@ -29,12 +29,12 @@ object VisualizationHtmlComparator {
   /** A pandas Styler namespaces its CSS with a uuid drawn per Styler instance, so
     * the same table rendered twice differs in every `id=` and every selector even
     * though the markup is identical. The uuid carries no information about the
-    * table — it only keeps two tables on one page from colliding — so it is
-    * normalized away before comparing. Only the random prefix is replaced: the
-    * `_row0_col0` suffix that identifies the cell stays, so a genuine structural
-    * difference still fails.
+    * table, it only keeps two tables on one page from colliding, so it is
+    * normalized away before comparing. The rewrite reaches only the `id` attribute
+    * and the `#` selector, and keeps the `_row0_col0` suffix, so a real difference
+    * in a cell still fails.
     */
-  private val StylerUuid = "T_[0-9a-f]+".r
+  private val StylerUuid = """(?<=#|id=")T_[0-9a-f]+""".r
 
   /** The standalone script writes its page with Python's text mode, which on Windows
     * turns every newline into CRLF, while the runtime path carries the same markup
