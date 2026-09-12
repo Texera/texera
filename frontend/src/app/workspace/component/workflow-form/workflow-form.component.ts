@@ -31,8 +31,8 @@ import { NzTooltipModule } from "ng-zorro-antd/tooltip";
 import { UserIconComponent } from "../../../dashboard/component/user/user-icon/user-icon.component";
 import { cloneDeep } from "lodash-es";
 import { MarkdownService } from "ngx-markdown";
-import { EMPTY, forkJoin, Subject, timer } from "rxjs";
-import { debounceTime, switchMap, takeUntil, tap } from "rxjs/operators";
+import { asapScheduler, EMPTY, forkJoin, merge, Observable, Subject, timer } from "rxjs";
+import { catchError, concatMap, debounceTime, finalize, observeOn, switchMap, takeUntil, tap } from "rxjs/operators";
 
 import { USER_WORKFLOW, USER_WORKSPACE } from "../../../app-routing.constant";
 import { FormFieldBinding, Workflow, WorkflowContent } from "../../../common/type/workflow";
@@ -56,7 +56,7 @@ import { WorkflowResultService } from "../../service/workflow-result/workflow-re
 import { PanelResizeService } from "../../service/workflow-result/panel-resize/panel-resize.service";
 import { WorkflowWebsocketService } from "../../service/workflow-websocket/workflow-websocket.service";
 import { ExecutionState } from "../../types/execute-workflow.interface";
-import { Point } from "../../types/workflow-common.interface";
+import { OperatorPredicate, Point } from "../../types/workflow-common.interface";
 import { ComputingUnitSelectionComponent } from "../power-button/computing-unit-selection.component";
 import { PropertyEditorComponent } from "../property-editor/property-editor.component";
 import { ResultTableFrameComponent } from "../result-panel/result-table-frame/result-table-frame.component";
@@ -95,6 +95,13 @@ interface RenderedField {
   model: Record<string, unknown>;
 }
 
+/** One row of the "which results to show" picker: a candidate step and whether it is currently shown. */
+interface ResultChoice {
+  operatorID: string;
+  label: string;
+  shown: boolean;
+}
+
 /**
  * The Form View: a second way to use a workflow. On top of the title-bar frame and the collapsible
  * read-only workflow preview, this PR renders the inputs an author exposed -- each as its
@@ -107,9 +114,13 @@ interface RenderedField {
  * underneath -- the final step's output plus the author's chosen view-result steps, each a table, a
  * visualisation, or a compact "no result yet" -- reading the canvas's view-result set and never
  * writing it. A reader can also click a step on the embedded preview to open its property panel
- * read-only: the panel writes nothing to the shared workflow and its content is inert. The
- * authoring mode that turns that panel live and picks what to show is a later PR. A view, not a new
- * object: it opens the same workflow the canvas does.
+ * read-only: the panel writes nothing to the shared workflow and its content is inert. With write
+ * access, an Edit toggle turns the page into in-place authoring: write the instruction, pick which
+ * extra results to feature, and click a step to open its panel live -- its writes turn on and its
+ * tick boxes choose what the form exposes. Editing the exposed inputs themselves in place (rename,
+ * hide a sub-field, reorder, remove) is the next PR. A view, not a new object: every graph edit goes
+ * through the same shared graph the operator canvas edits, and the form-binding config is local
+ * until #8351 shares it.
  */
 @UntilDestroy()
 @Component({
@@ -143,6 +154,20 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   public autoSaveState = "";
   /** Write access: only then does a filled-in value write back, and only then does the page save. */
   public canEdit = false;
+  /** Edit mode: a writer authoring the form in place (write the instruction, pick results, open a
+   *  step's panel live to expose settings). Off, the page is the read-only form a reader sees. */
+  public authoring = false;
+  /** While authoring, the instruction is edited as raw markdown ("write") or shown rendered
+   *  ("preview"); a reader always sees it rendered. */
+  public instructionMode: "write" | "preview" = "write";
+  /** The "which results to show" picker: every candidate step with its shown flag. Everyone sees it:
+   *  in edit mode a toggle sets the default for all readers (saved in the config); otherwise it is
+   *  the viewer's own choice for this page (viewerResultIds), never written anywhere. */
+  public resultChoices: ResultChoice[] = [];
+  /** A viewer's own pick of results for this page, once they have toggled anything; undefined means
+   *  "the author's default". Kept for the page's lifetime only, and cleared on entering edit mode so
+   *  the author edits the real default rather than their own view of it. */
+  private viewerResultIds?: Set<string>;
 
   /** The exposed inputs, resolved against the live graph, and the formly field built for each. */
   private parameters: ResolvedField[] = [];
@@ -180,10 +205,11 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   public selectedOperatorId?: string;
 
   /**
-   * Which steps' results to show: the terminal (final) steps, whose results the engine always
-   * materializes, plus the author's chosen `resultOperatorIds` kept to those that still have
-   * view-result ("the eye") on the canvas. The form NEVER writes the canvas's view-result flags --
-   * it only decides what it itself shows, so a canvas user's result-viewing is unaffected.
+   * Which steps' results to show: the author's saved list (`shownResultIds` in the config) or, until
+   * the author has chosen, the terminal (final) steps, whose results the engine always materializes;
+   * either way kept to steps that still have a result on the canvas. The form NEVER writes the
+   * canvas's view-result flags -- it only decides what it itself shows, so a canvas user's
+   * result-viewing is unaffected.
    */
   public shownResultIds: string[] = [];
   /** Chart height per result (0 compact / 1 default / 2 tall). Per operator so one does not resize
@@ -200,6 +226,22 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
 
   /** Set on teardown so deferred callbacks stop touching a view that is gone. */
   private destroyed = false;
+  /** Save requests, each the workflow as it was when the save was asked for. Drained one at a time and
+   *  in order (see registerAutoPersist), so two saves can never race each other to the backend; the
+   *  last one enqueued is the latest content. */
+  private persistQueue = new Subject<Workflow>();
+  /** Saves enqueued and not yet finished; the queue is drained when this returns to zero. */
+  private queuedSaves = 0;
+  /** What to do once the queue has drained (the Canvas switch navigates then): every save enqueued up
+   *  to that point, and any enqueued while waiting, has to have completed first. A failed save drops
+   *  them, so nobody navigates away from changes that were never stored. */
+  private afterDrain: Array<() => void> = [];
+  /** An edit has happened since the last snapshot was enqueued. The autosave behind workflowChanged
+   *  is debounced, so at the moment the queue drains such an edit may not be queued yet -- and the
+   *  hand-over waiting on the drain would lose it to the full-page load. Set the moment an edit is
+   *  reported (before the debounce), cleared when a snapshot is enqueued (it carries everything up
+   *  to then), and checked by the drain, which flushes one more save instead of handing over. */
+  private dirtySinceLastEnqueue = false;
   /** A rebuild of the inputs that arrived while the reader was typing, held until the typing ends. */
   private rebuildDeferred = false;
 
@@ -308,15 +350,40 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
         this.later(() => this.fitVisualisations(), 300);
       });
 
-    // Turning a step's view-result OFF on the canvas emits no result-update event, so the filter
-    // above would miss it and leave a stale card. React to the view-result set changing directly
-    // (a co-editor's toggle included), so a de-viewed step drops out here at once.
-    this.workflowActionService
-      .getTexeraGraph()
-      .getViewResultOperatorsChangedStream()
+    // What has a result, and what the picker offers, also follows the graph's shape and names: a
+    // step deleted, disabled, given a downstream link, or renamed (a co-editor's edit included)
+    // changes what shows or what its pill says. Those edits arrive on their own streams; compilation
+    // re-reads the config after the structural ones too, but debounced and held while the reader is
+    // typing, and a rename reaches no other stream at all, so refresh the two derived collections
+    // from them directly, as for the eye below. Only these collections: nothing here rebuilds the inputs.
+    const graph = this.workflowActionService.getTexeraGraph();
+    merge(
+      graph.getOperatorAddStream(),
+      graph.getOperatorDeleteStream(),
+      graph.getLinkAddStream(),
+      graph.getLinkDeleteStream(),
+      graph.getDisabledOperatorsChangedStream(),
+      graph.getOperatorDisplayNameChangedStream()
+    )
       .pipe(untilDestroyed(this))
       .subscribe(() => {
         this.refreshShownResults();
+        this.rebuildResultChoices();
+        this.cdr.markForCheck();
+      });
+
+    // Turning a step's view-result OFF on the canvas emits no result-update event, so the filter
+    // above would miss it and leave a stale card. React to the view-result set changing directly
+    // (a co-editor's toggle included), so a de-viewed step drops out here at once.
+    graph
+      .getViewResultOperatorsChangedStream()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        // An eye toggled on the canvas changes both what shows (a newly-viewed step) and what the
+        // author can pick, so rebuild the picker here too -- otherwise a just-eyed step would not
+        // appear as an option (and an un-eyed one would linger) until the next full re-read.
+        this.refreshShownResults();
+        this.rebuildResultChoices();
         this.cdr.markForCheck();
       });
 
@@ -373,6 +440,11 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       .subscribe(({ current }) => {
         const wasRunning = this.isRunning;
         this.executionState = current.state;
+        // Reconcile the lock with the new state. The execute service flips the lock BEFORE it emits
+        // the state (updateWorkflowActionLock runs first in updateExecutionState), so when a run ends
+        // the clamp below still saw "running" and locked the graph again; this is where edit mode
+        // gets it back. Every other state is a no-op re-application of the same rule.
+        this.applyEditability();
         // Clear a stale failure banner the moment any new run starts -- this session's or a
         // co-editor's. onRun() clears it for a run started here, but a co-editor's run moves the
         // shared execution stream to an in-flight state without going through onRun(), so without
@@ -490,8 +562,10 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
           this.workflowActionService.setNewSharedModel(wid, this.userService.getCurrentUser());
           this.workflowActionService.reloadWorkflow(workflow);
           // The workflow is shown, not edited, from here: dragging operators around or
-          // deleting them belongs to the operator canvas.
+          // deleting them belongs to the operator canvas. Lock now, and keep it locked against
+          // anything else that unlocks the graph (clampEditability).
           this.applyEditability();
+          this.clampEditability();
           this.refreshSavedState();
           this.later(() => this.adjustWorkflowNameWidth(), 0);
           this.readConfig();
@@ -510,11 +584,60 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Show the workflow rather than edit it: the graph shape and its properties are read-only
-   * on this page. A later PR's authoring mode makes properties editable with write access.
+   * Whether this page may hold the graph unlocked: a writer in edit mode, and no run in flight. The
+   * run rule is the canvas's own (a run locks the graph until it ends), kept here too so that entering
+   * edit mode mid-run cannot undo it. Every other state is locked, so a reader, or a writer merely
+   * viewing, cannot change the workflow through this page.
    */
+  private mayUnlock(): boolean {
+    return this.authoring && this.canEdit && !this.isRunning;
+  }
+
+  /**
+   * Whether the step panel is live (acting as an editor, tick boxes on, not inert): the same rule as
+   * the lock, not edit mode alone. The property frame does not consult the lock before its own
+   * writes -- it syncs the operator version on mount, writes the schema defaults ajv fills in, and
+   * publishes the "currently editing" marker whenever it acts as an editor -- so a step selected
+   * while a run is in flight must mount read-only even in edit mode, and turns live when the run ends.
+   */
+  public get panelLive(): boolean {
+    return this.mayUnlock();
+  }
+
+  /** Lock or unlock editing from the current state (see mayUnlock); the one reducer for both directions. */
   private applyEditability(): void {
-    this.workflowActionService.disableWorkflowModification();
+    if (this.mayUnlock()) {
+      this.workflowActionService.enableWorkflowModification();
+    } else {
+      this.workflowActionService.disableWorkflowModification();
+    }
+  }
+
+  /**
+   * The lock is a root-level flag with writers that know nothing of this page: the execute service
+   * unlocks it whenever a run ends (completed, failed, killed, reset), the computing-unit selector
+   * unlocks it when it finds no run on the chosen unit, and any future caller may too. Rather than
+   * chase each one, clamp at the one place they all report to: whenever the flag turns on while this
+   * page must stay locked, turn it off again. In edit mode the canvas rule then stands unchanged:
+   * locked while a run is in flight, unlocked once it ends -- the execute service flips the lock
+   * before it emits the new state, so that unlock is clamped here (this page still sees "running")
+   * and given back by the execution-state handler, which re-applies the rule with the new state.
+   *
+   * The clamp runs a microtask later (observeOn), never inside the unlocking call: enableWorkflow-
+   * Modification emits the flag and only then enables undo/redo, and the stream still has to reach
+   * its other subscribers. A disable nested inside that emission would leave undo/redo enabled and
+   * later subscribers ending on the stale "true"; run after the call has finished, the disable is the
+   * last word and every consumer sees the same locked state. Nothing a user does fits in that gap.
+   */
+  private clampEditability(): void {
+    this.workflowActionService
+      .getWorkflowModificationEnabledStream()
+      .pipe(observeOn(asapScheduler), untilDestroyed(this))
+      .subscribe(enabled => {
+        if (enabled && !this.mayUnlock()) {
+          this.workflowActionService.disableWorkflowModification();
+        }
+      });
   }
 
   // ---------------------------------------------------------------------------
@@ -539,39 +662,89 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     return ["TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
   }
 
+  /**
+   * The steps a result can come from. The engine compiles only the enabled operators, so a disabled
+   * step produces nothing however it is flagged: not offered in the picker, not shown as a result.
+   */
+  private enabledOperators(): OperatorPredicate[] {
+    return this.workflowActionService
+      .getTexeraGraph()
+      .getAllOperators()
+      .filter(op => !(op.isDisabled ?? false));
+  }
+
+  /**
+   * The picker's candidates: every final step (the engine always materialises it) and every
+   * intermediate step with view-result ("the eye") on the canvas. In edit mode a step already on the
+   * author's saved list is kept as well, eye or no eye, so the author can take a stale choice off the
+   * list; a reader is not offered it, since with no result materialised its pill could never turn on.
+   * Reuse the one terminal rule (terminalOperatorIds) rather than a second copy. Disabled steps are
+   * not offered at all, listed or not: they are left out of the run, so choosing one could never show
+   * anyone anything. The shown flag mirrors shownResultIds, so it reflects the viewer's own choice when
+   * they have made one and the author's default otherwise.
+   */
+  private rebuildResultChoices(): void {
+    const config = this.formBindingService.getConfig();
+    const viewed = this.workflowActionService.getTexeraGraph().getOperatorsToViewResult();
+    const listed = new Set(this.authoring && this.canEdit ? config.shownResultIds ?? [] : []);
+    const terminals = new Set(this.terminalOperatorIds());
+    const shown = new Set(this.shownResultIds);
+    this.resultChoices = this.enabledOperators()
+      .filter(op => terminals.has(op.operatorID) || viewed.has(op.operatorID) || listed.has(op.operatorID))
+      .map(op => ({
+        operatorID: op.operatorID,
+        label: this.formBindingService.operatorLabel(op),
+        shown: shown.has(op.operatorID),
+      }));
+  }
+
+  /** Re-read the saved form config and rebuild everything derived from it. */
   private readConfig(): void {
     const config = this.formBindingService.getConfig();
     this.parameters = this.formBindingService.resolveFields();
     this.instructionTitle = config.instruction?.title ?? "";
     this.instructionBody = config.instruction?.body ?? "";
     this.refreshShownResults();
-    // A reader always sees the instruction as rendered markdown.
-    void this.renderInstruction();
+    this.rebuildResultChoices();
+    // Readers always see the instruction rendered; an author sees it rendered only while previewing
+    // (otherwise they are editing the raw markdown in the textarea).
+    if (!this.authoring || this.instructionMode === "preview") {
+      void this.renderInstruction();
+    }
     this.buildForm();
   }
 
   /**
    * Decide which operators' result cards to show. The engine materializes a result for every terminal
    * operator (no enabled downstream) as well as every view-result operator, so a terminal's result is
-   * always available; the form shows terminals by default and layers the author's chosen view-result
-   * steps on top. This is a pure display filter that reads the graph and never writes it, so a normal
-   * canvas user's result-viewing is unaffected. A step that is neither viewed nor terminal (or was
-   * deleted) drops out rather than rendering a stale card.
+   * always available. The author's default is the saved list (shownResultIds: exactly those steps, an
+   * empty list meaning none) or, until the author has chosen, every terminal step. A viewer who has
+   * toggled the picker on this page sees their own set instead (viewerResultIds), which is never
+   * written anywhere. Either way this is a pure display filter that reads the graph and never writes
+   * it, so a normal canvas user's result-viewing is unaffected. A step that is neither viewed nor
+   * terminal (or was deleted) drops out rather than rendering a stale card.
    */
   private refreshShownResults(): void {
     const graph = this.workflowActionService.getTexeraGraph();
     const viewed = graph.getOperatorsToViewResult();
     // A result exists for an operator that is view-result (the eye) or terminal (no enabled
     // downstream); the engine materializes both (WorkflowCompiler stores terminal operators plus
-    // opsToViewResult). A view-result id is always a live operator; a terminal id comes from
-    // terminalOperatorIds (live, enabled operators only), so both branches reference real steps.
+    // opsToViewResult) -- but only for enabled operators, since a disabled one is left out of the
+    // compiled plan. A terminal id comes from terminalOperatorIds (enabled operators only) already; a
+    // view-result id keeps its eye while disabled, so it is checked against the enabled set here.
     const terminals = new Set(this.terminalOperatorIds());
-    const availableOnCanvas = (id: string): boolean => viewed.has(id) || terminals.has(id);
-    const chosen = this.formBindingService.getConfig().resultOperatorIds;
-    // The terminal (final) operator's result always shows -- the engine always materializes it, so it
-    // cannot be turned off. resultOperatorIds adds extra intermediate (view-result) steps on top. The
+    const disabled = new Set(
+      graph
+        .getAllOperators()
+        .filter(op => op.isDisabled ?? false)
+        .map(op => op.operatorID)
+    );
+    const availableOnCanvas = (id: string): boolean => (viewed.has(id) && !disabled.has(id)) || terminals.has(id);
+    // The author's default: the saved list when there is one, otherwise the final steps. The
     // downstream hasNonEmptyResult filter drops steps that produced no data.
-    this.shownResultIds = [...new Set([...terminals, ...chosen])].filter(availableOnCanvas);
+    const authorsDefault = this.formBindingService.getConfig().shownResultIds ?? [...terminals];
+    const wanted = this.viewerResultIds ? [...this.viewerResultIds] : authorsDefault;
+    this.shownResultIds = [...new Set(wanted)].filter(availableOnCanvas);
   }
 
   /** The workflow's terminal operators: enabled operators with no enabled downstream link. Matches the
@@ -822,7 +995,7 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   /**
    * The inputs a reader is offered. Broken bindings (the operator was deleted, or the property key
    * no longer exists) are left out, since filling one in could not affect a run; the author's view
-   * of them, to repair them, is added by the authoring PR.
+   * of them, to remove them, comes with the input-authoring PR.
    */
   public get visibleFields(): ResolvedField[] {
     return this.parameters.filter(field => !field.brokenReason);
@@ -830,6 +1003,12 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
 
   public trackByRendered(_: number, rendered: RenderedField): string {
     return rendered.resolved.binding.id;
+  }
+
+  /** A pill per step: a toggle rebuilds the choices as new objects, and the pressed pill must stay the
+   *  same element or the keyboard focus on it is lost. */
+  public trackByChoice(_: number, choice: ResultChoice): string {
+    return choice.operatorID;
   }
 
   // ---------------------------------------------------------------------------
@@ -981,6 +1160,85 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
 
   public toggleInstruction(): void {
     this.instructionOpen = !this.instructionOpen;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Author mode: editing the form in place (write access only). Graph edits go through the same
+  // shared graph the operator canvas edits; form-binding edits go through the form-binding config
+  // (local until #8351 shares it). Each edit then re-reads the config.
+  // ---------------------------------------------------------------------------
+
+  public toggleAuthoring(): void {
+    // Entering edit mode needs write access. The Edit button is only rendered for a writer, but the
+    // guard belongs here, at the method, so no other caller can put a reader into a mode whose every
+    // action writes the shared config. Leaving edit mode is always allowed.
+    if (!this.authoring && !this.canEdit) {
+      return;
+    }
+    if (this.authoring) {
+      // Leaving: dismiss the step panel BEFORE the frame stops being an editor. The property editor
+      // clears the "currently editing" marker it published only while it acts as one (the same gate as
+      // the publish), and a remount as a viewer clears nothing -- co-editors would keep seeing this
+      // session as editing the step after Done.
+      this.closeOperatorPanel();
+    }
+    this.authoring = !this.authoring;
+    if (this.authoring) {
+      // An author picks fields off the workflow, so show it.
+      this.showWorkflow();
+      // In edit mode the picker sets the default for everyone, so the author's own view of the
+      // results (if they toggled any as a viewer) gives way to that default.
+      this.viewerResultIds = undefined;
+    } else {
+      this.workflowOpen = false;
+    }
+    // Edit mode is what makes operator properties (and the embedded canvas) editable here.
+    this.applyEditability();
+    this.readConfig();
+  }
+
+  public onInstructionChange(): void {
+    this.formBindingService.updateConfig({
+      instruction: { title: this.instructionTitle, body: this.instructionBody },
+    });
+  }
+
+  public setInstructionMode(mode: "write" | "preview"): void {
+    this.instructionMode = mode;
+    if (mode === "preview") {
+      void this.renderInstruction();
+    }
+  }
+
+  /**
+   * A pill in the picker. In edit mode this sets the default everyone sees: the step joins or leaves
+   * the saved list (which the first choice starts from the final steps, the default until then), and
+   * the config is re-read. Anyone else, a writer merely viewing included, only changes their own view
+   * of this page: nothing is written, so a reader without write access can choose too.
+   */
+  public onToggleResult(choice: ResultChoice): void {
+    if (this.authoring && this.canEdit) {
+      this.formBindingService.toggleShownResult(choice.operatorID, this.terminalOperatorIds());
+      this.readConfig();
+      return;
+    }
+    const next = new Set(this.shownResultIds);
+    if (next.has(choice.operatorID)) {
+      next.delete(choice.operatorID);
+    } else {
+      next.add(choice.operatorID);
+    }
+    this.viewerResultIds = next;
+    this.refreshShownResults();
+    this.rebuildResultChoices();
+    this.cdr.markForCheck();
+  }
+
+  private showWorkflow(): void {
+    if (!this.workflowOpen) {
+      this.workflowOpen = true;
+      this.openWorkflowStrip();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1278,21 +1536,85 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
    * of yourself, broken runs. A fresh document is the reliable handover.
    */
   public openRegularCanvas(): void {
-    this.save();
-    /* v8 ignore start -- full-document navigation; jsdom cannot navigate */
-    window.location.href = `${USER_WORKSPACE}/${this.wid}`;
-    /* v8 ignore stop */
+    // Save first and hand over only once the save has completed: the full-page load unloads this
+    // document, and a request still in flight at that moment is aborted, so navigating right after
+    // firing the save could lose the very edit the switch is meant to carry across. A save that
+    // fails keeps the author here with the error shown, rather than leaving with changes that were
+    // never stored. A reader, who has nothing to save, goes straight over.
+    this.save(() => this.openCanvasPage());
   }
+
+  /**
+   * The full-page handover to the operator canvas, apart from the save so the order is testable.
+   * Excluded from coverage as a whole: jsdom cannot navigate, so the specs stub this method and
+   * assert when it is called rather than what it does.
+   */
+  /* v8 ignore start */
+  private openCanvasPage(): void {
+    window.location.href = `${USER_WORKSPACE}/${this.wid}`;
+  }
+  /* v8 ignore stop */
 
   /**
    * Save the same way the operator canvas does. Both views edit one workflow, so the
    * form has to write through the same debounced persist -- otherwise an author's
    * setup, or a value someone filled in, would be gone on the next visit.
+   *
+   * Saves go out one at a time, in order (persistQueue). Two persists in flight at once can reach
+   * the backend out of order, and then the older content wins; with the queue, the save behind the
+   * Canvas switch is sent only after an autosave already on its way has completed, and the last
+   * one enqueued carries the latest content. The drain is deliberately NOT tied to this component's
+   * lifetime: the final save on the way out (ngOnDestroy) has to line up behind an autosave still in
+   * flight too, or the older snapshot could commit after it. ngOnDestroy completes the queue, so the
+   * drain ends by itself once the last save has gone out; every request is a one-shot HTTP call.
    */
   private registerAutoPersist(): void {
+    this.persistQueue
+      .pipe(
+        concatMap(workflow =>
+          this.persistNow(workflow).pipe(
+            // A failed save has reported itself; it must not let anyone navigate away from changes
+            // that were never stored, so whatever was waiting for the drain is dropped.
+            tap({ error: () => (this.afterDrain = []) }),
+            // A failed save must not take the queue down with it: the next one still goes out.
+            catchError(() => EMPTY),
+            // Complete or failed, this save is done. Once nothing is left in the queue, run what was
+            // waiting for the drain: by then every save asked for so far, this one and any enqueued
+            // behind it while it was in flight, has gone out and come back.
+            finalize(() => {
+              this.queuedSaves--;
+              if (this.queuedSaves === 0) {
+                // Hand-over is waiting, but an edit arrived after the last snapshot and its debounced
+                // autosave has not fired yet: the full-page load would kill that edit. Flush it into
+                // the queue first; this drain check runs again once the flush has gone out. (When the
+                // flush cannot be enqueued -- save()'s own guards -- fall through as save() itself
+                // would: there is nothing left this page can store.)
+                if (this.afterDrain.length > 0 && this.dirtySinceLastEnqueue) {
+                  this.save();
+                }
+                if (this.queuedSaves > 0) {
+                  return;
+                }
+                const waiting = this.afterDrain;
+                this.afterDrain = [];
+                waiting.forEach(run => run());
+              }
+            })
+          )
+        )
+      )
+      // Deliberately no untilDestroyed: the drain must outlive the component (see above) and ends
+      // when ngOnDestroy completes the queue.
+      // eslint-disable-next-line rxjs-angular/prefer-takeuntil
+      .subscribe();
     this.workflowActionService
       .workflowChanged()
-      .pipe(debounceTime(SAVE_DEBOUNCE_TIME_IN_MS), untilDestroyed(this))
+      .pipe(
+        // Mark the edit before the debounce, so the drain can tell an edit is still waiting in it.
+        tap(() => (this.dirtySinceLastEnqueue = true)),
+        debounceTime(SAVE_DEBOUNCE_TIME_IN_MS),
+        untilDestroyed(this)
+      )
       .subscribe(() => this.save());
   }
 
@@ -1301,40 +1623,67 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
    * workflow when the payload has no id, so saving whatever the graph holds would spawn
    * stray "Untitled workflow" rows when the page is left before its workflow loaded.
    */
-  private save(): void {
+  private save(afterwards?: () => void): void {
     // A read-only viewer can open and run the form (execution is gated on computing-unit access,
     // not workflow access) but must never persist: every such save is a guaranteed 403 that would
     // spam "Could not save" on each debounce. Their inputs are non-editable, so nothing is lost.
+    // `afterwards` runs once every queued save has completed -- this one and any asked for while it
+    // was in flight -- or at once when there is nothing to save; it does not run when a save fails,
+    // so a caller that navigates on it stays put instead.
     if (!this.canEdit) {
+      afterwards?.();
       return;
     }
     if (!this.userService.isLogin() || !this.workflowPersistService.isWorkflowPersistEnabled()) {
+      afterwards?.();
       return;
     }
     const workflow = this.workflowActionService.getWorkflow();
     if (workflow.wid === undefined || workflow.wid !== this.wid) {
+      afterwards?.();
       return;
     }
+    // Snapshot now, not when the request's turn comes: on the way out ngOnDestroy clears the graph
+    // right after asking for this save, and the queue may only reach it after that.
     const preserved: Workflow = {
       ...workflow,
       content: { ...workflow.content, operatorPositions: this.positionsToSave(workflow.content) },
     };
-    // On the way out the subscription must NOT be tied to this component: ngOnDestroy
-    // calls save(), and untilDestroyed would tear the subscription down as part of the
-    // very same destroy sequence, aborting the request that was the point of the call.
-    const persist = this.workflowPersistService.persistWorkflow(preserved);
-    // The `destroyed` branch deliberately omits untilDestroyed (see above); the persist call
-    // is a one-shot HTTP request that completes on its own, so it needs no teardown operator.
-    // eslint-disable-next-line rxjs-angular/prefer-takeuntil
-    (this.destroyed ? persist : persist.pipe(untilDestroyed(this))).subscribe({
-      // Feed the saved workflow back, exactly as the operator canvas does: this advances
-      // lastModifiedTime (and the normalised name), and the metadata subscription then repaints
-      // the title bar -- so "Saved at ..." moves past the moment the page opened.
-      next: updatedWorkflow => this.workflowActionService.setWorkflowMetadata(updatedWorkflow),
-      // A save that fails silently is the worst thing this page can do: the author walks
-      // away believing the form they just built is stored.
-      error: () => this.notificationService.error("Could not save. Your latest changes are not stored yet."),
-    });
+    if (afterwards) {
+      this.afterDrain.push(afterwards);
+    }
+    // The snapshot above carries everything reported up to now, the debounce included.
+    this.dirtySinceLastEnqueue = false;
+    this.queuedSaves++;
+    this.persistQueue.next(preserved);
+  }
+
+  /** One persist of the given snapshot, reporting its outcome; the queue orders them. */
+  private persistNow(preserved: Workflow): Observable<Workflow> {
+    return this.workflowPersistService.persistWorkflow(preserved).pipe(
+      tap({
+        // Feed the saved workflow back, exactly as the operator canvas does: this advances
+        // lastModifiedTime (and the normalised name), and the metadata subscription then repaints
+        // the title bar -- so "Saved at ..." moves past the moment the page opened.
+        next: updatedWorkflow => {
+          // The page may be gone by the time a queued save returns (the drain outlives it): the graph
+          // has been cleared, so there is nothing to repaint and the singleton must not be refilled.
+          if (this.destroyed) {
+            return;
+          }
+          // The response reflects the snapshot that was sent. A rename made since must not be undone
+          // by it (its own save is already queued behind this one); what this feedback is for is the
+          // server-owned part, the timestamp above all, and the normalised name when nothing changed.
+          const current = this.workflowActionService.getWorkflowMetadata();
+          this.workflowActionService.setWorkflowMetadata(
+            current.name !== preserved.name ? { ...updatedWorkflow, name: current.name } : updatedWorkflow
+          );
+        },
+        // A save that fails silently is the worst thing this page can do: the author walks
+        // away believing the form they just built is stored.
+        error: () => this.notificationService.error("Could not save. Your latest changes are not stored yet."),
+      })
+    );
   }
 
   /**
@@ -1379,7 +1728,10 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
   @HostListener("window:beforeunload")
   ngOnDestroy(): void {
     this.destroyed = true;
+    // The final save joins the queue behind anything still in flight, then the queue is closed: the
+    // drain (not tied to this component) sends what is left in order and ends by itself.
     this.save();
+    this.persistQueue.complete();
     this.workflowActionService.clearWorkflow();
     this.computingUnitStatusService.disconnect();
     this.executeWorkflowService.resetExecutionAndWorkers();

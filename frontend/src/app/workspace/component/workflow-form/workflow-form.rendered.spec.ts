@@ -18,7 +18,6 @@
  */
 
 import { DatePipe } from "@angular/common";
-import { Component, Input } from "@angular/core";
 import { FormGroup } from "@angular/forms";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { By } from "@angular/platform-browser";
@@ -78,20 +77,6 @@ import { GuiConfigService } from "../../../common/service/gui-config.service";
  * name/avatar row, the Canvas switch actually firing, the loading/body swap, and the co-editor
  * row -- which is the review's evidence of the rendered page in place of a screenshot.
  */
-// A stand-in for the always-mounted property panel. The real one is heavy -- its ngOnInit
-// subscribes to the full JointJS highlight-stream set and the panel service -- and it has its
-// own spec. This page only needs the panel present (it lives behind [hidden], not *ngIf, so it
-// is mounted from the start to catch the highlight that opens it), so swap in a stub carrying the
-// inputs the template binds and nothing else -- which also lets a test read back the three that make
-// the mount a viewer rather than an editor. The swap is on a child of the page, so the page's own
-// template still renders as shipped and stays covered.
-@Component({ selector: "texera-property-editor", template: "", standalone: true })
-class MockPropertyEditorComponent {
-  @Input() exposeChoosing = false;
-  @Input() persistPlacement = true;
-  @Input() actsAsEditor = true;
-}
-
 describe("WorkflowFormComponent (rendered template)", () => {
   let fixture: ComponentFixture<WorkflowFormComponent>;
   let workflow$: Subject<any>;
@@ -124,15 +109,18 @@ describe("WorkflowFormComponent (rendered template)", () => {
     // results markup -- the section, the card, the head, the zoom controls -- rendered and covered.
     TestBed.overrideComponent(ResultTableFrameComponent, { set: { template: "" } });
     TestBed.overrideComponent(VisualizationFrameContentComponent, { set: { template: "" } });
+    // Blank the always-mounted property panel the same way, and switch off its lifecycle hooks: its
+    // ngOnInit subscribes to the highlight streams and the panel service, its ngOnChanges remounts
+    // the frame, and it has its own spec for all of that. This page only needs the panel present
+    // (it lives behind [hidden], not *ngIf) with the three inputs the template binds readable. The
+    // real class stays in the page's imports on purpose: swapping it for a stub means overriding the
+    // page's imports, which JIT-recompiles the page and drops every line of its template from the
+    // coverage report (the .component.html then reads 0%, as it did while a stub was used here).
+    TestBed.overrideComponent(PropertyEditorComponent, { set: { template: "" } });
     /* eslint-enable no-restricted-syntax */
-    // Swap the real property panel (a heavy child with its own spec) for the stub above. Done by
-    // replacing it in the page's imports rather than blanking its template, because the panel's
-    // trouble is its ngOnInit -- the highlight-stream and panel-service subscriptions -- which a
-    // blanked template still runs; a stub component has neither.
-    TestBed.overrideComponent(WorkflowFormComponent, {
-      remove: { imports: [PropertyEditorComponent] },
-      add: { imports: [MockPropertyEditorComponent] },
-    });
+    for (const hook of ["ngOnInit", "ngOnChanges", "ngOnDestroy"] as const) {
+      vi.spyOn(PropertyEditorComponent.prototype, hook).mockImplementation(() => {});
+    }
 
     await TestBed.configureTestingModule({
       // forRoot registers the FormlyConfig the form builder needs: the page imports FormlyModule
@@ -154,6 +142,7 @@ describe("WorkflowFormComponent (rendered template)", () => {
             setNewSharedModel: vi.fn(),
             reloadWorkflow: vi.fn(),
             disableWorkflowModification: vi.fn(),
+            getWorkflowModificationEnabledStream: () => EMPTY,
             clearWorkflow: vi.fn(),
             getWorkflowMetadata: () => ({ name: "scGPT", lastModifiedTime: undefined }),
             getWorkflow: () => ({ wid: 7, content: { operators: [], operatorPositions: {} } }),
@@ -171,6 +160,12 @@ describe("WorkflowFormComponent (rendered template)", () => {
               getAllEnabledLinks: () => [],
               getOperatorsToViewResult: () => new Set<string>(),
               getViewResultOperatorsChangedStream: () => EMPTY,
+              getOperatorAddStream: () => EMPTY,
+              getOperatorDeleteStream: () => EMPTY,
+              getLinkAddStream: () => EMPTY,
+              getLinkDeleteStream: () => EMPTY,
+              getDisabledOperatorsChangedStream: () => EMPTY,
+              getOperatorDisplayNameChangedStream: () => EMPTY,
               updateSharedModelAwareness: vi.fn(),
             }),
             getJointGraphWrapper: () => ({
@@ -197,11 +192,13 @@ describe("WorkflowFormComponent (rendered template)", () => {
             getConfig: () => ({
               instruction: { title: "How to use this", body: "Fill in the inputs." },
               fields: [],
-              resultOperatorIds: [],
             }),
             resolveFields: () => [],
             readValue: () => undefined,
             writeValue: vi.fn(),
+            // Author-mode writes the rendered controls reach.
+            updateConfig: vi.fn(),
+            toggleShownResult: vi.fn(),
           },
         },
         { provide: FormlyJsonschema, useValue: { toFieldConfig: () => ({ fieldGroup: [] }) } },
@@ -288,6 +285,7 @@ describe("WorkflowFormComponent (rendered template)", () => {
   };
 
   beforeEach(configure);
+  afterEach(() => vi.restoreAllMocks());
 
   it("renders the workflow's avatar and name in the title row", async () => {
     fixture.detectChanges(); // ngOnInit -> load()
@@ -405,8 +403,159 @@ describe("WorkflowFormComponent (rendered template)", () => {
     expect(el(".instr .instr-bar h2")?.textContent?.trim()).toBe("How to use this");
     expect(el(".instr .md")?.innerHTML).toContain("Fill in the inputs.");
 
-    (el(".instr-bar") as HTMLButtonElement).click();
+    // Reading, the whole header row is one toggle button, wired to the body it opens.
+    const toggle = el(".instr-toggle") as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-controls")).toBe("instr-body");
+    expect(el("#instr-body")).not.toBeNull();
+    toggle.click();
     expect(fixture.componentInstance.instructionOpen).toBe(false);
+    fixture.detectChanges();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("keeps the author's title input outside the toggle button", async () => {
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    c.canEdit = true;
+    c.authoring = true;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // An input nested in a button is invalid interactive content; the author's header is a row with
+    // the input as a sibling of a chevron button that does the toggling.
+    const input = el(".instr-title-input") as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.closest("button")).toBeNull();
+    const chevron = el(".instr-chev") as HTMLButtonElement;
+    expect(chevron.getAttribute("aria-controls")).toBe("instr-body");
+    expect(chevron.getAttribute("aria-expanded")).toBe("true");
+    chevron.click();
+    expect(c.instructionOpen).toBe(false);
+  });
+
+  it("offers Edit to a writer only, and flips it to Done with the lede while authoring", () => {
+    fixture.detectChanges();
+    // A reader (read-only workflow) has no Edit control at all, not a disabled one.
+    finishLoad({ name: "scGPT", content: {}, readonly: true });
+    const c = fixture.componentInstance;
+    expect(c.canEdit).toBe(false);
+    expect(el(".author-toggle")).toBeNull();
+
+    c.canEdit = true;
+    fixture.detectChanges();
+    // Stubbed: the real toggle opens the workflow strip, whose JointJS paper needs layout jsdom
+    // lacks. The wiring from the button is what this test is about.
+    const toggle = vi.spyOn(c, "toggleAuthoring").mockImplementation(() => {});
+    const button = el(".author-toggle") as HTMLButtonElement;
+    expect(button.textContent?.trim()).toBe("Edit");
+    expect(el(".lede")).toBeNull();
+    button.click();
+    expect(toggle).toHaveBeenCalledTimes(1);
+
+    c.authoring = true;
+    fixture.detectChanges();
+    expect((el(".author-toggle") as HTMLButtonElement).textContent?.trim()).toBe("Done");
+    expect(el(".lede")).not.toBeNull();
+  });
+
+  it("edits the instruction in place while authoring: Write / Preview tabs, heading and body", async () => {
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    c.canEdit = true;
+    c.authoring = true;
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const changed = vi.spyOn(c, "onInstructionChange");
+    const mode = vi.spyOn(c, "setInstructionMode");
+
+    // Write is the default: the markdown box is up and the rendered preview is not.
+    expect(el("textarea.md-input")).not.toBeNull();
+    expect(el("#instr-body .md")).toBeNull();
+    const tabs = Array.from(fixture.nativeElement.querySelectorAll(".tabs button")) as HTMLButtonElement[];
+    expect(tabs.map(t => t.textContent?.trim())).toEqual(["Write", "Preview"]);
+    expect(tabs[0].getAttribute("aria-current")).toBe("true");
+
+    // Typing into the heading or the body saves through onInstructionChange. Both carry a name of
+    // their own: a placeholder is gone as soon as there is text, so it is not one.
+    const title = el(".instr-title-input") as HTMLInputElement;
+    expect(title.getAttribute("aria-label")).toBe("Instruction heading");
+    title.value = "Start here";
+    title.dispatchEvent(new Event("input"));
+    expect(c.instructionTitle).toBe("Start here");
+    const body = el("textarea.md-input") as HTMLTextAreaElement;
+    expect(body.getAttribute("aria-label")).toBe("Instruction body");
+    body.value = "Pick a file.";
+    body.dispatchEvent(new Event("input"));
+    expect(c.instructionBody).toBe("Pick a file.");
+    expect(changed).toHaveBeenCalledTimes(2);
+
+    // Preview swaps the box for the rendered markdown; Write brings it back.
+    tabs[1].click();
+    expect(mode).toHaveBeenCalledWith("preview");
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el("textarea.md-input")).toBeNull();
+    expect(el("#instr-body .md")).not.toBeNull();
+    expect(tabs[1].getAttribute("aria-current")).toBe("true");
+    tabs[0].click();
+    expect(mode).toHaveBeenCalledWith("write");
+    fixture.detectChanges();
+    expect(el("textarea.md-input")).not.toBeNull();
+  });
+
+  it("shows the result picker to everyone with something to choose, and to an author always", () => {
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    // A reader with nothing to choose from gets no section.
+    expect(el(".respick")).toBeNull();
+
+    // A reader with candidates gets the picker, worded as their own view.
+    c.resultChoices = [{ operatorID: "last", label: "Limit", shown: true }];
+    fixture.detectChanges();
+    expect(el(".respick")).not.toBeNull();
+    expect(el(".respick p")?.textContent).toContain("only your view");
+    expect(el(".respick .pill")?.textContent?.trim()).toBe("Limit");
+
+    // An author always gets it, with the hint on how to add steps, worded as the default for all.
+    c.authoring = true;
+    c.resultChoices = [];
+    fixture.detectChanges();
+    expect(el(".respick")).not.toBeNull();
+    expect(el(".respick p")?.textContent).toContain("What everyone sees");
+    expect(el(".respick .hint")?.textContent).toContain("No steps to choose from yet");
+
+    c.resultChoices = [
+      { operatorID: "mid", label: "Filter", shown: false },
+      { operatorID: "viz", label: "Chart", shown: true },
+    ];
+    fixture.detectChanges();
+    const toggle = vi.spyOn(c, "onToggleResult").mockImplementation(() => {});
+    const pills = Array.from(fixture.nativeElement.querySelectorAll(".respick .pill")) as HTMLButtonElement[];
+    expect(pills.map(p => p.textContent?.trim())).toEqual(["Filter", "Chart"]);
+    // The pressed state is exposed to assistive tech as well as styled.
+    expect(pills.map(p => p.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
+    expect(pills[1].classList.contains("on")).toBe(true);
+    expect(el(".respick .hint")).toBeNull();
+    pills[0].click();
+    expect(toggle).toHaveBeenCalledWith(c.resultChoices[0]);
+
+    // A toggle re-reads the config and rebuilds the choices as new objects. The pill just pressed
+    // must be the same element afterwards (tracked by step), or the keyboard focus on it is lost.
+    pills[0].focus();
+    c.resultChoices = [
+      { operatorID: "mid", label: "Filter", shown: true },
+      { operatorID: "viz", label: "Chart", shown: true },
+    ];
+    fixture.detectChanges();
+    const after = Array.from(fixture.nativeElement.querySelectorAll(".respick .pill")) as HTMLButtonElement[];
+    expect(after[0]).toBe(pills[0]);
+    expect(document.activeElement).toBe(pills[0]);
+    expect(after[0].getAttribute("aria-pressed")).toBe("true");
   });
 
   it("renders the run bar with the run button and the computing-unit selector", () => {
@@ -501,8 +650,8 @@ describe("WorkflowFormComponent (rendered template)", () => {
     fixture.componentInstance.selectedOperatorId = "op-1";
     fixture.detectChanges();
 
-    const panel = fixture.debugElement.query(By.directive(MockPropertyEditorComponent))
-      .componentInstance as MockPropertyEditorComponent;
+    const panel = fixture.debugElement.query(By.directive(PropertyEditorComponent))
+      .componentInstance as PropertyEditorComponent;
     // The three bindings that make this an inspect rather than an editor: no writes to the shared
     // workflow, no tick boxes for choosing what to expose, and no claim on the canvas panel's
     // saved geometry.
@@ -516,6 +665,55 @@ describe("WorkflowFormComponent (rendered template)", () => {
     // The panel itself takes the focus instead, so a keyboard reader can still scroll a long panel.
     expect(el(".panel")!.getAttribute("tabindex")).toBe("0");
     expect(el(".panel")!.getAttribute("aria-label")).toBe("Step settings, read-only");
+  });
+
+  it("turns that same panel live in edit mode: writes on, tick boxes on, inert off", () => {
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    c.selectedOperatorId = "op-1";
+    c.authoring = true;
+    fixture.detectChanges();
+
+    const panel = fixture.debugElement.query(By.directive(PropertyEditorComponent))
+      .componentInstance as PropertyEditorComponent;
+    // Authoring is a real edit of the shared graph, the same edit the canvas makes, so the panel
+    // acts as an editor; and its tick boxes are how the author picks what the form exposes.
+    expect(panel.actsAsEditor).toBe(true);
+    expect(panel.exposeChoosing).toBe(true);
+    // Still not the docked canvas panel, so it still makes no claim on that panel's geometry.
+    expect(panel.persistPlacement).toBe(false);
+    expect(el("texera-property-editor")!.hasAttribute("inert")).toBe(false);
+    // The container's tab stop existed only because inert content cannot hold focus. With the form
+    // focusable again it would just sit in front of it, so it goes away with inert.
+    expect(el(".panel")!.hasAttribute("tabindex")).toBe(false);
+    expect(el(".panel")!.getAttribute("aria-label")).toBe("Step settings");
+  });
+
+  it("keeps that panel read-only while a run is in flight, even in edit mode, and turns it live after", () => {
+    // The frame does not consult the lock before its own writes (version sync on mount, the schema
+    // defaults ajv fills in, the editing marker), so a step selected mid-run must mount as a viewer
+    // although edit mode is on; the run ending is what makes it live.
+    fixture.detectChanges();
+    finishLoad();
+    const c = fixture.componentInstance;
+    c.selectedOperatorId = "op-1";
+    c.authoring = true;
+    c.executionState = ExecutionState.Running;
+    fixture.detectChanges();
+
+    const panel = fixture.debugElement.query(By.directive(PropertyEditorComponent))
+      .componentInstance as PropertyEditorComponent;
+    expect(panel.actsAsEditor).toBe(false);
+    expect(panel.exposeChoosing).toBe(false);
+    expect(el("texera-property-editor")!.hasAttribute("inert")).toBe(true);
+    expect(el(".panel")!.getAttribute("aria-label")).toBe("Step settings, read-only");
+
+    c.executionState = ExecutionState.Completed;
+    fixture.detectChanges();
+    expect(panel.actsAsEditor).toBe(true);
+    expect(panel.exposeChoosing).toBe(true);
+    expect(el("texera-property-editor")!.hasAttribute("inert")).toBe(false);
   });
 
   it("tears the workflow down when the browser unloads (the beforeunload host binding)", () => {
