@@ -512,6 +512,28 @@ describe("WorkflowFormComponent", () => {
       vi.useRealTimers();
     });
 
+    it("flushes an edit still waiting in the autosave debounce before handing over", () => {
+      // An edit made after the switch click enters the debounce, not the queue: when the switch's
+      // save completes the queue is empty, and navigating then would kill the debounce with the
+      // full-page load and lose the edit. The drain flushes it as one more save first.
+      vi.useFakeTimers();
+      enableSave();
+      build(formViewWorkflow).ngOnInit();
+      workflowPersistService.persistWorkflow.mockClear();
+      const switchSave$ = new Subject<Workflow>();
+      workflowPersistService.persistWorkflow.mockReturnValueOnce(switchSave$).mockReturnValue(of(formViewWorkflow));
+      const navigate = vi.spyOn(component as any, "openCanvasPage").mockImplementation(() => {});
+
+      component.openRegularCanvas();
+      h.workflowChangedStream.next(undefined); // an edit after the click; its debounce has NOT elapsed
+      switchSave$.complete(); // the queue drains while that edit still sits in the debounce
+
+      // The flush went out at once (no 5-second wait), and only its completion handed over.
+      expect(workflowPersistService.persistWorkflow).toHaveBeenCalledTimes(2);
+      expect(navigate).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
+    });
+
     it("stays on the form when a save queued behind the switch's fails", () => {
       vi.useFakeTimers();
       enableSave();

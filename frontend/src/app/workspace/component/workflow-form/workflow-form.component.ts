@@ -236,6 +236,12 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
    *  to that point, and any enqueued while waiting, has to have completed first. A failed save drops
    *  them, so nobody navigates away from changes that were never stored. */
   private afterDrain: Array<() => void> = [];
+  /** An edit has happened since the last snapshot was enqueued. The autosave behind workflowChanged
+   *  is debounced, so at the moment the queue drains such an edit may not be queued yet -- and the
+   *  hand-over waiting on the drain would lose it to the full-page load. Set the moment an edit is
+   *  reported (before the debounce), cleared when a snapshot is enqueued (it carries everything up
+   *  to then), and checked by the drain, which flushes one more save instead of handing over. */
+  private dirtySinceLastEnqueue = false;
   /** A rebuild of the inputs that arrived while the reader was typing, held until the typing ends. */
   private rebuildDeferred = false;
 
@@ -1578,6 +1584,17 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
             finalize(() => {
               this.queuedSaves--;
               if (this.queuedSaves === 0) {
+                // Hand-over is waiting, but an edit arrived after the last snapshot and its debounced
+                // autosave has not fired yet: the full-page load would kill that edit. Flush it into
+                // the queue first; this drain check runs again once the flush has gone out. (When the
+                // flush cannot be enqueued -- save()'s own guards -- fall through as save() itself
+                // would: there is nothing left this page can store.)
+                if (this.afterDrain.length > 0 && this.dirtySinceLastEnqueue) {
+                  this.save();
+                }
+                if (this.queuedSaves > 0) {
+                  return;
+                }
                 const waiting = this.afterDrain;
                 this.afterDrain = [];
                 waiting.forEach(run => run());
@@ -1592,7 +1609,12 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
       .subscribe();
     this.workflowActionService
       .workflowChanged()
-      .pipe(debounceTime(SAVE_DEBOUNCE_TIME_IN_MS), untilDestroyed(this))
+      .pipe(
+        // Mark the edit before the debounce, so the drain can tell an edit is still waiting in it.
+        tap(() => (this.dirtySinceLastEnqueue = true)),
+        debounceTime(SAVE_DEBOUNCE_TIME_IN_MS),
+        untilDestroyed(this)
+      )
       .subscribe(() => this.save());
   }
 
@@ -1630,6 +1652,8 @@ export class WorkflowFormComponent implements OnInit, OnDestroy {
     if (afterwards) {
       this.afterDrain.push(afterwards);
     }
+    // The snapshot above carries everything reported up to now, the debounce included.
+    this.dirtySinceLastEnqueue = false;
     this.queuedSaves++;
     this.persistQueue.next(preserved);
   }
