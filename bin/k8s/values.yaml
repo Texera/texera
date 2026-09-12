@@ -341,6 +341,16 @@ litellm:
           model: gpt-5-mini
           api_key: "os.environ/OPENAI_API_KEY"
 
+# Images an administrator registers, which a computing unit can then be started from.
+curatedImages:
+  # Off until the UI to manage these ships.
+  enabled: false
+  prepull:
+    # Pull every ready image onto every node, so the first unit there does not wait for it.
+    # Costs node disk: each node holds each ready image. Turning it off also removes the
+    # pre-pulls already made.
+    enabled: true
+
 # headless service for the access of computing units
 workflowComputingUnitPool:
   createNamespaces: true
