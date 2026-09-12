@@ -397,6 +397,9 @@ class TestTableOperator:
         list(op.on_finish(port=0))
 
         table = op.received_tables[0]
+        # Still a Table, so an operator reading it with as_tuples() keeps working.
+        assert isinstance(table, Table)
+        assert list(table.as_tuples()) == []
         assert list(table.columns) == ["x", "y"]
         assert table.empty
         # The dtype each column would have had with rows under it.

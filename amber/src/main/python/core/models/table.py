@@ -27,7 +27,7 @@ TableLike = TypeVar("TableLike", pandas.DataFrame, List[TupleLike])
 
 class Table(pandas.DataFrame):
     @staticmethod
-    def empty_of(schema) -> pandas.DataFrame:
+    def empty_of(schema) -> "Table":
         """
         The declared columns with no rows under them.
 
@@ -38,7 +38,9 @@ class Table(pandas.DataFrame):
         table. Building it through Arrow gives each column the dtype it would
         have had with rows in it.
         """
-        return pa.Table.from_pylist([], schema=schema.as_arrow_schema()).to_pandas()
+        return Table(
+            pa.Table.from_pylist([], schema=schema.as_arrow_schema()).to_pandas()
+        )
 
     @staticmethod
     def from_table(table):
