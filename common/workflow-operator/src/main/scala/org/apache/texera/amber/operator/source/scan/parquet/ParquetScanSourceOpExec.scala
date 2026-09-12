@@ -25,12 +25,13 @@ import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.io.{ColumnIOFactory, LocalInputFile}
 import org.apache.parquet.schema.LogicalTypeAnnotation.{
   DateLogicalTypeAnnotation,
+  DecimalLogicalTypeAnnotation,
   StringLogicalTypeAnnotation,
   TimeUnit,
   TimestampLogicalTypeAnnotation
 }
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
-import org.apache.parquet.schema.MessageType
+import org.apache.parquet.schema.{MessageType, PrimitiveType}
 import org.apache.texera.amber.core.executor.SourceOperatorExecutor
 import org.apache.texera.amber.core.storage.DocumentFactory
 import org.apache.texera.amber.core.tuple.TupleLike
@@ -39,7 +40,7 @@ import org.apache.texera.amber.util.JSONUtils.objectMapper
 import java.net.URI
 import java.sql.Timestamp
 import java.time.{Instant, LocalDate, LocalDateTime, ZoneOffset}
-import java.util.concurrent.TimeUnit.{MICROSECONDS, MILLISECONDS, NANOSECONDS}
+import java.time.temporal.ChronoUnit
 import scala.jdk.CollectionConverters._
 
 class ParquetScanSourceOpExec(descString: String) extends SourceOperatorExecutor {
@@ -83,6 +84,31 @@ class ParquetScanSourceOpExec(descString: String) extends SourceOperatorExecutor
     // Parquet has no "null value": absence is the null.
     if (group.getFieldRepetitionCount(index) == 0) return null
     val primitive = messageType.getType(index).asPrimitiveType()
+    primitive.getLogicalTypeAnnotation match {
+      case annotation: DecimalLogicalTypeAnnotation =>
+        decimalOf(group, index, primitive, annotation)
+      case _ => primitiveOf(group, index, primitive)
+    }
+  }
+
+  /** The number a DECIMAL column stands for: its integer, with the point moved. */
+  private def decimalOf(
+      group: Group,
+      index: Int,
+      primitive: PrimitiveType,
+      annotation: DecimalLogicalTypeAnnotation
+  ): Double = {
+    val unscaled = primitive.getPrimitiveTypeName match {
+      case PrimitiveTypeName.INT32 => BigInt(group.getInteger(index, 0))
+      case PrimitiveTypeName.INT64 => BigInt(group.getLong(index, 0))
+      // The wider ones store the integer as its big-endian two's complement.
+      case _ => BigInt(group.getBinary(index, 0).getBytes)
+    }
+    BigDecimal(unscaled, annotation.getScale).toDouble
+  }
+
+  /** One cell of a column the file states nothing more about than its storage. */
+  private def primitiveOf(group: Group, index: Int, primitive: PrimitiveType): Any = {
     primitive.getPrimitiveTypeName match {
       case PrimitiveTypeName.BOOLEAN => group.getBoolean(index, 0)
       case PrimitiveTypeName.FLOAT   => group.getFloat(index, 0).toDouble
@@ -107,10 +133,7 @@ class ParquetScanSourceOpExec(descString: String) extends SourceOperatorExecutor
             // the exported script, which reads the same file with pandas, would
             // disagree by exactly that offset.
             Timestamp.valueOf(
-              LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(toMillis(raw, annotation.getUnit)),
-                ZoneOffset.UTC
-              )
+              LocalDateTime.ofInstant(instantOf(raw, annotation.getUnit), ZoneOffset.UTC)
             )
           case _ => raw
         }
@@ -124,12 +147,15 @@ class ParquetScanSourceOpExec(descString: String) extends SourceOperatorExecutor
     }
   }
 
-  /** A timestamp in whatever unit the file counts in, as milliseconds. */
-  private def toMillis(value: Long, unit: TimeUnit): Long =
+  /** The moment a timestamp counts to, in whatever unit the file counts in. A
+    * `java.sql.Timestamp` holds nanoseconds, so a file written in micros keeps
+    * the digits under the millisecond that rounding would drop.
+    */
+  private def instantOf(value: Long, unit: TimeUnit): Instant =
     unit match {
-      case TimeUnit.MILLIS => value
-      case TimeUnit.MICROS => MILLISECONDS.convert(value, MICROSECONDS)
-      case TimeUnit.NANOS  => MILLISECONDS.convert(value, NANOSECONDS)
+      case TimeUnit.MILLIS => Instant.EPOCH.plus(value, ChronoUnit.MILLIS)
+      case TimeUnit.MICROS => Instant.EPOCH.plus(value, ChronoUnit.MICROS)
+      case TimeUnit.NANOS  => Instant.EPOCH.plusNanos(value)
     }
 
   override def close(): Unit = reader.foreach(_.close())

@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.{Path => HadoopPath}
 import org.apache.parquet.example.data.Group
 import org.apache.parquet.example.data.simple.SimpleGroupFactory
 import org.apache.parquet.hadoop.example.{ExampleParquetWriter, GroupWriteSupport}
+import org.apache.parquet.io.api.Binary
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
 import org.apache.parquet.schema.{LogicalTypeAnnotation, MessageType, Types}
 import org.apache.texera.amber.core.executor.OpExecWithClassName
@@ -97,6 +98,76 @@ class ParquetScanSourceOpDescSpec extends AnyFlatSpec with Matchers {
     file
   }
 
+  /** A one-row file over a single timestamp column, counted in `unit`. */
+  private def writeTimestampFile(unit: LogicalTypeAnnotation.TimeUnit, count: Long): File = {
+    val file = File.createTempFile("parquet-ts-", ".parquet")
+    file.delete()
+    file.deleteOnExit()
+    val messageType: MessageType = Types
+      .buildMessage()
+      .addField(
+        Types
+          .optional(PrimitiveTypeName.INT64)
+          .as(LogicalTypeAnnotation.timestampType(true, unit))
+          .named("seen_at")
+      )
+      .named("sample")
+
+    val conf = new Configuration()
+    GroupWriteSupport.setSchema(messageType, conf)
+    Using(
+      ExampleParquetWriter
+        .builder(new HadoopPath(file.getAbsolutePath))
+        .withConf(conf)
+        .withType(messageType)
+        .build()
+    )(_.write(new SimpleGroupFactory(messageType).newGroup().append("seen_at", count))).get
+    file
+  }
+
+  /**
+    * A one-row file over the same decimal written in each storage Parquet allows
+    * for one: the integer 1234 with a scale of 2, which is 12.34.
+    */
+  private def writeDecimalFile(): File = {
+    val file = File.createTempFile("parquet-dec-", ".parquet")
+    file.delete()
+    file.deleteOnExit()
+    val decimal = LogicalTypeAnnotation.decimalType(2, 9)
+    val messageType: MessageType = Types
+      .buildMessage()
+      .addFields(
+        Types.optional(PrimitiveTypeName.INT32).as(decimal).named("in_int"),
+        Types.optional(PrimitiveTypeName.INT64).as(decimal).named("in_long"),
+        Types
+          .optional(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY)
+          .length(4)
+          .as(decimal)
+          .named("in_bytes")
+      )
+      .named("sample")
+
+    val conf = new Configuration()
+    GroupWriteSupport.setSchema(messageType, conf)
+    Using(
+      ExampleParquetWriter
+        .builder(new HadoopPath(file.getAbsolutePath))
+        .withConf(conf)
+        .withType(messageType)
+        .build()
+    ) { writer =>
+      writer.write(
+        new SimpleGroupFactory(messageType)
+          .newGroup()
+          .append("in_int", 1234)
+          .append("in_long", 1234L)
+          // The wide storages hold the integer as its big-endian two's complement.
+          .append("in_bytes", Binary.fromConstantByteArray(Array[Byte](0, 0, 4, -46)))
+      )
+    }.get
+    file
+  }
+
   "ParquetScanSourceOpDesc.operatorInfo" should
     "advertise the Parquet file-scan name in the Data Input group with no input and one output" in {
     val info = (new ParquetScanSourceOpDesc).operatorInfo
@@ -126,6 +197,26 @@ class ParquetScanSourceOpDescSpec extends AnyFlatSpec with Matchers {
     schema.getAttribute("score").getType shouldBe AttributeType.DOUBLE
     schema.getAttribute("seen_at").getType shouldBe AttributeType.TIMESTAMP
     schema.getAttribute("active").getType shouldBe AttributeType.BOOLEAN
+  }
+
+  // A DECIMAL is an integer plus a scale. The integer is not the value, and a
+  // column read as one would be off by a factor of ten per decimal place.
+  it should "read a decimal column as the number it stands for" in {
+    val d = new ParquetScanSourceOpDesc
+    d.fileName = Some(writeDecimalFile().toURI.toString)
+    d.inferSchema().getAttributes.map(_.getType) shouldBe
+      List(AttributeType.DOUBLE, AttributeType.DOUBLE, AttributeType.DOUBLE)
+
+    val exec = new ParquetScanSourceOpExec(objectMapper.writeValueAsString(d))
+    exec.open()
+    try {
+      exec
+        .produceTuple()
+        .next()
+        .asInstanceOf[org.apache.texera.amber.core.tuple.SeqTupleLike]
+        .getFields
+        .toList shouldBe List(12.34d, 12.34d, 12.34d)
+    } finally exec.close()
   }
 
   it should "refuse a file that has not been selected" in {
@@ -216,10 +307,47 @@ class ParquetScanSourceOpDescSpec extends AnyFlatSpec with Matchers {
     } finally exec.close()
   }
 
+  // The file says what unit it counts in, and a Texera TIMESTAMP holds
+  // nanoseconds, so the digits under the millisecond are the file's to keep.
+  it should "keep the precision a timestamp was written with" in {
+    val secondsFromEpoch =
+      LocalDateTime.of(2023, 11, 14, 22, 13, 20).toEpochSecond(ZoneOffset.UTC)
+    val cases = Seq(
+      LogicalTypeAnnotation.TimeUnit.MICROS -> (secondsFromEpoch * 1000000L + 123456L),
+      LogicalTypeAnnotation.TimeUnit.NANOS -> (secondsFromEpoch * 1000000000L + 123456789L)
+    )
+    val expected = Seq("2023-11-14 22:13:20.123456", "2023-11-14 22:13:20.123456789")
+
+    cases.zip(expected).foreach {
+      case ((unit, count), wallClock) =>
+        val d = new ParquetScanSourceOpDesc
+        d.fileName = Some(writeTimestampFile(unit, count).toURI.toString)
+        val exec = new ParquetScanSourceOpExec(objectMapper.writeValueAsString(d))
+        exec.open()
+        try {
+          exec
+            .produceTuple()
+            .next()
+            .asInstanceOf[org.apache.texera.amber.core.tuple.SeqTupleLike]
+            .getFields
+            .head shouldBe Timestamp.valueOf(wallClock)
+        } finally exec.close()
+    }
+  }
+
   "ParquetScanSourceOpDesc.generateStandaloneCode" should "read the file by its own name" in {
     val d = new ParquetScanSourceOpDesc
     d.fileName = Some("file:///tmp/some%20dir/data.parquet")
-    d.generateStandaloneCode() shouldBe """out1df = pd.read_parquet("data.parquet")"""
+    d.generateStandaloneCode() should startWith("""out1df = pd.read_parquet("data.parquet")""")
+  }
+
+  // pandas fills a DECIMAL column with decimal.Decimal objects, which do not mix
+  // with the floats the executor reads the same column as.
+  it should "cast the columns pandas reads as decimals" in {
+    val d = new ParquetScanSourceOpDesc
+    d.fileName = Some("file:///tmp/data.parquet")
+    d.standaloneImports() should contain("from decimal import Decimal")
+    d.generateStandaloneCode() should include("_values.astype(float)")
   }
 
   // The executor drops `offset` rows and then takes `limit`, and the script has

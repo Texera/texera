@@ -22,6 +22,7 @@ package org.apache.texera.amber.operator.source.scan.parquet
 import org.apache.parquet.schema.LogicalTypeAnnotation
 import org.apache.parquet.schema.LogicalTypeAnnotation.{
   DateLogicalTypeAnnotation,
+  DecimalLogicalTypeAnnotation,
   StringLogicalTypeAnnotation,
   TimestampLogicalTypeAnnotation
 }
@@ -57,6 +58,13 @@ object ParquetSchemaMapping {
       )
     }
     val primitive = field.asPrimitiveType()
+    // A DECIMAL is an integer that a scale moves the point in, and Texera has no
+    // column that holds one exactly. Read as the number it stands for: the column
+    // it is stored in holds 1234 where the file means 12.34, and a reader that
+    // took the storage for the value would be off by a factor of the scale.
+    if (primitive.getLogicalTypeAnnotation.isInstanceOf[DecimalLogicalTypeAnnotation]) {
+      return AttributeType.DOUBLE
+    }
     primitive.getPrimitiveTypeName match {
       case PrimitiveTypeName.BOOLEAN                          => AttributeType.BOOLEAN
       case PrimitiveTypeName.FLOAT | PrimitiveTypeName.DOUBLE => AttributeType.DOUBLE

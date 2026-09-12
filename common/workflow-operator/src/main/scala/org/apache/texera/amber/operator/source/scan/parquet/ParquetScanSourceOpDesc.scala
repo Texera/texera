@@ -46,12 +46,23 @@ class ParquetScanSourceOpDesc extends ScanSourceOpDesc with StandaloneCodeGenera
 
   fileTypeName = Option("Parquet")
 
+  // A DECIMAL is the one column pandas does not land on the same type as the
+  // executor: it fills that column with decimal.Decimal objects, which a script
+  // cannot then multiply by a float.
+  override def standaloneImports(): Seq[String] = Seq("from decimal import Decimal")
+
   override def generateStandaloneCode(): String = {
     val basename = sourceBasename(fileName.getOrElse(""))
     // No date columns to name, and no dtype map. pandas reads the types out of
     // the same footer the executor does, which is the whole point of the format;
     // the text formats have to be told because they carry nothing to read.
     val read = s"""out1df = pd.read_parquet(${pyStringLiteral(basename)})"""
+    // The exception the footer does not settle: a DECIMAL is read as the float
+    // the operator reads it as, rather than as the objects pandas prefers.
+    val decimals =
+      """|for _column, _values in out1df.items():
+         |    if isinstance(next(iter(_values.dropna()), None), Decimal):
+         |        out1df[_column] = _values.astype(float)""".stripMargin
     // The executor drops `offset` rows and then takes `limit` of them. Parquet
     // can skip whole row groups but not an arbitrary row range, so the same
     // window is taken once the frame is in memory, as the Arrow source does.
@@ -61,7 +72,7 @@ class ParquetScanSourceOpDesc extends ScanSourceOpDesc with StandaloneCodeGenera
       case (None, Some(l))    => Some(s":$l")
       case _                  => None
     }
-    (read +: window.map(w => s"out1df = out1df.iloc[$w].reset_index(drop=True)").toSeq)
+    (Seq(read, decimals) ++ window.map(w => s"out1df = out1df.iloc[$w].reset_index(drop=True)"))
       .mkString("\n")
   }
 
