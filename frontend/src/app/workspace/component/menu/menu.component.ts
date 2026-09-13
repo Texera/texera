@@ -22,7 +22,7 @@ import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from "@ang
 import { Router, RouterLink } from "@angular/router";
 import { UserService } from "../../../common/service/user/user.service";
 import { WorkflowPersistService } from "../../../common/service/workflow-persist/workflow-persist.service";
-import { Workflow, WorkflowContent } from "../../../common/type/workflow";
+import { exportedWorkflow, Workflow, WorkflowContent } from "../../../common/type/workflow";
 import { ExecuteWorkflowService } from "../../service/execute-workflow/execute-workflow.service";
 import { UndoRedoService } from "../../service/undo-redo/undo-redo.service";
 import { ValidationWorkflowService } from "../../service/validation/validation-workflow.service";
@@ -45,7 +45,7 @@ import { ResultExportationComponent } from "../result-exportation/result-exporta
 import { ReportGenerationService } from "../../service/report-generation/report-generation.service";
 import { ShareAccessComponent } from "src/app/dashboard/component/user/share-access/share-access.component";
 import { PanelService } from "../../service/panel/panel.service";
-import { USER_WORKFLOW } from "../../../app-routing.constant";
+import { USER_WORKFLOW, USER_WORKSPACE } from "../../../app-routing.constant";
 import { ComputingUnitStatusService } from "../../../common/service/computing-unit/computing-unit-status/computing-unit-status.service";
 import { ComputingUnitState } from "../../../common/type/computing-unit-connection.interface";
 import { ComputingUnitSelectionComponent } from "../power-button/computing-unit-selection.component";
@@ -130,6 +130,10 @@ export class MenuComponent implements OnInit, OnDestroy {
   public isWorkflowValid: boolean = true; // this will check whether the workflow error or not
   public isWorkflowEmpty: boolean = false;
   public isSaving: boolean = false;
+  /** A Form View hand-over is in progress (saving, then a full-page load); a second click is a no-op. */
+  private handingOverToFormView = false;
+  /** An edit has been reported since the hand-over's last save snapshot (see onClickOpenFormView). */
+  private editedSinceSwitchSnapshot = false;
   public isWorkflowModifiable: boolean = false;
   public workflowId?: number;
   public isExportDeactivate: boolean = false;
@@ -219,6 +223,13 @@ export class MenuComponent implements OnInit, OnDestroy {
   }
 
   public ngOnInit(): void {
+    // Marks an edit for the Form View hand-over (see onClickOpenFormView): set the moment an edit is
+    // reported, before the autosave debounce, cleared when the switch's save snapshots the workflow.
+    this.workflowActionService
+      .workflowChanged()
+      .pipe(untilDestroyed(this))
+      .subscribe(() => (this.editedSinceSwitchSnapshot = true));
+
     this.executeWorkflowService
       .getExecutionStateStream()
       .pipe(untilDestroyed(this))
@@ -617,14 +628,98 @@ export class MenuComponent implements OnInit, OnDestroy {
   }
 
   public onClickExportWorkflow(): void {
-    const workflowContent: WorkflowContent = this.workflowActionService.getWorkflowContent();
-    const workflowContentJson = JSON.stringify(workflowContent, null, 2);
+    // The same shape the dashboard download produces (see exportedWorkflow): the content plus the
+    // landing view as a sibling key, so a file exported here uploads as a form-default workflow too.
+    const exported = exportedWorkflow(
+      this.workflowActionService.getWorkflowContent(),
+      this.workflowActionService.getWorkflowMetadata().defaultView
+    );
+    const workflowContentJson = JSON.stringify(exported, null, 2);
     const fileName = this.currentWorkflowName + ".json";
     // Through the injectable wrapper (as the dashboard downloads already do), so a spec stubs it
     // with TestBed instead of module-mocking the CommonJS file-saver package, which the unit-test
     // builder cannot hoist reliably.
     this.fileSaverService.saveAs(new Blob([workflowContentJson], { type: "text/plain;charset=utf-8" }), fileName);
   }
+
+  /**
+   * Open the Form View -- a full page load, not a route: the two views share root-level
+   * singletons (graph, Yjs shared model), and routing left the old collaboration client
+   * alive (you appeared as your own coeditor). A fresh document is the clean handover.
+   */
+  public onClickOpenFormView(): void {
+    const wid = this.workflowActionService.getWorkflowMetadata().wid;
+    if (wid === undefined || this.handingOverToFormView) {
+      return;
+    }
+    // A reader has nothing to save, and every save of theirs is a guaranteed 403 that would keep
+    // them here with an error: straight over, as the form's own switch does for a reader.
+    if (!this.writeAccess) {
+      this.openFormViewPage(wid);
+      return;
+    }
+    // Save first, and hand over only once the save has completed. The full-page load that
+    // follows unloads this document, and a request still in flight at that moment is aborted, so
+    // navigating right after firing the save could lose the very edit the switch is meant to carry
+    // across; the workspace's beforeunload save runs into the same unload and is no safety net. A
+    // save that fails keeps the user here with the error shown, rather than leaving with changes
+    // that were never stored. The form's own switch (openRegularCanvas) does the same.
+    //
+    // Two more things the hand-over must not lose. An autosave already in flight when the switch
+    // is clicked: WorkflowPersistService sends saves one at a time and in order, so ours lands after
+    // it and completes after it. And an edit made while our save is out (the page stays editable
+    // until the load): workflowChanged marks a graph edit, persistWorkflow a rename or a
+    // description edit (those save through the menu itself, not the autosave), and the drain below
+    // saves once more before handing over rather than letting the full-page load abort that edit's
+    // own save.
+    this.handingOverToFormView = true;
+    this.isSaving = true;
+    this.saveThenOpenFormView(wid);
+  }
+
+  private saveThenOpenFormView(wid: number): void {
+    // The snapshot below carries everything reported up to now.
+    this.editedSinceSwitchSnapshot = false;
+    this.workflowPersistService
+      .persistWorkflow(this.workflowActionService.getWorkflow())
+      .pipe(untilDestroyed(this))
+      .subscribe({
+        next: (updatedWorkflow: Workflow) => {
+          // An edit since the snapshot makes this response stale: applying it would put the old
+          // name back just before the save below re-reads the workflow. That save's own response
+          // is the one applied.
+          if (!this.editedSinceSwitchSnapshot) {
+            this.workflowActionService.setWorkflowMetadata(updatedWorkflow);
+          }
+        },
+        error: () => {
+          this.isSaving = false;
+          this.handingOverToFormView = false;
+          // The same wording as the form's own save, so the two switches read alike.
+          this.notificationService.error("Could not save. Your latest changes are not stored yet.");
+        },
+        complete: () => {
+          if (this.editedSinceSwitchSnapshot) {
+            // An edit landed while the save was out; the full-page load would kill its autosave.
+            this.saveThenOpenFormView(wid);
+            return;
+          }
+          this.isSaving = false;
+          this.openFormViewPage(wid);
+        },
+      });
+  }
+
+  /**
+   * The full-page handover to the Form View, apart from the save so the order is testable.
+   * Excluded from coverage as a whole: jsdom cannot navigate, so the specs stub this method and
+   * assert when it is called rather than what it does.
+   */
+  /* v8 ignore start */
+  private openFormViewPage(wid: number): void {
+    window.location.href = `${USER_WORKSPACE}/${wid}/form`;
+  }
+  /* v8 ignore stop */
 
   /**
    * Calls Markdown Description Component
@@ -672,6 +767,10 @@ export class MenuComponent implements OnInit, OnDestroy {
   }
 
   public persistWorkflow(): void {
+    // A save of the menu's own (a rename, a description edit, a revert) queues behind a hand-over's
+    // save, and the full-page load would abort it: mark it, so the hand-over saves once more and
+    // leaves only after this one has completed (see saveThenOpenFormView).
+    this.editedSinceSwitchSnapshot = true;
     this.isSaving = true;
     this.workflowPersistService
       .persistWorkflow(this.workflowActionService.getWorkflow())
