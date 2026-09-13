@@ -36,12 +36,31 @@
         [(ngModel)]="entry.checked"
         (ngModelChange)="onCheckboxChange(entry)"></label>
     </div>
-    <!-- Cover-image controls -->
+    <!-- Cover controls: the owner's image controls, and the default-view toggle for anyone with
+         write access (the same toggle the list row offers, so switching to the card view does not
+         lose it). -->
     <div
       class="card-image-controls"
-      *ngIf="canEditCover"
+      *ngIf="hasCoverControls"
       (click)="$event.stopPropagation()">
+      <!-- A toggle button: constant name, state in aria-pressed (a name that changed with the state
+           would announce the opposite of what the state says); the title spells out what a click does. -->
       <button
+        *ngIf="canToggleDefaultView"
+        nz-button
+        nzType="text"
+        class="image-control-btn default-view-toggle"
+        aria-label="Open in the Form View by default"
+        [attr.aria-pressed]="defaultsToForm"
+        [class.defaults-to-form-on]="defaultsToForm"
+        [title]="defaultsToForm ? 'Open on the canvas by default' : 'Open in the Form View by default'"
+        (click)="onToggleDefaultView()">
+        <i
+          nz-icon
+          nzType="solution"></i>
+      </button>
+      <button
+        *ngIf="canEditCover"
         nz-button
         nzType="text"
         class="image-control-btn"
@@ -52,7 +71,7 @@
           nzType="camera"></i>
       </button>
       <button
-        *ngIf="hasCustomImage"
+        *ngIf="canEditCover && hasCustomImage"
         nz-button
         nzType="text"
         class="image-control-btn"
